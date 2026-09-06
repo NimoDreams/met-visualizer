@@ -263,7 +263,10 @@ Consequence: Contributions reconcile with the position-value denominator, and
 different pools share one visible scale. Unsupported conversions remain in the
 position list with their overlay disabled. Existing contributor masks remain
 stable while refresh makes the denominator incomplete; users cannot recompute
-the 80% set until every enabled pool is complete again.
+the 80% set until every enabled pool is complete again. Adding an enabled pool
+or requesting a position refresh advances one coordinator generation and
+refreshes every enabled pool into it; independently observed generations cannot
+claim one complete denominator.
 
 ## 2026-09-06: Complete Phase 0 And Begin Phase 1
 

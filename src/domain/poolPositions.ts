@@ -15,6 +15,7 @@ import { rankPositions } from "../workers/positionWorker";
 
 export type PoolPositionSession = {
   poolAddress: string;
+  valuationGeneration: number;
   enteredMint: string;
   positions: ValuedPosition[];
   visibleCount: number;
@@ -52,6 +53,7 @@ export async function loadPoolPositionSession(
   signal: AbortSignal,
   onProgress?: (progress: PositionRpcProgress) => void,
   refreshQuote = false,
+  valuationGeneration = 0,
 ): Promise<PoolPositionSession> {
   if (pool.discovery.decodeState !== "ready")
     throw new Error("This pool cannot be decoded as a supported LB pair.");
@@ -96,6 +98,7 @@ export async function loadPoolPositionSession(
   const visible = result.positions.slice(0, visibleCount);
   return {
     poolAddress: pool.address,
+    valuationGeneration,
     enteredMint,
     positions: result.positions,
     visibleCount,
@@ -157,8 +160,19 @@ export function revealPositions(
 export function togglePositionSelection(
   session: PoolPositionSession,
   address: string,
+  eligibleAddresses: readonly string[] = session.positions
+    .filter(({ valueUsd }) => valueUsd !== undefined)
+    .map(({ address: positionAddress }) => positionAddress),
 ): PoolPositionSession {
-  const selected = new Set(session.selectedAddresses);
+  const eligible = new Set(eligibleAddresses);
+  if (!eligible.has(address)) return session;
+  const selected = new Set(
+    session.manualSelection
+      ? session.selectedAddresses
+      : session.selectedAddresses.filter((selectedAddress) =>
+          eligible.has(selectedAddress),
+        ),
+  );
   if (selected.has(address)) selected.delete(address);
   else selected.add(address);
   return {

@@ -235,7 +235,15 @@ The overlay model sorts positions globally across enabled pools with stable
 pool/address ties and applies one exact minimum-USD or complete-denominator 80%
 mask. Filters do not mutate checkbox selection. While a refresh makes the
 denominator incomplete, an existing largest-contributor mask remains visible
-and cannot be recomputed. Unopened pools, in-progress enabled pools, unknown
-values, stale snapshots, and unsupported common-axis conversions remain explicit
-in the control scope. Dense price levels are grouped by exact normalized price
-in the domain and then bucketed to visible pixels by the primitive.
+and cannot be recomputed. An explicit coordinator generation advances whenever
+an enabled pool is added or positions are refreshed; every enabled pool must
+publish that same generation before the denominator becomes complete. Unopened
+pools, in-progress enabled pools, unknown values, stale snapshots, and
+unsupported common-axis conversions remain explicit in the control scope.
+
+The chart and candle series lifecycle is keyed to reference-market identity,
+interval, and valuation basis. Overlay, filter, and checkbox changes update the
+attached primitive without recreating the chart or fitting its content, so the
+visible trader-selected time range stays stable. Dense exact price levels are
+grouped in the domain and then bucketed to visible pixels by the primitive;
+mouse hit testing and keyboard traversal use the same ordered on-screen rows.

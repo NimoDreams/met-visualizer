@@ -87,6 +87,7 @@ export function buildLiquidityOverlay(input: {
   pools: readonly PoolOverlayInput[];
   totalPoolCount: number;
   filter: LiquidityFilter;
+  valuationGeneration: number;
 }): LiquidityOverlayModel {
   const readyPools = input.pools.filter(
     (item): item is PoolOverlayInput & { session: PoolPositionSession } =>
@@ -106,9 +107,15 @@ export function buildLiquidityOverlay(input: {
     )
     .sort(compareGlobalPositions);
   const valued = positions.filter(({ position }) => position.valueUsd);
+  const coordinatedGeneration =
+    readyPools.length === input.pools.length &&
+    readyPools.every(
+      ({ session }) =>
+        session.valuationGeneration === input.valuationGeneration,
+    );
   const completeDenominator =
     input.pools.length > 0 &&
-    readyPools.length === input.pools.length &&
+    coordinatedGeneration &&
     readyPools.every(
       ({ state, session }) =>
         state === "ready" &&
@@ -247,6 +254,7 @@ export function buildLiquidityOverlay(input: {
       unavailable: unavailableCount,
       overlayUnavailable: overlayUnavailableCount,
       complete: completeDenominator,
+      coordinatedGeneration,
     }),
   };
 }
@@ -500,6 +508,7 @@ function describeScope(input: {
   unavailable: number;
   overlayUnavailable: number;
   complete: boolean;
+  coordinatedGeneration: boolean;
 }): string {
   const parts = [
     `${input.ready} of ${input.enabled} enabled pools valued`,
@@ -510,6 +519,8 @@ function describeScope(input: {
     parts.push(
       `${input.overlayUnavailable - input.unavailable} valued positions lack a common-axis overlay`,
     );
+  if (input.enabled > 0 && !input.coordinatedGeneration)
+    parts.push("coordinated valuation generation is pending");
   if (!input.complete)
     parts.push("largest-contributor denominator is incomplete");
   return parts.join(" · ");

@@ -25,6 +25,7 @@ describe("global liquidity overlay", () => {
       reference: reference(),
       pools,
       totalPoolCount: 3,
+      valuationGeneration: 1,
       filter: { mode: "all" },
     });
 
@@ -55,6 +56,7 @@ describe("global liquidity overlay", () => {
       reference: reference(),
       pools,
       totalPoolCount: 2,
+      valuationGeneration: 1,
       filter: { mode: "all" },
     });
     expect(all.largestTargetKeys).toEqual([
@@ -66,6 +68,7 @@ describe("global liquidity overlay", () => {
       reference: reference(),
       pools,
       totalPoolCount: 2,
+      valuationGeneration: 1,
       filter: { mode: "largest", previousKeys: all.largestTargetKeys },
     });
     expect(largest.filteredCount).toBe(2);
@@ -78,6 +81,7 @@ describe("global liquidity overlay", () => {
       reference: reference(),
       pools,
       totalPoolCount: 2,
+      valuationGeneration: 1,
       filter: { mode: "minimum", minimumUsd: minimum!, input: "25.0000000001" },
     });
     expect([...threshold.filterKeys]).toEqual([
@@ -96,11 +100,46 @@ describe("global liquidity overlay", () => {
       reference: reference(),
       pools: [{ ...ready, state: "refreshing" }],
       totalPoolCount: 1,
+      valuationGeneration: 1,
       filter: { mode: "largest", previousKeys },
     });
     expect(model.completeDenominator).toBe(false);
     expect([...model.filterKeys]).toEqual(previousKeys);
     expect(model.scopeDetail).toMatch(/denominator is incomplete/i);
+  });
+
+  it("requires every enabled pool to publish the coordinator valuation generation", () => {
+    const first = poolInput("pool-a", "y", "1", Q64, [
+      position("a", 60n, 60_000_000n, 0n),
+    ]);
+    const second = poolInput("pool-b", "y", "1", Q64, [
+      position("b", 40n, 40_000_000n, 0n),
+    ]);
+    second.session!.valuationGeneration = 2;
+    const model = (pools: PoolOverlayInput[]) =>
+      buildLiquidityOverlay({
+        reference: reference(),
+        pools,
+        totalPoolCount: 2,
+        valuationGeneration: 2,
+        filter: { mode: "all" },
+      });
+
+    const mismatched = model([first, second]);
+    expect(mismatched.completeDenominator).toBe(false);
+    expect(mismatched.scopeDetail).toMatch(/coordinated valuation generation/i);
+    first.session!.valuationGeneration = 2;
+    expect(model([first, second]).completeDenominator).toBe(true);
+    expect(
+      model([{ ...first, state: "refreshing" }, second]).completeDenominator,
+    ).toBe(false);
+    expect(
+      model([{ pool: first.pool, state: "cancelled" }, second])
+        .completeDenominator,
+    ).toBe(false);
+    expect(
+      model([{ pool: first.pool, state: "error" }, second]).completeDenominator,
+    ).toBe(false);
   });
 
   it("keeps unavailable values visible in scope and out of overlay/filter denominators", () => {
@@ -113,6 +152,7 @@ describe("global liquidity overlay", () => {
       reference: reference(),
       pools: [pool],
       totalPoolCount: 1,
+      valuationGeneration: 1,
       filter: { mode: "all" },
     });
     expect(model.unavailableCount).toBe(1);
@@ -132,6 +172,7 @@ describe("global liquidity overlay", () => {
       reference: reference(),
       pools: [poolInput("pool-a", "y", "1", Q64 / 2n, [rounded])],
       totalPoolCount: 1,
+      valuationGeneration: 1,
       filter: { mode: "all" },
     });
     const aggregate = model.levels.reduce(
@@ -156,6 +197,7 @@ describe("global liquidity overlay", () => {
       reference: reference(),
       pools: [poolInput("pool-meme", "x", "2", 2n * Q64, positions)],
       totalPoolCount: 1,
+      valuationGeneration: 1,
       filter: { mode: "all" },
     });
 
@@ -180,6 +222,7 @@ describe("global liquidity overlay", () => {
       reference: reference(),
       pools: [poolInput("pool-a", "y", "1", Q64, positions)],
       totalPoolCount: 1,
+      valuationGeneration: 1,
       filter: { mode: "all" },
     });
     expect(model.positions).toHaveLength(1_800);
@@ -235,6 +278,7 @@ function poolInput(
   };
   const session: PoolPositionSession = {
     poolAddress: address,
+    valuationGeneration: 1,
     enteredMint: mint,
     positions,
     visibleCount: positions.length,

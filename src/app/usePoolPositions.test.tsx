@@ -120,6 +120,49 @@ describe("usePoolPositions generations", () => {
     });
   });
 
+  it("refreshes a retained pool into the coordinator valuation generation", async () => {
+    load.mockResolvedValueOnce(session("pool"));
+    const pool = poolItem("pool");
+    const { result, rerender } = renderHook(
+      ({ valuationGeneration }) =>
+        usePoolPositions(
+          rpc,
+          pool,
+          "mint",
+          1,
+          gecko,
+          true,
+          valuationGeneration,
+        ),
+      { initialProps: { valuationGeneration: 1 } },
+    );
+    await waitFor(() =>
+      expect(result.current.state).toMatchObject({
+        status: "ready",
+        session: { valuationGeneration: 1 },
+      }),
+    );
+
+    const pending = deferred<PoolPositionSession>();
+    load.mockReturnValueOnce(pending.promise);
+    rerender({ valuationGeneration: 2 });
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+    expect(result.current.state).toMatchObject({
+      status: "ready",
+      refreshing: true,
+      session: { valuationGeneration: 1 },
+    });
+
+    act(() => pending.resolve(session("pool")));
+    await waitFor(() =>
+      expect(result.current.state).toMatchObject({
+        status: "ready",
+        refreshing: false,
+        session: { valuationGeneration: 2 },
+      }),
+    );
+  });
+
   it("preserves the latest manual selection during a deferred refresh", async () => {
     const initial = {
       ...session("pool"),
@@ -154,6 +197,90 @@ describe("usePoolPositions generations", () => {
           manualSelection: true,
           visibleCount: 2,
           selectedAddresses: ["b"],
+        },
+      }),
+    );
+  });
+
+  it("does not select a newly eligible position after manual selection begins", async () => {
+    const unavailable = {
+      ...position("unknown"),
+      valueUsd: undefined,
+      valueUsdMicros: undefined,
+    };
+    const initial = {
+      ...session("pool"),
+      positions: [position("known"), unavailable],
+      visibleCount: 2,
+      selectedAddresses: ["known", "unknown"],
+      valueCoverage: "unknown" as const,
+    };
+    load.mockResolvedValueOnce(initial);
+    const pool = poolItem("pool");
+    const { result } = renderHook(() =>
+      usePoolPositions(rpc, pool, "mint", 1, gecko),
+    );
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+    act(() => result.current.toggle("known", ["known"]));
+    expect(result.current.state).toMatchObject({
+      status: "ready",
+      session: { manualSelection: true, selectedAddresses: [] },
+    });
+
+    const pending = deferred<PoolPositionSession>();
+    load.mockReturnValueOnce(pending.promise);
+    act(() => result.current.refresh());
+    act(() =>
+      pending.resolve({
+        ...session("pool"),
+        positions: [position("known"), position("unknown")],
+        visibleCount: 2,
+        selectedAddresses: ["known", "unknown"],
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.state).toMatchObject({
+        status: "ready",
+        session: { manualSelection: true, selectedAddresses: [] },
+      }),
+    );
+  });
+
+  it("continues auto-selection across availability changes before manual input", async () => {
+    const initial = {
+      ...session("pool"),
+      positions: [
+        position("known"),
+        {
+          ...position("unknown"),
+          valueUsd: undefined,
+          valueUsdMicros: undefined,
+        },
+      ],
+      visibleCount: 2,
+      selectedAddresses: ["known", "unknown"],
+      valueCoverage: "unknown" as const,
+    };
+    load.mockResolvedValueOnce(initial);
+    const pool = poolItem("pool");
+    const { result } = renderHook(() =>
+      usePoolPositions(rpc, pool, "mint", 1, gecko),
+    );
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+
+    load.mockResolvedValueOnce({
+      ...session("pool"),
+      positions: [position("known"), position("unknown")],
+      visibleCount: 2,
+      selectedAddresses: ["known", "unknown"],
+    });
+    act(() => result.current.refresh());
+    await waitFor(() =>
+      expect(result.current.state).toMatchObject({
+        status: "ready",
+        session: {
+          manualSelection: false,
+          selectedAddresses: ["known", "unknown"],
         },
       }),
     );
@@ -312,6 +439,7 @@ function poolItem(address: string): DlmmPoolItem {
 function session(poolAddress: string): PoolPositionSession {
   return {
     poolAddress,
+    valuationGeneration: 0,
     enteredMint: "mint",
     positions: [],
     visibleCount: 0,

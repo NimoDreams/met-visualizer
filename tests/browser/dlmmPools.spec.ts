@@ -178,10 +178,31 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
     page.getByText("100 shown of 1,800 valued positions"),
   ).toBeVisible();
   await expect(page.getByText("Complete scope")).toBeVisible();
-  const chart = page.getByRole("img", {
-    name: /reference candlestick chart with 4 selected liquidity levels/i,
-  });
+  const chart = page.locator(".chart-canvas");
   await expect(chart).toBeVisible();
+  await expect(chart).toHaveAttribute(
+    "aria-label",
+    /reference candlestick chart with 4 selected liquidity levels/i,
+  );
+  const fittedRange = await chart.getAttribute("data-visible-logical-range");
+  expect(fittedRange).toBeTruthy();
+  const chartBox = await chart.boundingBox();
+  expect(chartBox).not.toBeNull();
+  await page.mouse.move(
+    chartBox!.x + chartBox!.width * 0.45,
+    chartBox!.y + chartBox!.height * 0.45,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    chartBox!.x + chartBox!.width * 0.25,
+    chartBox!.y + chartBox!.height * 0.45,
+    { steps: 6 },
+  );
+  await page.mouse.up();
+  await expect
+    .poll(() => chart.getAttribute("data-visible-logical-range"))
+    .not.toBe(fittedRange);
+  const pannedRange = await chart.getAttribute("data-visible-logical-range");
 
   await page.getByLabel("Minimum position value (USD)").fill("1");
   await page.getByRole("button", { name: "Apply" }).click();
@@ -193,6 +214,10 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
       name: /reference candlestick chart with 0 selected liquidity levels/i,
     }),
   ).toBeVisible();
+  await expect(chart).toHaveAttribute(
+    "data-visible-logical-range",
+    pannedRange!,
+  );
   await page.getByRole("button", { name: "Clear filter" }).click();
   await expect(
     page.getByText("100 shown of 1,800 valued positions"),
@@ -201,6 +226,10 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   const firstPosition = page.locator(".position-row input").first();
   await firstPosition.uncheck();
   await expect(page.getByText(/99 selected and included/)).toBeVisible();
+  await expect(chart).toHaveAttribute(
+    "data-visible-logical-range",
+    pannedRange!,
+  );
   await chart.focus();
   await chart.press("ArrowDown");
   await expect(page.getByText(/Liquidity at/)).toBeVisible();

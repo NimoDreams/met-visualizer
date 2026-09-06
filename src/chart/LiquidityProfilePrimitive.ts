@@ -62,7 +62,14 @@ class LiquidityProfileView implements IPrimitivePaneView {
             >();
             for (const level of this.source.levels) {
               const coordinate = series.priceToCoordinate(level.axisPrice);
-              if (coordinate === null || !Number.isFinite(coordinate)) continue;
+              const logicalHeight = bitmapSize.height / verticalPixelRatio;
+              if (
+                coordinate === null ||
+                !Number.isFinite(coordinate) ||
+                coordinate < 0 ||
+                coordinate > logicalHeight
+              )
+                continue;
               const bucket = Math.round(coordinate);
               const row = rows.get(bucket);
               if (row) {
@@ -133,7 +140,7 @@ class LiquidityProfileView implements IPrimitivePaneView {
 
 export class LiquidityProfilePrimitive implements ISeriesPrimitive<Time> {
   series?: SeriesAttachedParameter<Time>["series"];
-  readonly levels: readonly LiquidityLevel[];
+  levels: readonly LiquidityLevel[];
   highlightedId?: string;
   private readonly views: readonly IPrimitivePaneView[];
   private hitRows: HitRow[] = [];
@@ -157,6 +164,13 @@ export class LiquidityProfilePrimitive implements ISeriesPrimitive<Time> {
 
   paneViews(): readonly IPrimitivePaneView[] {
     return this.views;
+  }
+
+  update(levels: readonly LiquidityLevel[]): void {
+    this.levels = levels;
+    this.hitRows = [];
+    this.highlightedId = undefined;
+    this.requestUpdate?.();
   }
 
   hitTest(x: number, y: number): PrimitiveHoveredItem | null {
@@ -191,8 +205,33 @@ export class LiquidityProfilePrimitive implements ISeriesPrimitive<Time> {
     return row ? describeRow(row) : undefined;
   }
 
+  moveHover(direction: 1 | -1): LiquidityHover | undefined {
+    if (this.hitRows.length === 0) return undefined;
+    const current = this.hitRows.findIndex(
+      ({ id }) => id === this.highlightedId,
+    );
+    const next =
+      current < 0
+        ? direction === 1
+          ? 0
+          : this.hitRows.length - 1
+        : (current + direction + this.hitRows.length) % this.hitRows.length;
+    const row = this.hitRows[next];
+    this.setHighlighted(row?.id);
+    return row ? describeRow(row) : undefined;
+  }
+
+  renderedRowCount(): number {
+    return this.hitRows.length;
+  }
+
   replaceHitRows(rows: HitRow[]): void {
-    this.hitRows = rows;
+    this.hitRows = rows.sort((left, right) => left.y - right.y);
+    if (
+      this.highlightedId &&
+      !this.hitRows.some(({ id }) => id === this.highlightedId)
+    )
+      this.highlightedId = undefined;
   }
 
   private setHighlighted(id: string | undefined): void {

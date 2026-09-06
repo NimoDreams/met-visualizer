@@ -7,6 +7,8 @@ import {
   HistogramSeries,
   type CandlestickData,
   type HistogramData,
+  type ISeriesApi,
+  type LogicalRange,
   type UTCTimestamp,
 } from "lightweight-charts";
 import type {
@@ -30,20 +32,43 @@ export function ReferenceChart({
   onHoverPositionKeys?: (keys: readonly string[]) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | undefined>(
+    undefined,
+  );
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | undefined>(
+    undefined,
+  );
   const primitiveRef = useRef<LiquidityProfilePrimitive | undefined>(undefined);
-  const keyboardIndex = useRef(-1);
+  const sessionRef = useRef(session);
+  const overlayRef = useRef(overlay);
+  const hoverCallbackRef = useRef(onHoverPositionKeys);
   const [hoverState, setHoverState] = useState<{
     overlay?: LiquidityOverlayModel;
     value: LiquidityHover;
   }>();
   const hover =
     hoverState && hoverState.overlay === overlay ? hoverState.value : undefined;
+  const sessionIdentity = session
+    ? [
+        session.mint,
+        session.market.address,
+        session.interval,
+        session.basis.kind,
+        session.basis.displaySupply,
+      ].join(":")
+    : "empty";
+
+  useEffect(() => {
+    sessionRef.current = session;
+    overlayRef.current = overlay;
+    hoverCallbackRef.current = onHoverPositionKeys;
+  }, [onHoverPositionKeys, overlay, session]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    keyboardIndex.current = -1;
-    onHoverPositionKeys?.([]);
+    const activeSession = sessionRef.current;
+    hoverCallbackRef.current?.([]);
 
     const chart = createChart(container, {
       autoSize: true,
@@ -61,10 +86,12 @@ export function ReferenceChart({
       rightPriceScale: { borderColor: "#314159" },
       timeScale: { borderColor: "#314159", timeVisible: true },
     });
+    if (!activeSession)
+      return () => {
+        chart.remove();
+      };
 
-    if (!session) return () => chart.remove();
-
-    const precision = pricePrecision(session.candles);
+    const precision = pricePrecision(activeSession.candles);
     const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#3ecf8e",
       downColor: "#ff6b7a",
@@ -77,13 +104,8 @@ export function ReferenceChart({
         minMove: 10 ** -precision,
       },
     });
-    candleSeries.setData(session.candles.map(toChartCandle));
-
-    const primitive = overlay?.levels.length
-      ? new LiquidityProfilePrimitive(overlay.levels)
-      : undefined;
-    primitiveRef.current = primitive;
-    if (primitive) candleSeries.attachPrimitive(primitive);
+    candleSeriesRef.current = candleSeries;
+    candleSeries.setData(activeSession.candles.map(toChartCandle));
 
     const volumeSeries = chart.addSeries(HistogramSeries, {
       priceScaleId: "volume",
@@ -92,13 +114,15 @@ export function ReferenceChart({
     volumeSeries.priceScale().applyOptions({
       scaleMargins: { top: 0.78, bottom: 0 },
     });
-    volumeSeries.setData(session.candles.map(toChartVolume));
+    volumeSeriesRef.current = volumeSeries;
+    volumeSeries.setData(activeSession.candles.map(toChartVolume));
     chart.timeScale().fitContent();
 
     const handleCrosshair = (event: { hoveredObjectId?: unknown }) => {
-      const next = primitive?.hover(event.hoveredObjectId);
-      setHoverState(next ? { overlay, value: next } : undefined);
-      onHoverPositionKeys?.(
+      const next = primitiveRef.current?.hover(event.hoveredObjectId);
+      const activeOverlay = overlayRef.current;
+      setHoverState(next ? { overlay: activeOverlay, value: next } : undefined);
+      hoverCallbackRef.current?.(
         next
           ? [
               ...new Set(
@@ -108,22 +132,65 @@ export function ReferenceChart({
           : [],
       );
     };
+    const publishVisibleRange = (range: LogicalRange | null) => {
+      container.dataset.visibleLogicalRange = range
+        ? `${range.from.toFixed(6)}:${range.to.toFixed(6)}`
+        : "";
+    };
     chart.subscribeCrosshairMove(handleCrosshair);
+    chart.timeScale().subscribeVisibleLogicalRangeChange(publishVisibleRange);
+    publishVisibleRange(chart.timeScale().getVisibleLogicalRange());
 
     return () => {
       chart.unsubscribeCrosshairMove(handleCrosshair);
+      chart
+        .timeScale()
+        .unsubscribeVisibleLogicalRangeChange(publishVisibleRange);
+      if (primitiveRef.current) {
+        candleSeries.detachPrimitive(primitiveRef.current);
+        primitiveRef.current = undefined;
+      }
+      candleSeriesRef.current = undefined;
+      volumeSeriesRef.current = undefined;
       primitiveRef.current = undefined;
       chart.remove();
     };
-  }, [onHoverPositionKeys, overlay, session]);
+  }, [sessionIdentity]);
+
+  useEffect(() => {
+    if (!session || !candleSeriesRef.current || !volumeSeriesRef.current)
+      return;
+    const precision = pricePrecision(session.candles);
+    candleSeriesRef.current.applyOptions({
+      priceFormat: {
+        type: "price",
+        precision,
+        minMove: 10 ** -precision,
+      },
+    });
+    candleSeriesRef.current.setData(session.candles.map(toChartCandle));
+    volumeSeriesRef.current.setData(session.candles.map(toChartVolume));
+  }, [session, sessionIdentity]);
+
+  useEffect(() => {
+    const candleSeries = candleSeriesRef.current;
+    const previous = primitiveRef.current;
+    if (candleSeries && overlay?.levels.length) {
+      if (previous) previous.update(overlay.levels);
+      else {
+        const primitive = new LiquidityProfilePrimitive(overlay.levels);
+        primitiveRef.current = primitive;
+        candleSeries.attachPrimitive(primitive);
+      }
+    } else if (previous && candleSeries) {
+      candleSeries.detachPrimitive(previous);
+      primitiveRef.current = undefined;
+    }
+    hoverCallbackRef.current?.([]);
+  }, [overlay, sessionIdentity]);
 
   function navigateLiquidity(direction: 1 | -1) {
-    if (!overlay?.levels.length) return;
-    keyboardIndex.current =
-      (keyboardIndex.current + direction + overlay.levels.length) %
-      overlay.levels.length;
-    const level = overlay.levels[keyboardIndex.current];
-    const next = primitiveRef.current?.hoverLevel(level?.id);
+    const next = primitiveRef.current?.moveHover(direction);
     setHoverState(next ? { overlay, value: next } : undefined);
     onHoverPositionKeys?.(
       next

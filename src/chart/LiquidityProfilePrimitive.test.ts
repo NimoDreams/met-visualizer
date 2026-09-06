@@ -79,6 +79,55 @@ describe("LiquidityProfilePrimitive", () => {
     primitive.detached();
     expect(primitive.hitTest(99, 10)).toBeNull();
   });
+
+  it("buckets 7,200 dense levels and navigates only unique visible rows", () => {
+    const fills: number[][] = [];
+    const levels = Array.from({ length: 7_200 }, (_, index) =>
+      level(String(index), index, 1n, `position-${index}`),
+    );
+    const primitive = new LiquidityProfilePrimitive(levels);
+    primitive.attached({
+      series: {
+        priceToCoordinate: (price: number) => {
+          if (price < 100) return -1;
+          if (price >= 7_100) return 101;
+          return Math.floor((price - 100) / 70);
+        },
+      },
+      requestUpdate: vi.fn(),
+    } as never);
+    const startedAt = performance.now();
+    primitive
+      .paneViews()[0]
+      ?.renderer()
+      ?.draw({
+        useBitmapCoordinateSpace: (draw: (scope: unknown) => void) =>
+          draw({
+            context: {
+              fillStyle: "",
+              save: vi.fn(),
+              restore: vi.fn(),
+              fillRect: (...values: number[]) => fills.push(values),
+            },
+            bitmapSize: { width: 800, height: 100 },
+            horizontalPixelRatio: 1,
+            verticalPixelRatio: 1,
+          }),
+      } as never);
+
+    expect(primitive.renderedRowCount()).toBe(100);
+    expect(fills).toHaveLength(100);
+    const traversed = Array.from({ length: 100 }, () => {
+      const hover = primitive.moveHover(1)!;
+      return `${hover.minimumPrice}:${hover.maximumPrice}`;
+    });
+    expect(new Set(traversed).size).toBe(100);
+    expect(primitive.moveHover(1)).toMatchObject({
+      minimumPrice: 100,
+      maximumPrice: 169,
+    });
+    expect(performance.now() - startedAt).toBeLessThan(2_000);
+  });
 });
 
 function level(

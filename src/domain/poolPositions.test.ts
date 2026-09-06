@@ -101,6 +101,7 @@ describe("progressive position selection", () => {
       new AbortController().signal,
       undefined,
       true,
+      7,
     );
 
     expect(getQuotePrices).toHaveBeenCalledOnce();
@@ -118,6 +119,7 @@ describe("progressive position selection", () => {
     });
     expect(rank.mock.calls[0]?.[1]).toBeInstanceOf(AbortSignal);
     expect(result).toMatchObject({
+      valuationGeneration: 7,
       quoteMint: "quote",
       quotePriceUsdExact: "2.0000004",
       quoteObservedAt: 200,
@@ -140,6 +142,7 @@ function fixtureSession(): PoolPositionSession {
   }));
   return {
     poolAddress: "pool",
+    valuationGeneration: 0,
     enteredMint: "mint",
     positions,
     visibleCount: 25,

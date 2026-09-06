@@ -47,6 +47,7 @@ export function DlmmPoolsPanel({
   const [minimumInput, setMinimumInput] = useState("");
   const [minimumError, setMinimumError] = useState<string>();
   const [showAllRequest, setShowAllRequest] = useState(0);
+  const [valuationGeneration, setValuationGeneration] = useState(1);
   const readySession = state.status === "ready" ? state.session : undefined;
   const enabledInputs = useMemo<PoolOverlayInput[]>(() => {
     if (!readySession) return [];
@@ -64,8 +65,15 @@ export function DlmmPoolsPanel({
         pools: enabledInputs,
         totalPoolCount: readySession?.pools.length ?? 0,
         filter,
+        valuationGeneration,
       }),
-    [enabledInputs, filter, readySession?.pools.length, reference],
+    [
+      enabledInputs,
+      filter,
+      readySession?.pools.length,
+      reference,
+      valuationGeneration,
+    ],
   );
 
   useEffect(() => {
@@ -103,7 +111,13 @@ export function DlmmPoolsPanel({
 
   function togglePool(address: string) {
     setActivatedPools((current) => new Set(current).add(address));
+    if (!readySession?.enabledAddresses.includes(address))
+      setValuationGeneration((current) => current + 1);
     toggle(address);
+  }
+
+  function refreshEnabledPositions() {
+    setValuationGeneration((current) => current + 1);
   }
 
   function applyMinimum() {
@@ -190,7 +204,9 @@ export function DlmmPoolsPanel({
           onShowAllValued={showAllValued}
           onClearFilter={clearFilter}
           onPositionState={reportPositionState}
+          onRefreshPositions={refreshEnabledPositions}
           showAllRequest={showAllRequest}
+          valuationGeneration={valuationGeneration}
         />
       ) : null}
     </aside>
@@ -214,7 +230,9 @@ function PoolResults({
   onShowAllValued,
   onClearFilter,
   onPositionState,
+  onRefreshPositions,
   showAllRequest,
+  valuationGeneration,
 }: {
   session: Extract<
     ReturnType<typeof useDlmmPools>["state"],
@@ -235,7 +253,9 @@ function PoolResults({
   onShowAllValued: () => void;
   onClearFilter: () => void;
   onPositionState: (poolAddress: string, state: PoolPositionsState) => void;
+  onRefreshPositions: () => void;
   showAllRequest: number;
+  valuationGeneration: number;
 }) {
   return (
     <>
@@ -378,7 +398,9 @@ function PoolResults({
                       overlay={overlay}
                       hoveredPositionKeys={hoveredPositionKeys}
                       onStateChange={onPositionState}
+                      onRefreshPositions={onRefreshPositions}
                       showAllRequest={showAllRequest}
+                      valuationGeneration={valuationGeneration}
                     />
                   </div>
                 ) : null}
@@ -538,7 +560,9 @@ function PoolPositions({
   overlay,
   hoveredPositionKeys,
   onStateChange,
+  onRefreshPositions,
   showAllRequest,
+  valuationGeneration,
 }: {
   rpc: ReadOnlySolanaRpc;
   pool: DlmmPoolItem;
@@ -548,15 +572,18 @@ function PoolPositions({
   overlay: LiquidityOverlayModel;
   hoveredPositionKeys: readonly string[];
   onStateChange: (poolAddress: string, state: PoolPositionsState) => void;
+  onRefreshPositions: () => void;
   showAllRequest: number;
+  valuationGeneration: number;
 }) {
-  const { state, cancel, restart, refresh, reveal, toggle } = usePoolPositions(
+  const { state, cancel, restart, reveal, toggle } = usePoolPositions(
     rpc,
     pool,
     mint,
     minContextSlot,
     undefined,
     enabled,
+    valuationGeneration,
   );
   const handledShowAllRequest = useRef(0);
   useEffect(() => {
@@ -616,6 +643,9 @@ function PoolPositions({
     ({ poolAddress }) => poolAddress === pool.address,
   );
   const globalByKey = new Map(poolPositions.map((item) => [item.key, item]));
+  const eligiblePositionAddresses = poolPositions
+    .filter(({ commonAxisAvailable }) => commonAxisAvailable)
+    .map(({ position }) => position.address);
   const listUniverse =
     overlay.filterMode === "all" ? visible : session.positions;
   const valuedPositions = listUniverse.filter(
@@ -683,7 +713,7 @@ function PoolPositions({
           className="button-secondary"
           type="button"
           disabled={state.refreshing}
-          onClick={refresh}
+          onClick={onRefreshPositions}
         >
           {state.refreshing ? "Refreshing…" : "Refresh positions"}
         </button>
@@ -725,7 +755,9 @@ function PoolPositions({
                 checked={session.selectedAddresses.includes(position.address)}
                 disabled={!global?.commonAxisAvailable}
                 title={global?.unavailableReason}
-                onChange={() => toggle(position.address)}
+                onChange={() =>
+                  toggle(position.address, eligiblePositionAddresses)
+                }
               />
               <span>
                 <strong>{shortAddress(position.address)}</strong>
