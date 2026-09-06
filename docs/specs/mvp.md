@@ -69,6 +69,8 @@ mutation, transaction submission, and fund movement.
   credential or wallet connection.
 - Pool discovery handles both token orientations; positions are pool-wide.
   Provider limits and partial results are explicit.
+- Pool and position scans identify the expected account discriminator as well
+  as the mint/pool relationship. Dynamically extended position bytes are read.
 - Per-position bin amounts reconcile with underlying shares/bin data in
   representative checks; aggregation does not double-count.
 - Selection, collapsing, filtering, and hover produce the specified profile.
