@@ -116,4 +116,9 @@ checkbox selection state. After a manual selection change, newly loaded
 positions remain unselected. Large-pool continuation is user initiated through
 load-next or load-all controls; explicit cancellation stops obsolete work.
 
+Only report total value coverage or use the 80% stop when all discovered
+positions contributed to the valuation denominator. Missing valuations or the
+unordered fallback make total value coverage unknown. A subset percentage must
+identify its denominator and cannot stand in for pool-wide coverage.
+
 See the [MVP spec](specs/mvp.md).

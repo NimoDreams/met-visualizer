@@ -85,3 +85,5 @@ describing partial coverage honestly. Raw share totals cannot determine size;
 dynamic positions need extension data. A provider that cannot support compact
 ranking falls back to bounded ordinary batches labeled as unordered partial
 coverage. Manual selection stops later batches from being auto-selected.
+The 80% target applies only when the complete valuation denominator is known;
+otherwise value coverage is unknown and cannot trigger that stopping rule.

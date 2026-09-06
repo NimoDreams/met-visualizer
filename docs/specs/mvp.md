@@ -77,6 +77,12 @@ for example, `87 of 1,800 positions · 81.4% of current LP value`. It must offer
 load-next, load-all, and cancel controls without implying that partial coverage
 is complete.
 
+The 80% stopping target applies only when every discovered position has a
+current value and the full denominator is known. If valuation is missing or the
+RPC falls back to ordinary batches, show total value coverage as unknown. A
+percentage calculated for a valued subset must name that subset and cannot
+satisfy the total-value target.
+
 Initially loaded positions are selected automatically. Once the user manually
 changes position selection, later batches remain unselected so loading does not
 change the visualization unexpectedly. If a compatible RPC cannot support the
