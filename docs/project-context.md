@@ -31,6 +31,13 @@ validated reference pool stays fixed for the token session, and enabled Meteora
 bins use current public quote-token prices on the same valuation axis. See the
 [reference-market spec](specs/reference-market.md).
 
+Position size means current estimated USD principal value. One global filter
+spans known valued positions in enabled pools and must disclose pools, incomplete
+loads, and unavailable values outside its denominator. Desktop keeps the chart
+and positions side by side; constrained layouts stack them; narrow phones use a
+state-preserving Chart/Positions switch. See the
+[position-control spec](specs/position-controls.md).
+
 GeckoTerminal candle feasibility and the portable/indexed RPC paths are
 independently reviewed. Large pools use approved progressive loading that
 prioritizes current position value and reports honest count/value coverage.
@@ -42,8 +49,7 @@ Docker Compose. See the [technical foundation](specs/technical-foundation.md).
 
 ## Outstanding Gates
 
-1. Approve size-filter units and thresholds, missing valuations, and responsive
-   behavior.
+1. Settle the initially enabled DLMM-pool ranking and tie-breaking policy.
 2. Obtain explicit user approval to end Phase 0 and begin implementation.
 
 Create dev from the accepted Phase 0 main immediately before implementation;
