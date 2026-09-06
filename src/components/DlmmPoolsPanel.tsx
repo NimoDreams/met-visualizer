@@ -2,6 +2,11 @@ import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
 import { useDlmmPools } from "../app/useDlmmPools";
 import { usePoolPositions } from "../app/usePoolPositions";
 import type { DlmmPoolItem } from "../domain/dlmmPools";
+import {
+  addRational,
+  rationalPercentage,
+  type Rational,
+} from "../domain/positionValuation";
 
 type DlmmPoolsPanelProps = {
   mint?: string;
@@ -275,13 +280,14 @@ function PoolPositions({
 
   const { session } = state;
   const visible = session.positions.slice(0, session.visibleCount);
-  const loadedValue = visible.reduce(
-    (sum, position) => sum + (position.valueUsdMicros ?? 0n),
-    0n,
+  const loadedValue = visible.reduce<Rational>(
+    (sum, position) =>
+      position.valueUsd ? addRational(sum, position.valueUsd) : sum,
+    { numerator: 0n, denominator: 1n },
   );
   const valuePercent =
-    session.valueCoverage === "complete" && session.totalValueUsdMicros
-      ? Number((loadedValue * 10_000n) / session.totalValueUsdMicros) / 100
+    session.valueCoverage === "complete" && session.totalValueUsd
+      ? rationalPercentage(loadedValue, session.totalValueUsd)
       : undefined;
   return (
     <section className="pool-positions" aria-label="Pool positions">
@@ -308,6 +314,16 @@ function PoolPositions({
         </span>
       </div>
       <p className="pool-detail-note">{session.detail}</p>
+      {session.quoteObservedAt ? (
+        <p className="pool-detail-note">
+          USD quote observed{" "}
+          {new Date(session.quoteObservedAt).toLocaleTimeString()} via
+          GeckoTerminal
+          {session.quotePriceUsdExact
+            ? ` ($${session.quotePriceUsdExact})`
+            : ""}
+        </p>
+      ) : null}
       {session.stale && state.actionError ? (
         <div className="market-action-error" role="alert">
           Position refresh failed. Last-good snapshot remains visible.{" "}

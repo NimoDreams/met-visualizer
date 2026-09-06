@@ -8,6 +8,7 @@ import {
 } from "../../src/test/fixtures/geckoTerminal";
 import oracle from "../../src/test/fixtures/lbPairOracle.json" with { type: "json" };
 import positionOracle from "../../src/test/fixtures/positionOracle.json" with { type: "json" };
+import { encodeBase58 } from "../../src/domain/base58";
 
 test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async ({
   page,
@@ -15,6 +16,9 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   const rpcMarker = "dlmm-browser-secret";
   const externalRequests: string[] = [];
   const now = Math.floor(Date.now() / 1_000);
+  const positionAddresses = Array.from({ length: 1_800 }, (_, index) =>
+    numberedAddress(index),
+  );
 
   await page.route("https://api.geckoterminal.com/**", async (route) => {
     const url = route.request().url();
@@ -101,12 +105,10 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
               account: rpcAccount(data),
             }))
           : positionProbe
-            ? [
-                {
-                  pubkey: positionOracle.owner,
-                  account: rpcAccount(""),
-                },
-              ]
+            ? positionAddresses.map((pubkey) => ({
+                pubkey,
+                account: rpcAccount(""),
+              }))
             : tokenYScan
               ? [{ pubkey: oracle.address, account: rpcAccount("") }]
               : [],
@@ -118,7 +120,7 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
         value: addresses.map((address) =>
           rpcAccount(
             address === oracle.address
-              ? oracle.data
+              ? poolAtActiveBinZero()
               : positionOracle.positionData,
           ),
         ),
@@ -146,9 +148,14 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   await expect(page.getByText("Ready", { exact: true })).toBeVisible();
   await page.getByText("JUP-SOL").click();
   await expect(page.getByText(oracle.address, { exact: true })).toBeVisible();
-  await expect(page.getByText("1", { exact: true })).toBeVisible();
-  await expect(page.getByText("1 / 1 positions loaded")).toBeVisible();
-  await expect(page.getByText("Value coverage: 100.0%")).toBeVisible();
+  await expect(page.getByText("1,800", { exact: true })).toBeVisible();
+  await expect(page.getByText("100 / 1,800 positions loaded")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByText("Value coverage: 5.5%")).toBeVisible();
+  await expect(
+    page.getByText(/USD quote observed.*GeckoTerminal/),
+  ).toBeVisible();
 
   expect(externalRequests.every((url) => !url.includes(rpcMarker))).toBe(true);
   expect(page.url()).not.toContain(rpcMarker);
@@ -165,4 +172,17 @@ function rpcAccount(data: string) {
     lamports: 1,
     owner: oracle.owner,
   };
+}
+
+function numberedAddress(index: number): string {
+  const bytes = new Uint8Array(32);
+  new DataView(bytes.buffer).setUint32(28, index + 1, false);
+  return encodeBase58(bytes);
+}
+
+function poolAtActiveBinZero(): string {
+  const bytes = Buffer.from(oracle.data, "base64");
+  bytes.writeInt32LE(0, 76);
+  bytes.writeUInt16LE(100, 80);
+  return bytes.toString("base64");
 }

@@ -20,6 +20,8 @@ export function rankPositions(
   input: PositionWorkerInput,
   signal: AbortSignal,
 ): Promise<PositionValueResult> {
+  if (signal.aborted)
+    return Promise.reject(new DOMException("Aborted", "AbortError"));
   const generation = ++nextGeneration;
   if (typeof Worker === "undefined") {
     return new Promise((resolve, reject) => {
@@ -48,21 +50,41 @@ export function rankPositions(
         type: "module",
       },
     );
-    const abort = () => {
+    let settled = false;
+    const cleanup = () => {
+      signal.removeEventListener("abort", abort);
       worker.terminate();
+    };
+    const abort = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
       reject(new DOMException("Aborted", "AbortError"));
     };
     signal.addEventListener("abort", abort, { once: true });
     worker.onmessage = (event: MessageEvent<PositionWorkerResponse>) => {
-      if (event.data.generation !== generation || signal.aborted) return;
-      signal.removeEventListener("abort", abort);
-      worker.terminate();
+      if (settled) return;
+      if (event.data.generation !== generation) {
+        settled = true;
+        cleanup();
+        reject(
+          new Error("Position ranking worker returned a stale generation."),
+        );
+        return;
+      }
+      if (signal.aborted) {
+        abort();
+        return;
+      }
+      settled = true;
+      cleanup();
       if ("error" in event.data) reject(new Error(event.data.error));
       else resolve(event.data.result);
     };
     worker.onerror = () => {
-      signal.removeEventListener("abort", abort);
-      worker.terminate();
+      if (settled) return;
+      settled = true;
+      cleanup();
       reject(new Error("Position ranking worker failed."));
     };
     worker.postMessage({ generation, input } satisfies PositionWorkerRequest);

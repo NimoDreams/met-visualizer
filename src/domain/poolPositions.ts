@@ -1,6 +1,7 @@
 import type { DlmmPoolItem } from "./dlmmPools";
 import {
   initialPositionCount,
+  type Rational,
   type PositionValueResult,
   type ValuedPosition,
 } from "./positionValuation";
@@ -21,6 +22,7 @@ export type PoolPositionSession = {
   discoveredCount: number;
   valueCoverage: "complete" | "unknown";
   totalValueUsdMicros?: bigint;
+  totalValueUsd?: Rational;
   missingBinCount: number;
   binArrayCount: number;
   minimumSlot: number;
@@ -29,6 +31,9 @@ export type PoolPositionSession = {
   bytes: number;
   elapsedMs: number;
   observedAt: number;
+  quoteMint?: string;
+  quotePriceUsdExact?: string;
+  quoteObservedAt?: number;
   stale: boolean;
   loadingMode: "portable-batched";
   detail: string;
@@ -42,6 +47,7 @@ export async function loadPoolPositionSession(
   minContextSlot: number,
   signal: AbortSignal,
   onProgress?: (progress: PositionRpcProgress) => void,
+  refreshQuote = false,
 ): Promise<PoolPositionSession> {
   if (pool.discovery.decodeState !== "ready")
     throw new Error("This pool cannot be decoded as a supported LB pair.");
@@ -58,10 +64,14 @@ export async function loadPoolPositionSession(
       signal,
       onProgress,
     ),
-    pool.quotePrice
+    pool.quotePrice && !refreshQuote
       ? Promise.resolve(pool.quotePrice)
       : gecko
-          .getQuotePrices([otherMint], { priority: "user", signal })
+          .getQuotePrices([otherMint], {
+            priority: "user",
+            signal,
+            fresh: refreshQuote,
+          })
           .then((quotes) => quotes.get(otherMint)),
   ]);
   const result: PositionValueResult = await rankPositions(
@@ -69,8 +79,10 @@ export async function loadPoolPositionSession(
       poolAddress: pool.address,
       positionAccounts: rpcSnapshot.positionAccounts,
       binArrayData: rpcSnapshot.binArrayData,
+      activeBinId: pool.discovery.activeId,
       quoteSide,
-      quotePriceUsd: quoteResult?.priceUsd,
+      quotePriceUsdExact:
+        quoteResult?.priceUsdExact ?? quoteResult?.priceUsd.toString(),
       quoteDecimals: rpcSnapshot.quoteDecimals,
       completePositionSet: rpcSnapshot.completePositionSet,
     },
@@ -87,6 +99,7 @@ export async function loadPoolPositionSession(
     discoveredCount: rpcSnapshot.discoveredCount,
     valueCoverage: result.valueCoverage,
     totalValueUsdMicros: result.totalValueUsdMicros,
+    totalValueUsd: result.totalValueUsd,
     missingBinCount: result.missingBinIds.length,
     binArrayCount: rpcSnapshot.binArrayData.length,
     minimumSlot: rpcSnapshot.minimumSlot,
@@ -95,6 +108,10 @@ export async function loadPoolPositionSession(
     bytes: rpcSnapshot.bytes,
     elapsedMs: Math.round(performance.now() - startedAt),
     observedAt: Date.now(),
+    quoteMint: quoteResult ? otherMint : undefined,
+    quotePriceUsdExact:
+      quoteResult?.priceUsdExact ?? quoteResult?.priceUsd.toString(),
+    quoteObservedAt: quoteResult?.observedAt,
     stale: false,
     loadingMode: "portable-batched",
     detail: quoteResult

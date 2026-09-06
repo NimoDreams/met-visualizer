@@ -134,7 +134,10 @@ export async function loadPositionRpcSnapshot(
       },
       signal,
     ),
-    rpc.getTokenSupply<TokenSupplyResult>(quoteMint, signal),
+    rpc.getTokenSupply<TokenSupplyResult>(quoteMint, signal, {
+      commitment: "confirmed",
+      minContextSlot: maximumSlot,
+    }),
   ]);
   started.requests += 2;
   validateContext(binResponse, maximumSlot, "bin-array hydration");

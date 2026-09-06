@@ -3,15 +3,22 @@ import positionOracle from "../test/fixtures/positionOracle.json";
 import {
   decodeBinArrayAccount,
   decodePositionV2Account,
+  type DecodedBin,
 } from "./meteoraAccounts";
 import {
   initialPositionCount,
   prepareAndRankPositionAccounts,
   valueAndRankPositions,
+  type Rational,
+  type ValuedPosition,
 } from "./positionValuation";
 
+const currentPriceQ64 = BigInt(
+  positionOracle.expected.currentValuation.currentPriceQ64,
+);
+
 describe("exact PositionV2 valuation", () => {
-  it("uses every base and extension share with integer floor arithmetic", () => {
+  it("matches official SDK-derived principal and values it at one current pool price", () => {
     const position = decodePositionV2Account(
       positionOracle.positionData,
       positionOracle.pool,
@@ -22,46 +29,116 @@ describe("exact PositionV2 valuation", () => {
     const result = valueAndRankPositions({
       positions: [{ address: "position", ...position }],
       bins,
+      currentPriceQ64,
       quoteSide: "y",
-      quotePriceUsd: 2,
-      quoteDecimals: 0,
+      quotePriceUsdExact:
+        positionOracle.expected.currentValuation.quoteY.quotePriceUsd,
+      quoteDecimals:
+        positionOracle.expected.currentValuation.quoteY.quoteDecimals,
       completePositionSet: true,
     });
 
     expect(result).toMatchObject({
       valueCoverage: "complete",
-      totalValueUsdMicros: 4_472_000_000n,
+      totalValueUsd: rationalFromOracle("quoteY"),
+      totalValueUsdMicros: BigInt(
+        positionOracle.expected.currentValuation.quoteY.valueUsdMicros,
+      ),
       missingBinIds: [],
     });
     expect(result.positions[0]).toMatchObject({
-      valueUsdMicros: 4_472_000_000n,
+      valueUsd: rationalFromOracle("quoteY"),
       nonzeroBins: 4,
       valuedBins: 4,
+      contributions: positionOracle.expected.sdkPosition.nonzeroBins.map(
+        ({ binId, positionXAmount, positionYAmount }) => ({
+          binId,
+          amountX: BigInt(positionXAmount),
+          amountY: BigInt(positionYAmount),
+        }),
+      ),
     });
+    expect(
+      result.positions[0]?.contributions.reduce(
+        (sum, bin) => sum + bin.amountX,
+        0n,
+      ),
+    ).toBe(BigInt(positionOracle.expected.sdkPosition.totalXAmount));
+    expect(
+      result.positions[0]?.contributions.reduce(
+        (sum, bin) => sum + bin.amountY,
+        0n,
+      ),
+    ).toBe(BigInt(positionOracle.expected.sdkPosition.totalYAmount));
 
     const inverted = valueAndRankPositions({
       positions: [{ address: "position", ...position }],
       bins,
+      currentPriceQ64,
       quoteSide: "x",
-      quotePriceUsd: 2,
+      quotePriceUsdExact:
+        positionOracle.expected.currentValuation.quoteX.quotePriceUsd,
+      quoteDecimals:
+        positionOracle.expected.currentValuation.quoteX.quoteDecimals,
+      completePositionSet: true,
+    });
+    expect(inverted.totalValueUsd).toEqual(rationalFromOracle("quoteX"));
+    expect(inverted.totalValueUsdMicros).toBe(
+      BigInt(positionOracle.expected.currentValuation.quoteX.valueUsdMicros),
+    );
+  });
+
+  it("does not use future range-bin prices to value current principal", () => {
+    const result = valueAndRankPositions({
+      positions: [position("lower", 0, [100n]), position("upper", 1, [100n])],
+      bins: [bin(0, 1n << 64n, 100n, 0n), bin(1, 20n << 64n, 100n, 0n)],
+      currentPriceQ64: 2n << 64n,
+      quoteSide: "y",
+      quotePriceUsdExact: "1",
       quoteDecimals: 0,
       completePositionSet: true,
     });
-    expect(inverted.totalValueUsdMicros).toBe(2_136_000_000n);
+    expect(result.positions.map(({ valueUsd }) => valueUsd)).toEqual([
+      { numerator: 200n, denominator: 1n },
+      { numerator: 200n, denominator: 1n },
+    ]);
   });
 
-  it("does not publish a complete denominator when an account or bin is missing", () => {
+  it("preserves tiny quote precision through quantity multiplication", () => {
+    const result = valueAndRankPositions({
+      positions: Array.from({ length: 150 }, (_, index) =>
+        position(`position-${index.toString().padStart(3, "0")}`, 0, [100n]),
+      ),
+      bins: [bin(0, 1n << 64n, 100_000_000n, 0n)],
+      currentPriceQ64: 1n << 64n,
+      quoteSide: "x",
+      quotePriceUsdExact: "0.0000004",
+      quoteDecimals: 0,
+      completePositionSet: true,
+    });
+    expect(result.positions[0]?.valueUsd).toEqual({
+      numerator: 40n,
+      denominator: 1n,
+    });
+    expect(result.totalValueUsd).toEqual({
+      numerator: 6_000n,
+      denominator: 1n,
+    });
+    expect(initialPositionCount(result)).toBe(100);
+  });
+
+  it("does not publish a complete denominator when an account, bin, price, or quote is missing", () => {
     const position = decodePositionV2Account(positionOracle.positionData);
     const result = valueAndRankPositions({
       positions: [{ address: "position", ...position }],
       bins: [],
       quoteSide: "y",
-      quotePriceUsd: 2,
+      quotePriceUsdExact: "2",
       quoteDecimals: 0,
       completePositionSet: false,
     });
     expect(result.valueCoverage).toBe("unknown");
-    expect(result.totalValueUsdMicros).toBeUndefined();
+    expect(result.totalValueUsd).toBeUndefined();
     expect(result.missingBinIds).toEqual([0, 1, 69, 70]);
   });
 
@@ -72,13 +149,14 @@ describe("exact PositionV2 valuation", () => {
         { address: "position", data: positionOracle.positionData },
       ],
       binArrayData: positionOracle.binArrayData,
+      activeBinId: 0,
       quoteSide: "y",
       quoteDecimals: 9,
       completePositionSet: true,
     });
     expect(result.valueCoverage).toBe("unknown");
-    expect(result.totalValueUsdMicros).toBeUndefined();
-    expect(result.positions[0]?.valueUsdMicros).toBeUndefined();
+    expect(result.totalValueUsd).toBeUndefined();
+    expect(result.positions[0]?.valueUsd).toBeUndefined();
     expect(result.positions[0]?.contributions).toHaveLength(4);
   });
 
@@ -86,12 +164,13 @@ describe("exact PositionV2 valuation", () => {
     const result = prepareAndRankPositionAccounts({
       poolAddress: positionOracle.pool,
       positionAccounts: Array.from({ length: 37 }, (_, index) => ({
-        address: `ansem-position-${index.toString().padStart(2, "0")}`,
+        address: "ansem-position-" + index.toString().padStart(2, "0"),
         data: positionOracle.positionData,
       })),
       binArrayData: positionOracle.binArrayData,
+      activeBinId: 0,
       quoteSide: "y",
-      quotePriceUsd: 150,
+      quotePriceUsdExact: "150",
       quoteDecimals: 9,
       completePositionSet: true,
     });
@@ -106,12 +185,13 @@ describe("exact PositionV2 valuation", () => {
     const result = prepareAndRankPositionAccounts({
       poolAddress: positionOracle.pool,
       positionAccounts: Array.from({ length: 1_800 }, (_, index) => ({
-        address: `jup-position-${index.toString().padStart(4, "0")}`,
+        address: "jup-position-" + index.toString().padStart(4, "0"),
         data: positionOracle.positionData,
       })),
       binArrayData: positionOracle.binArrayData,
+      activeBinId: 0,
       quoteSide: "y",
-      quotePriceUsd: 150,
+      quotePriceUsdExact: "150",
       quoteDecimals: 9,
       completePositionSet: true,
     });
@@ -121,39 +201,83 @@ describe("exact PositionV2 valuation", () => {
     expect(performance.now() - startedAt).toBeLessThan(10_000);
   });
 
-  it("loads at least 25, targets 80%, and caps the initial large-pool view at 100", () => {
-    const positions = Array.from({ length: 150 }, (_, index) => ({
-      address: String(index),
-      owner: "owner",
-      lowerBinId: 0,
-      upperBinId: 0,
-      valueUsdMicros: index < 25 ? 40n : 1n,
-      valuedBins: 1,
-      nonzeroBins: 1,
-      contributions: [],
-    }));
-    const total = positions.reduce(
-      (sum, position) => sum + position.valueUsdMicros,
-      0n,
+  it("loads at least 25, targets exact 80%, and caps the initial large-pool view at 100", () => {
+    const positions = Array.from({ length: 150 }, (_, index) =>
+      valuedPosition(String(index), index < 25 ? 40n : 1n),
     );
+    expect(initialPositionCount(resultFor(positions))).toBe(25);
     expect(
-      initialPositionCount({
-        positions,
-        totalValueUsdMicros: total,
-        valueCoverage: "complete",
-        missingBinIds: [],
-      }),
-    ).toBe(25);
-    expect(
-      initialPositionCount({
-        positions: positions.map((position) => ({
-          ...position,
-          valueUsdMicros: 1n,
-        })),
-        totalValueUsdMicros: 150n,
-        valueCoverage: "complete",
-        missingBinIds: [],
-      }),
+      initialPositionCount(
+        resultFor(
+          positions.map((item) => ({ ...item, valueUsd: rational(1n) })),
+        ),
+      ),
     ).toBe(100);
   });
 });
+
+function rationalFromOracle(side: "quoteX" | "quoteY"): Rational {
+  const expected = positionOracle.expected.currentValuation[side];
+  return {
+    numerator: BigInt(expected.valueUsdNumerator),
+    denominator: BigInt(expected.valueUsdDenominator),
+  };
+}
+
+function rational(numerator: bigint): Rational {
+  return { numerator, denominator: 1n };
+}
+
+function valuedPosition(address: string, value: bigint): ValuedPosition {
+  return {
+    address,
+    owner: "owner",
+    lowerBinId: 0,
+    upperBinId: 0,
+    valueUsd: rational(value),
+    valueUsdMicros: value * 1_000_000n,
+    valuedBins: 1,
+    nonzeroBins: 1,
+    contributions: [],
+  };
+}
+
+function resultFor(positions: ValuedPosition[]) {
+  const total = positions.reduce(
+    (sum, item) => sum + (item.valueUsd?.numerator ?? 0n),
+    0n,
+  );
+  return {
+    positions,
+    totalValueUsd: rational(total),
+    totalValueUsdMicros: total * 1_000_000n,
+    valueCoverage: "complete" as const,
+    missingBinIds: [],
+  };
+}
+
+function position(address: string, lowerBinId: number, shares: bigint[]) {
+  return {
+    address,
+    lbPair: positionOracle.pool,
+    owner: "owner",
+    lowerBinId,
+    upperBinId: lowerBinId + shares.length - 1,
+    liquidityShares: shares,
+  };
+}
+
+function bin(
+  binId: number,
+  priceQ64: bigint,
+  amountX: bigint,
+  amountY: bigint,
+): DecodedBin {
+  return {
+    binId,
+    priceQ64,
+    amountX,
+    amountY,
+    liquiditySupply: 100n,
+  };
+}

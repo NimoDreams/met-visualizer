@@ -33,6 +33,9 @@ describe("PositionV2 RPC snapshot", () => {
     expect(result.positionAccounts).toHaveLength(205);
     expect(result.binArrayData).toHaveLength(2);
     expect(rpc.batchSizes).toEqual([100, 100, 5]);
+    expect(rpc.supplyConfigs).toEqual([
+      { commitment: "confirmed", minContextSlot: 13 },
+    ]);
     expect(progress).toEqual([0, 100, 200, 205]);
     expect(rpc.programCalls).toEqual([
       expect.objectContaining({
@@ -111,12 +114,18 @@ type RpcAccount = {
 class PositionFixtureRpc implements ReadOnlySolanaRpc {
   readonly batchSizes: number[] = [];
   readonly programCalls: AccountScanConfig[] = [];
+  readonly supplyConfigs: AccountScanConfig[] = [];
   missingLast = false;
   supplySlot?: number;
 
   constructor(private readonly count: number) {}
 
-  getTokenSupply<T>(): Promise<T> {
+  getTokenSupply<T>(
+    _mint: string,
+    _signal?: AbortSignal,
+    config?: AccountScanConfig,
+  ): Promise<T> {
+    if (config) this.supplyConfigs.push(config);
     return Promise.resolve({
       context: { slot: this.supplySlot ?? this.snapshotSlot },
       value: { amount: "1", decimals: 6 },

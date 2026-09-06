@@ -41,11 +41,24 @@ export function usePoolPositions(
   const generation = useRef(0);
   const controller = useRef<AbortController | undefined>(undefined);
   const current = useRef<PoolPositionSession | undefined>(undefined);
+  const poolRef = useRef(pool);
+  const identity = useRef<
+    | {
+        rpc: ReadOnlySolanaRpc;
+        enteredMint: string;
+        poolAddress: string;
+      }
+    | undefined
+  >(undefined);
   const progress = useRef(emptyProgress);
   const [state, setState] = useState<PoolPositionsState>({
     status: "loading",
     progress: emptyProgress,
   });
+
+  useEffect(() => {
+    poolRef.current = pool;
+  }, [pool]);
 
   const run = useCallback(
     async (refreshing: boolean) => {
@@ -55,9 +68,10 @@ export function usePoolPositions(
       controller.current = requestController;
       progress.current = emptyProgress;
       const previous = current.current;
+      const activePool = poolRef.current;
       const requestedMinSlot = Math.max(
         minContextSlot,
-        previous?.poolAddress === pool.address ? previous.maximumSlot : 0,
+        previous?.poolAddress === activePool.address ? previous.maximumSlot : 0,
       );
       setState(
         refreshing && previous
@@ -68,7 +82,7 @@ export function usePoolPositions(
         const loaded = await loadPoolPositionSession(
           rpc,
           gecko,
-          pool,
+          activePool,
           enteredMint,
           requestedMinSlot,
           requestController.signal,
@@ -81,6 +95,7 @@ export function usePoolPositions(
             )
               setState({ status: "loading", progress: next });
           },
+          refreshing,
         );
         if (
           requestController.signal.aborted ||
@@ -112,13 +127,21 @@ export function usePoolPositions(
         } else setState({ status: "error", message: describeError(error) });
       }
     },
-    [enteredMint, gecko, minContextSlot, pool, rpc],
+    [enteredMint, gecko, minContextSlot, rpc],
   );
 
   useEffect(() => {
-    void run(false);
+    const previousIdentity = identity.current;
+    const samePoolSession =
+      previousIdentity?.rpc === rpc &&
+      previousIdentity.enteredMint === enteredMint &&
+      previousIdentity.poolAddress === pool.address &&
+      current.current?.poolAddress === pool.address;
+    identity.current = { rpc, enteredMint, poolAddress: pool.address };
+    if (!samePoolSession) current.current = undefined;
+    void run(Boolean(samePoolSession));
     return () => controller.current?.abort();
-  }, [run]);
+  }, [enteredMint, pool.address, rpc, run]);
 
   const cancel = useCallback(() => {
     controller.current?.abort();
@@ -139,7 +162,12 @@ export function usePoolPositions(
     if (!previous) return;
     const next = revealPositions(previous, mode);
     current.current = next;
-    setState({ status: "ready", session: next, refreshing: false });
+    setState((state) => ({
+      status: "ready",
+      session: next,
+      refreshing: state.status === "ready" ? state.refreshing : false,
+      actionError: state.status === "ready" ? state.actionError : undefined,
+    }));
   }, []);
   const toggle = useCallback((address: string) => {
     const previous = current.current;
@@ -170,10 +198,22 @@ function preservePositionSelection(
   previous: PoolPositionSession,
   loaded: PoolPositionSession,
 ): PoolPositionSession {
-  if (!previous.manualSelection) return loaded;
   const available = new Set(loaded.positions.map(({ address }) => address));
+  const visibleCount = Math.min(
+    loaded.positions.length,
+    Math.max(previous.visibleCount, loaded.visibleCount),
+  );
+  if (!previous.manualSelection)
+    return {
+      ...loaded,
+      visibleCount,
+      selectedAddresses: loaded.positions
+        .slice(0, visibleCount)
+        .map(({ address }) => address),
+    };
   return {
     ...loaded,
+    visibleCount,
     manualSelection: true,
     selectedAddresses: previous.selectedAddresses.filter((address) =>
       available.has(address),

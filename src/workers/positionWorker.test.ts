@@ -21,8 +21,9 @@ describe("position ranking worker", () => {
         poolAddress: "pool",
         positionAccounts: [],
         binArrayData: [],
+        activeBinId: 0,
         quoteSide: "y",
-        quotePriceUsd: 1,
+        quotePriceUsdExact: "1",
         quoteDecimals: 6,
         completePositionSet: true,
       },
@@ -31,6 +32,37 @@ describe("position ranking worker", () => {
     controller.abort();
     await expect(promise).rejects.toMatchObject({ name: "AbortError" });
     expect(workers[0]?.terminated).toBe(true);
+  });
+
+  it("rejects a pre-aborted request without constructing a worker", async () => {
+    const workers: FakeWorker[] = [];
+    vi.stubGlobal(
+      "Worker",
+      class extends FakeWorker {
+        constructor() {
+          super();
+          workers.push(this);
+        }
+      },
+    );
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      rankPositions(
+        {
+          poolAddress: "pool",
+          positionAccounts: [],
+          binArrayData: [],
+          activeBinId: 0,
+          quoteSide: "y",
+          quotePriceUsdExact: "1",
+          quoteDecimals: 6,
+          completePositionSet: true,
+        },
+        controller.signal,
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(workers).toHaveLength(0);
   });
 });
 

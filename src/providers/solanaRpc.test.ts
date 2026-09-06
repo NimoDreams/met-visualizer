@@ -54,7 +54,11 @@ describe("NativeReadOnlySolanaRpc", () => {
       new URL("https://rpc.example.invalid/"),
     );
 
-    await client.getTokenSupply("So11111111111111111111111111111111111111112");
+    await client.getTokenSupply(
+      "So11111111111111111111111111111111111111112",
+      undefined,
+      { commitment: "confirmed", minContextSlot: 42 },
+    );
 
     const requestBody = fetchMock.mock.calls[0]?.[1]?.body;
     if (typeof requestBody !== "string") throw new Error("missing RPC body");
@@ -62,7 +66,7 @@ describe("NativeReadOnlySolanaRpc", () => {
       method: "getTokenSupply",
       params: [
         "So11111111111111111111111111111111111111112",
-        { commitment: "confirmed" },
+        { commitment: "confirmed", minContextSlot: 42 },
       ],
     });
   });

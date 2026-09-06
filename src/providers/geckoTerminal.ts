@@ -63,6 +63,7 @@ export type GeckoCandle = {
 export type QuotePrice = {
   mint: string;
   priceUsd: number;
+  priceUsdExact?: string;
   observedAt: number;
 };
 
@@ -86,6 +87,7 @@ export interface GeckoTerminalProvider {
     options?: {
       priority?: PublicRequestPriority;
       signal?: AbortSignal;
+      fresh?: boolean;
     },
   ): Promise<Map<string, QuotePrice>>;
 }
@@ -198,6 +200,7 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
     options: {
       priority?: PublicRequestPriority;
       signal?: AbortSignal;
+      fresh?: boolean;
     } = {},
   ): Promise<Map<string, QuotePrice>> {
     const uniqueMints = [...new Set(mints)].sort();
@@ -205,10 +208,10 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
 
     const response = await this.#read(
       `${GECKO_TERMINAL_SIMPLE_BASE}/token_price/${uniqueMints.map(encodeURIComponent).join(",")}`,
-      `quotes:${uniqueMints.join(",")}`,
+      `quotes:${options.fresh ? "fresh:" : ""}${uniqueMints.join(",")}`,
       options.priority ?? "user",
       options.signal,
-      CACHE_MS,
+      options.fresh ? 0 : CACHE_MS,
     );
     const attributes = dataAttributes(response);
     if (!isRecord(attributes.token_prices)) {
@@ -218,9 +221,16 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
     const observedAt = Date.now();
     const prices = new Map<string, QuotePrice>();
     for (const mint of uniqueMints) {
-      const priceUsd = optionalPositiveNumber(attributes.token_prices[mint]);
+      const rawPrice = attributes.token_prices[mint];
+      const priceUsd = optionalPositiveNumber(rawPrice);
       if (priceUsd !== undefined)
-        prices.set(mint, { mint, priceUsd, observedAt });
+        prices.set(mint, {
+          mint,
+          priceUsd,
+          priceUsdExact:
+            typeof rawPrice === "string" ? rawPrice : priceUsd.toString(),
+          observedAt,
+        });
     }
     return prices;
   }

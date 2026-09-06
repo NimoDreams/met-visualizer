@@ -214,6 +214,11 @@ bigint share/bin valuation plus sorting into an abortable Web Worker. Validate
 the minimal decoders against the pinned official SDK/IDL oracle and reject any
 account whose exact extension length, discriminator, owner, or pool relationship
 does not match. Keep the full transaction-capable SDK outside production.
+Aggregate the position's token-X and token-Y principal from those bin shares,
+then value it with one current active-bin conversion price. Preserve the public
+USD quote as an exact decimal rational until display rounding. Refreshing
+positions obtains a fresh quote with its own observation timestamp and preserves
+same-pool selection and continuation state.
 
 Consequence: Large portable sessions pay the measured full-account bandwidth
 cost before largest-first presentation, but remain compatible with ordinary

@@ -8,11 +8,14 @@ import {
 const Q64 = 1n << 64n;
 const USD_SCALE = 1_000_000n;
 
+export type Rational = { numerator: bigint; denominator: bigint };
+
 export type ValuedPosition = {
   address: string;
   owner: string;
   lowerBinId: number;
   upperBinId: number;
+  valueUsd?: Rational;
   valueUsdMicros?: bigint;
   valuedBins: number;
   nonzeroBins: number;
@@ -20,11 +23,13 @@ export type ValuedPosition = {
     binId: number;
     amountX: bigint;
     amountY: bigint;
+    priceQ64: bigint;
   }>;
 };
 
 export type PositionValueResult = {
   positions: ValuedPosition[];
+  totalValueUsd?: Rational;
   totalValueUsdMicros?: bigint;
   valueCoverage: "complete" | "unknown";
   missingBinIds: number[];
@@ -41,8 +46,9 @@ export function prepareAndRankPositionAccounts(input: {
   poolAddress: string;
   positionAccounts: EncodedPositionForValuation[];
   binArrayData: string[];
+  activeBinId: number;
   quoteSide: "x" | "y";
-  quotePriceUsd?: number;
+  quotePriceUsdExact?: string;
   quoteDecimals: number;
   completePositionSet: boolean;
 }): PositionValueResult {
@@ -56,11 +62,15 @@ export function prepareAndRankPositionAccounts(input: {
   const binIds = bins.map(({ binId }) => binId);
   if (new Set(binIds).size !== binIds.length)
     throw new Error("BinArray scan returned overlapping bin indexes.");
+  const currentPriceQ64 = bins.find(
+    ({ binId }) => binId === input.activeBinId,
+  )?.priceQ64;
   return valueAndRankPositions({
     positions,
     bins,
     quoteSide: input.quoteSide,
-    quotePriceUsd: input.quotePriceUsd,
+    currentPriceQ64,
+    quotePriceUsdExact: input.quotePriceUsdExact,
     quoteDecimals: input.quoteDecimals,
     completePositionSet: input.completePositionSet,
   });
@@ -70,25 +80,31 @@ export function valueAndRankPositions(input: {
   positions: PositionForValuation[];
   bins: DecodedBin[];
   quoteSide: "x" | "y";
-  quotePriceUsd?: number;
+  currentPriceQ64?: bigint;
+  quotePriceUsdExact?: string;
   quoteDecimals: number;
   completePositionSet: boolean;
 }): PositionValueResult {
   const bins = new Map(input.bins.map((bin) => [bin.binId, bin]));
-  const quoteUsdMicros =
-    input.quotePriceUsd === undefined
+  const quoteUsd =
+    input.quotePriceUsdExact === undefined
       ? undefined
-      : decimalToScaledBigint(input.quotePriceUsd, USD_SCALE);
+      : parsePositiveDecimal(input.quotePriceUsdExact);
   const atomicUnits = 10n ** BigInt(input.quoteDecimals);
   const missingBinIds = new Set<number>();
   let everyPositionValued =
-    input.completePositionSet && quoteUsdMicros !== undefined;
+    input.completePositionSet &&
+    quoteUsd !== undefined &&
+    input.currentPriceQ64 !== undefined &&
+    input.currentPriceQ64 > 0n;
 
   const positions = input.positions.map((position): ValuedPosition => {
     let quoteAtoms = 0n;
     let valuedBins = 0;
     let nonzeroBins = 0;
     let complete = true;
+    let totalX = 0n;
+    let totalY = 0n;
     const contributions: ValuedPosition["contributions"] = [];
     position.liquidityShares.forEach((share, index) => {
       if (share === 0n) return;
@@ -102,23 +118,34 @@ export function valueAndRankPositions(input: {
       }
       const amountX = (share * bin.amountX) / bin.liquiditySupply;
       const amountY = (share * bin.amountY) / bin.liquiditySupply;
-      contributions.push({ binId, amountX, amountY });
-      quoteAtoms +=
-        input.quoteSide === "y"
-          ? amountY + (amountX * bin.priceQ64) / Q64
-          : amountX + (amountY * Q64) / bin.priceQ64;
+      contributions.push({ binId, amountX, amountY, priceQ64: bin.priceQ64 });
+      totalX += amountX;
+      totalY += amountY;
       valuedBins += 1;
     });
+    if (input.currentPriceQ64 && input.currentPriceQ64 > 0n) {
+      quoteAtoms =
+        input.quoteSide === "y"
+          ? totalY + (totalX * input.currentPriceQ64) / Q64
+          : totalX + (totalY * Q64) / input.currentPriceQ64;
+    } else complete = false;
     if (!complete) everyPositionValued = false;
+    const valueUsd =
+      complete && quoteUsd
+        ? normalizeRational({
+            numerator: quoteAtoms * quoteUsd.numerator,
+            denominator: atomicUnits * quoteUsd.denominator,
+          })
+        : undefined;
     return {
       address: position.address,
       owner: position.owner,
       lowerBinId: position.lowerBinId,
       upperBinId: position.upperBinId,
-      valueUsdMicros:
-        complete && quoteUsdMicros !== undefined
-          ? (quoteAtoms * quoteUsdMicros) / atomicUnits
-          : undefined,
+      valueUsd,
+      valueUsdMicros: valueUsd
+        ? divideRounded(valueUsd.numerator * USD_SCALE, valueUsd.denominator)
+        : undefined,
       valuedBins,
       nonzeroBins,
       contributions,
@@ -126,20 +153,27 @@ export function valueAndRankPositions(input: {
   });
 
   positions.sort((left, right) => {
-    if (left.valueUsdMicros === undefined && right.valueUsdMicros === undefined)
+    if (left.valueUsd === undefined && right.valueUsd === undefined)
       return left.address.localeCompare(right.address);
-    if (left.valueUsdMicros === undefined) return 1;
-    if (right.valueUsdMicros === undefined) return -1;
-    if (left.valueUsdMicros !== right.valueUsdMicros)
-      return left.valueUsdMicros > right.valueUsdMicros ? -1 : 1;
+    if (left.valueUsd === undefined) return 1;
+    if (right.valueUsd === undefined) return -1;
+    const comparison = compareRational(left.valueUsd, right.valueUsd);
+    if (comparison !== 0) return -comparison;
     return left.address.localeCompare(right.address);
   });
+  const totalValueUsd = everyPositionValued
+    ? positions.reduce<Rational>(
+        (total, position) => addRational(total, position.valueUsd!),
+        { numerator: 0n, denominator: 1n },
+      )
+    : undefined;
   return {
     positions,
-    totalValueUsdMicros: everyPositionValued
-      ? positions.reduce(
-          (total, position) => total + (position.valueUsdMicros ?? 0n),
-          0n,
+    totalValueUsd,
+    totalValueUsdMicros: totalValueUsd
+      ? divideRounded(
+          totalValueUsd.numerator * USD_SCALE,
+          totalValueUsd.denominator,
         )
       : undefined,
     valueCoverage: everyPositionValued ? "complete" : "unknown",
@@ -154,22 +188,90 @@ export function initialPositionCount(result: PositionValueResult): number {
   const cap = Math.min(100, total);
   if (
     result.valueCoverage !== "complete" ||
-    !result.totalValueUsdMicros ||
-    result.totalValueUsdMicros <= 0n
+    !result.totalValueUsd ||
+    result.totalValueUsd.numerator <= 0n
   )
     return minimum;
 
-  const target = (result.totalValueUsdMicros * 80n + 99n) / 100n;
-  let cumulative = 0n;
+  let cumulative: Rational = { numerator: 0n, denominator: 1n };
   for (let index = 0; index < cap; index += 1) {
-    cumulative += result.positions[index]?.valueUsdMicros ?? 0n;
-    if (index + 1 >= minimum && cumulative >= target) return index + 1;
+    const value = result.positions[index]?.valueUsd;
+    if (value) cumulative = addRational(cumulative, value);
+    if (
+      index + 1 >= minimum &&
+      compareRational(
+        {
+          numerator: cumulative.numerator * 100n,
+          denominator: cumulative.denominator,
+        },
+        {
+          numerator: result.totalValueUsd.numerator * 80n,
+          denominator: result.totalValueUsd.denominator,
+        },
+      ) >= 0
+    )
+      return index + 1;
   }
   return cap;
 }
 
-function decimalToScaledBigint(value: number, scale: bigint): bigint {
-  if (!Number.isFinite(value) || value <= 0)
-    throw new Error("USD quote must be a positive finite number.");
-  return BigInt(Math.round(value * Number(scale)));
+export function parsePositiveDecimal(value: string): Rational {
+  const match = /^(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(value.trim());
+  if (!match) throw new Error("USD quote must be a positive decimal.");
+  const fractional = match[2] ?? "";
+  const exponent = Number(match[3] ?? 0);
+  if (!Number.isSafeInteger(exponent) || Math.abs(exponent) > 100)
+    throw new Error("USD quote exponent is outside the supported range.");
+  const digits = BigInt(`${match[1]}${fractional}`);
+  if (digits <= 0n) throw new Error("USD quote must be positive.");
+  const scale = fractional.length - exponent;
+  return normalizeRational(
+    scale >= 0
+      ? { numerator: digits, denominator: 10n ** BigInt(scale) }
+      : { numerator: digits * 10n ** BigInt(-scale), denominator: 1n },
+  );
+}
+
+export function addRational(left: Rational, right: Rational): Rational {
+  return normalizeRational({
+    numerator:
+      left.numerator * right.denominator + right.numerator * left.denominator,
+    denominator: left.denominator * right.denominator,
+  });
+}
+
+function compareRational(left: Rational, right: Rational): number {
+  const difference =
+    left.numerator * right.denominator - right.numerator * left.denominator;
+  return difference === 0n ? 0 : difference > 0n ? 1 : -1;
+}
+
+export function rationalPercentage(
+  part: Rational,
+  whole: Rational,
+): number | undefined {
+  if (whole.numerator <= 0n) return undefined;
+  const hundredths =
+    (part.numerator * whole.denominator * 10_000n) /
+    (part.denominator * whole.numerator);
+  return Number(hundredths) / 100;
+}
+
+function normalizeRational(value: Rational): Rational {
+  const divisor = greatestCommonDivisor(value.numerator, value.denominator);
+  return {
+    numerator: value.numerator / divisor,
+    denominator: value.denominator / divisor,
+  };
+}
+
+function greatestCommonDivisor(left: bigint, right: bigint): bigint {
+  let a = left < 0n ? -left : left;
+  let b = right < 0n ? -right : right;
+  while (b !== 0n) [a, b] = [b, a % b];
+  return a === 0n ? 1n : a;
+}
+
+function divideRounded(numerator: bigint, denominator: bigint): bigint {
+  return (numerator + denominator / 2n) / denominator;
 }

@@ -76,6 +76,7 @@ describe("usePoolPositions generations", () => {
     await waitFor(() => expect(result.current.state.status).toBe("ready"));
     load.mockRejectedValueOnce(new Error("refresh unavailable"));
     act(() => result.current.refresh());
+    expect(load.mock.calls[1]?.[7]).toBe(true);
     await waitFor(() =>
       expect(result.current.state).toMatchObject({
         status: "ready",
@@ -142,14 +143,103 @@ describe("usePoolPositions generations", () => {
       pending.resolve({
         ...session("pool"),
         positions: [position("a"), position("b"), position("c")],
-        visibleCount: 3,
-        selectedAddresses: ["a", "b", "c"],
+        visibleCount: 1,
+        selectedAddresses: ["a"],
       }),
     );
     await waitFor(() =>
       expect(result.current.state).toMatchObject({
         status: "ready",
-        session: { manualSelection: true, selectedAddresses: ["b"] },
+        session: {
+          manualSelection: true,
+          visibleCount: 2,
+          selectedAddresses: ["b"],
+        },
+      }),
+    );
+  });
+
+  it("preserves a same-address session when refreshed pool metadata rerenders", async () => {
+    const initial = {
+      ...session("pool"),
+      positions: [position("a"), position("b"), position("c")],
+      visibleCount: 2,
+      selectedAddresses: ["b"],
+      manualSelection: true,
+    };
+    load.mockResolvedValueOnce(initial);
+    const { result, rerender } = renderHook(
+      ({ pool }) => usePoolPositions(rpc, pool, "mint", 1, gecko),
+      { initialProps: { pool: poolItem("pool") } },
+    );
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+
+    const refreshedPool = {
+      ...poolItem("pool"),
+      metadata: {
+        address: "pool",
+        name: "refreshed metadata",
+        tokenXMint: "mint",
+        tokenYMint: "quote",
+        tvlUsd: 2_000,
+        volume24hUsd: 5_000,
+        blacklisted: false,
+        observedAt: 20,
+      },
+    };
+    rerender({ pool: refreshedPool });
+    await Promise.resolve();
+
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(result.current.state).toMatchObject({
+      status: "ready",
+      session: {
+        visibleCount: 2,
+        selectedAddresses: ["b"],
+        manualSelection: true,
+      },
+    });
+  });
+
+  it("keeps refresh visible while loading another position batch", async () => {
+    const positions = Array.from({ length: 230 }, (_, index) =>
+      position(String(index)),
+    );
+    const initial = {
+      ...session("pool"),
+      positions,
+      visibleCount: 25,
+      selectedAddresses: positions.slice(0, 25).map(({ address }) => address),
+    };
+    load.mockResolvedValueOnce(initial);
+    const pool = poolItem("pool");
+    const { result } = renderHook(() =>
+      usePoolPositions(rpc, pool, "mint", 1, gecko),
+    );
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+    const pending = deferred<PoolPositionSession>();
+    load.mockReturnValueOnce(pending.promise);
+    act(() => result.current.refresh());
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+
+    act(() => result.current.reveal("next"));
+    expect(result.current.state).toMatchObject({
+      status: "ready",
+      refreshing: true,
+      session: { visibleCount: 125 },
+    });
+
+    act(() =>
+      pending.resolve({
+        ...initial,
+        maximumSlot: 5,
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.state).toMatchObject({
+        status: "ready",
+        refreshing: false,
+        session: { visibleCount: 125, maximumSlot: 5 },
       }),
     );
   });
@@ -185,6 +275,7 @@ function session(poolAddress: string): PoolPositionSession {
     discoveredCount: 0,
     valueCoverage: "complete",
     totalValueUsdMicros: 0n,
+    totalValueUsd: { numerator: 0n, denominator: 1n },
     missingBinCount: 0,
     binArrayCount: 0,
     minimumSlot: 1,
@@ -206,6 +297,7 @@ function position(address: string): PoolPositionSession["positions"][number] {
     lowerBinId: 0,
     upperBinId: 0,
     valueUsdMicros: 1n,
+    valueUsd: { numerator: 1n, denominator: 1n },
     valuedBins: 1,
     nonzeroBins: 1,
     contributions: [],

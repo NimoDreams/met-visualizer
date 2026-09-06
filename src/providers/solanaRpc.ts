@@ -14,7 +14,11 @@ export type AccountScanConfig = Readonly<Record<string, unknown>>;
 export type MultipleAccountsConfig = Readonly<Record<string, unknown>>;
 
 export interface ReadOnlySolanaRpc {
-  getTokenSupply<T>(mint: string, signal?: AbortSignal): Promise<T>;
+  getTokenSupply<T>(
+    mint: string,
+    signal?: AbortSignal,
+    config?: AccountScanConfig,
+  ): Promise<T>;
   getProgramAccounts<T>(
     programAddress: string,
     config: AccountScanConfig,
@@ -47,10 +51,14 @@ export class NativeReadOnlySolanaRpc implements ReadOnlySolanaRpc {
     }
   }
 
-  getTokenSupply<T>(mint: string, signal?: AbortSignal): Promise<T> {
+  getTokenSupply<T>(
+    mint: string,
+    signal?: AbortSignal,
+    config: AccountScanConfig = {},
+  ): Promise<T> {
     return this.#request(
       "getTokenSupply",
-      [mint, { commitment: "confirmed" }],
+      [mint, { commitment: "confirmed", ...config }],
       signal,
     );
   }

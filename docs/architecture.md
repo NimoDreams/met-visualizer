@@ -203,10 +203,19 @@ so the portable implementation uses the approved ordinary bounded fallback. It
 immediately discards account bytes after producing compact decoded inputs, then
 performs exact share/bin valuation and sorting in an abortable Web Worker.
 
+Use each bin's price only to place its liquidity in the distribution. Compute a
+position's token-X and token-Y principal from all of its shares, then value the
+combined principal once at the pool's current active-bin conversion price. Keep
+the public USD quote as an exact decimal rational through multiplication,
+ranking, denominator coverage, and the 80% initial-view rule; round only a
+derived display amount. An explicit position refresh must bypass the cached
+public quote and retain that quote's own observation time.
+
 Project-owned PositionV2, `positionBinData`, and BinArray layouts are checked
 against `@meteora-ag/dlmm` 1.9.14 and its IDL at commit
 `576919e3e4368e542c402f000b4264724f7f23ec`. Position accounts must have the
 exact base-plus-extension length implied by their bin range; a mismatch fails
 closed rather than understating liquidity. Every position, bin-array, and token
 supply response joins the published RPC context-slot range and must meet the
-latest requested minimum slot.
+latest requested minimum slot. The quote-token supply request sends that
+`minContextSlot` as well as validating the returned slot.
