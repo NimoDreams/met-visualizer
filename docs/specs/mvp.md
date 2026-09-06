@@ -149,12 +149,18 @@ complete contract.
 - Rank RPC-reconciled Meteora candidates by current USD TVL, then 24-hour volume,
   then pool address. Use Meteora's keyless pool metadata only for ranking; RPC
   remains authoritative for accounts and positions.
+- Merge the first 20 TVL-sorted results for each token orientation. Resolve a
+  tie at the three-candidate boundary with another bounded page or require manual
+  selection if the request budget cannot establish a deterministic order.
 - Probe at most three candidates and enable exactly one: the first with at least
-  one PositionV2 account and supported USD conversion. Then begin progressive
+  one PositionV2 account and supported USD conversion. Candidate quote checks
+  occur before enablement and are cached for reuse. Then begin progressive
   loading. Do not prioritize the candle-reference pool.
 - Keep the initial choice stable. If ranking fails or no candidate qualifies,
   leave all pools disabled and ask the user to choose; never use arbitrary RPC
-  response order.
+  response order. Later metadata or quote-refresh failure preserves the chosen
+  pool, selections, and any visibly stale last-good overlay rather than selecting
+  a replacement.
 - Optimize representative validation for newer memecoin paths, including short
   history and FDV fallback. Keep JUP as a scale/stress case rather than the
   expected average session.
