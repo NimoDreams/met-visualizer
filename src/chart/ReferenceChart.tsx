@@ -3,34 +3,22 @@ import {
   CandlestickSeries,
   ColorType,
   createChart,
+  CrosshairMode,
   HistogramSeries,
   type CandlestickData,
   type HistogramData,
   type UTCTimestamp,
 } from "lightweight-charts";
-import { LiquidityProfilePrimitive } from "./LiquidityProfilePrimitive";
+import type {
+  ReferenceMarketSession,
+  ValuationCandle,
+} from "../domain/referenceMarket";
 
-const start = 1_788_696_000;
-const closes = [0.237, 0.243, 0.241, 0.251, 0.258, 0.255, 0.267, 0.272];
-
-const candles: CandlestickData<UTCTimestamp>[] = closes.map((close, index) => {
-  const open = index === 0 ? 0.232 : (closes[index - 1] ?? close);
-  return {
-    time: (start + index * 900) as UTCTimestamp,
-    open,
-    high: Math.max(open, close) * 1.018,
-    low: Math.min(open, close) * 0.982,
-    close,
-  };
-});
-
-const volume: HistogramData<UTCTimestamp>[] = closes.map((close, index) => ({
-  time: (start + index * 900) as UTCTimestamp,
-  value: 18_000 + index * 7_300,
-  color: close >= (closes[index - 1] ?? close) ? "#3ecf8e88" : "#ff6b7a88",
-}));
-
-export function ReferenceChart() {
+export function ReferenceChart({
+  session,
+}: {
+  session?: ReferenceMarketSession;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,19 +37,27 @@ export function ReferenceChart() {
         vertLines: { color: "#26344a" },
         horzLines: { color: "#26344a" },
       },
+      crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: "#314159" },
       timeScale: { borderColor: "#314159", timeVisible: true },
     });
 
+    if (!session) return () => chart.remove();
+
+    const precision = pricePrecision(session.candles);
     const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#3ecf8e",
       downColor: "#ff6b7a",
       borderVisible: false,
       wickUpColor: "#3ecf8e",
       wickDownColor: "#ff6b7a",
-      priceFormat: { type: "price", precision: 4, minMove: 0.0001 },
+      priceFormat: {
+        type: "price",
+        precision,
+        minMove: 10 ** -precision,
+      },
     });
-    candleSeries.setData(candles);
+    candleSeries.setData(session.candles.map(toChartCandle));
 
     const volumeSeries = chart.addSeries(HistogramSeries, {
       priceScaleId: "volume",
@@ -70,26 +66,48 @@ export function ReferenceChart() {
     volumeSeries.priceScale().applyOptions({
       scaleMargins: { top: 0.78, bottom: 0 },
     });
-    volumeSeries.setData(volume);
-
-    const profile = new LiquidityProfilePrimitive([
-      { price: 0.242, weight: 32 },
-      { price: 0.251, weight: 78 },
-      { price: 0.259, weight: 100 },
-      { price: 0.267, weight: 58 },
-    ]);
-    candleSeries.attachPrimitive(profile);
+    volumeSeries.setData(session.candles.map(toChartVolume));
     chart.timeScale().fitContent();
 
     return () => chart.remove();
-  }, []);
+  }, [session]);
 
   return (
     <div
       ref={containerRef}
       className="chart-canvas"
-      aria-label="Sample reference candlestick chart with liquidity profile"
+      aria-label={
+        session
+          ? `${session.token.symbol} ${session.basis.label} reference candlestick chart`
+          : "Reference candlestick chart awaiting a token"
+      }
       role="img"
     />
   );
+}
+
+function toChartCandle(candle: ValuationCandle): CandlestickData<UTCTimestamp> {
+  return {
+    time: candle.time as UTCTimestamp,
+    open: candle.open,
+    high: candle.high,
+    low: candle.low,
+    close: candle.close,
+  };
+}
+
+function toChartVolume(candle: ValuationCandle): HistogramData<UTCTimestamp> {
+  return {
+    time: candle.time as UTCTimestamp,
+    value: candle.volume,
+    color: candle.close >= candle.open ? "#3ecf8e88" : "#ff6b7a88",
+  };
+}
+
+function pricePrecision(candles: ValuationCandle[]): number {
+  const last = candles.at(-1)?.close ?? 1;
+  if (last >= 1_000) return 0;
+  if (last >= 1) return 2;
+  if (last >= 0.01) return 4;
+  return 8;
 }

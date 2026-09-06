@@ -3,6 +3,7 @@ export class ProviderRequestError extends Error {
     readonly provider: string,
     readonly status: number | undefined,
     message: string,
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = "ProviderRequestError";
@@ -34,10 +35,12 @@ export async function requestJson<T>(
     });
 
     if (!response.ok) {
+      const retryAfter = response.headers.get("retry-after");
       throw new ProviderRequestError(
         provider,
         response.status,
         `${provider} request failed with HTTP ${response.status}.`,
+        retryAfter ? parseRetryAfter(retryAfter) : undefined,
       );
     }
 
@@ -63,4 +66,12 @@ export async function requestJson<T>(
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+function parseRetryAfter(value: string): number | undefined {
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1_000;
+
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined;
 }
