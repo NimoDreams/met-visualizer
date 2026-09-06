@@ -40,17 +40,39 @@ test("@provider Meteora metadata accepts the intended browser request shape", as
     const query = new URLSearchParams({
       filter_by: `token_x=${mint}`,
       sort_by: "tvl:desc",
-      page_size: "1",
+      page_size: "20",
+      page: "1",
     });
     const response = await fetch(
       `https://dlmm.datapi.meteora.ag/pools?${query.toString()}`,
       { headers: { Accept: "application/json" } },
     );
+    const body: unknown = response.ok ? await response.json() : undefined;
+    let shape:
+      | {
+          currentPage: unknown;
+          pageCount: unknown;
+          pageSize: unknown;
+          total: unknown;
+          rows: number;
+        }
+      | undefined;
+    if (body && typeof body === "object") {
+      const record = body as Record<string, unknown>;
+      shape = {
+        currentPage: record.current_page,
+        pageCount: record.pages,
+        pageSize: record.page_size,
+        total: record.total,
+        rows: Array.isArray(record.data) ? record.data.length : -1,
+      };
+    }
     return {
       ok: response.ok,
       status: response.status,
       type: response.type,
       contentType: response.headers.get("content-type"),
+      shape,
     };
   }, JUP_MINT);
 
@@ -60,4 +82,9 @@ test("@provider Meteora metadata accepts the intended browser request shape", as
     type: "cors",
   });
   expect(result.contentType).toContain("application/json");
+  expect(result.shape).toMatchObject({ currentPage: 1, pageSize: 20 });
+  expect(result.shape?.rows).toBeGreaterThan(0);
+  expect(Number(result.shape?.pageCount)).toBe(
+    Math.ceil(Number(result.shape?.total) / 20),
+  );
 });

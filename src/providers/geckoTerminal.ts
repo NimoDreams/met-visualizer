@@ -286,6 +286,8 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
   }
 }
 
+export const publicGeckoTerminalProvider = new PublicGeckoTerminalProvider();
+
 function parsePool(
   value: unknown,
   mint: string,
