@@ -457,6 +457,98 @@ button:disabled {
   line-height: 1.45;
 }
 
+.pool-positions {
+  padding: 0 12px 14px;
+  border-top: 1px solid #27364d;
+  background: #101827;
+}
+
+.position-progress,
+.position-coverage {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid #2d4c48;
+  border-radius: 7px;
+  color: #94a5ba;
+  font-size: 0.68rem;
+}
+
+.position-progress button {
+  justify-self: start;
+  margin-top: 5px;
+}
+
+.position-progress.warning {
+  border-color: #705a2a;
+}
+
+.position-coverage strong {
+  color: #69dda9;
+}
+
+.position-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.position-actions button,
+.position-error button,
+.position-progress button {
+  padding: 6px 8px;
+  font-size: 0.65rem;
+}
+
+.position-list {
+  display: grid;
+  max-height: 300px;
+  overflow: auto;
+  border: 1px solid #27364d;
+  border-radius: 7px;
+}
+
+.position-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #27364d;
+  font-size: 0.68rem;
+}
+
+.position-row:last-child {
+  border-bottom: 0;
+}
+
+.position-row span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.position-row small {
+  overflow: hidden;
+  color: #7f90a7;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.position-row b {
+  color: #cbd6e4;
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
+.position-metrics {
+  margin: 10px 0 0;
+  color: #71839c;
+  font-size: 0.63rem;
+}
+
 .pool-footnote {
   margin: 12px 0 0;
   line-height: 1.5;

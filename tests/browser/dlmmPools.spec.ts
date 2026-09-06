@@ -7,6 +7,7 @@ import {
   tokenResponse,
 } from "../../src/test/fixtures/geckoTerminal";
 import oracle from "../../src/test/fixtures/lbPairOracle.json" with { type: "json" };
+import positionOracle from "../../src/test/fixtures/positionOracle.json" with { type: "json" };
 
 test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async ({
   page,
@@ -90,19 +91,40 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
         filters: Array<{ memcmp: { bytes: string; offset: number } }>;
       };
       const positionProbe = config.filters[0]?.memcmp.bytes === "LgkNAEYaVX3";
+      const binArrayScan = config.filters[0]?.memcmp.bytes === "GUunkrC2gRJ";
       const tokenYScan = config.filters[1]?.memcmp.offset === 120;
       result = {
-        context: { slot: positionProbe ? 102 : 100 },
-        value:
-          positionProbe || tokenYScan
-            ? [{ pubkey: oracle.address, account: rpcAccount("") }]
-            : [],
+        context: { slot: binArrayScan ? 105 : positionProbe ? 103 : 100 },
+        value: binArrayScan
+          ? positionOracle.binArrayData.map((data, index) => ({
+              pubkey: `bin-${index}`,
+              account: rpcAccount(data),
+            }))
+          : positionProbe
+            ? [
+                {
+                  pubkey: positionOracle.owner,
+                  account: rpcAccount(""),
+                },
+              ]
+            : tokenYScan
+              ? [{ pubkey: oracle.address, account: rpcAccount("") }]
+              : [],
       };
     } else if (body.method === "getMultipleAccounts") {
+      const addresses = body.params[0] as string[];
       result = {
-        context: { slot: 101 },
-        value: [rpcAccount(oracle.data)],
+        context: { slot: addresses[0] === oracle.address ? 101 : 104 },
+        value: addresses.map((address) =>
+          rpcAccount(
+            address === oracle.address
+              ? oracle.data
+              : positionOracle.positionData,
+          ),
+        ),
       };
+    } else if (body.method === "getTokenSupply") {
+      result = { context: { slot: 105 }, value: { amount: "1", decimals: 6 } };
     } else {
       result = { value: null };
     }
@@ -125,6 +147,8 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   await page.getByText("JUP-SOL").click();
   await expect(page.getByText(oracle.address, { exact: true })).toBeVisible();
   await expect(page.getByText("1", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 / 1 positions loaded")).toBeVisible();
+  await expect(page.getByText("Value coverage: 100.0%")).toBeVisible();
 
   expect(externalRequests.every((url) => !url.includes(rpcMarker))).toBe(true);
   expect(page.url()).not.toContain(rpcMarker);

@@ -194,3 +194,19 @@ identify its denominator and cannot stand in for pool-wide coverage.
 See the [MVP spec](specs/mvp.md), the
 [reference-market contract](specs/reference-market.md), and
 [position-control contract](specs/position-controls.md).
+
+Issue #19 implements the portable PositionV2 path with a zero-byte key scan,
+full account hydration in batches of 100, one pool-filtered BinArray scan, and a
+quote-token supply read. A contiguous standard-RPC `dataSlice` cannot contain
+both the fixed share vector, trailing bin bounds, and variable extension shares,
+so the portable implementation uses the approved ordinary bounded fallback. It
+immediately discards account bytes after producing compact decoded inputs, then
+performs exact share/bin valuation and sorting in an abortable Web Worker.
+
+Project-owned PositionV2, `positionBinData`, and BinArray layouts are checked
+against `@meteora-ag/dlmm` 1.9.14 and its IDL at commit
+`576919e3e4368e542c402f000b4264724f7f23ec`. Position accounts must have the
+exact base-plus-extension length implied by their bin range; a mismatch fails
+closed rather than understating liquidity. Every position, bin-array, and token
+supply response joins the published RPC context-slot range and must meet the
+latest requested minimum slot.
