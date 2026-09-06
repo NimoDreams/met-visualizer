@@ -1,30 +1,41 @@
 # Roadmap
 
-This roadmap is intentionally sparse. Create phases after the project idea,
-constraints, and initial technical direction are understood.
+## Phase 0 — Direction And Feasibility (Active)
 
-## Phase 0: Project Foundation And Roadmap Planning
+1. Review the documented product direction and MVP acceptance criteria.
+2. Validate free candle access and RPC position loading independently.
+3. Resolve technical proposals using the evidence.
+4. Obtain user acceptance of Phase 0 and explicit implementation authorization.
 
-Establish the project operating model and define the first actionable roadmap.
+Exit evidence: reviewed MVP spec, candle/RPC feasibility findings or explicitly
+accepted limitations, selected stack/local workflow, agreed branch strategy,
+and a scoped first developer handoff. The user decides when this is satisfactory.
 
-Expected outcomes:
+The [Phase 0 milestone](https://github.com/NimoDreams/met-visualizer/milestone/1)
+and [epic #1](https://github.com/NimoDreams/met-visualizer/issues/1) track active work:
 
-- Project documentation skeleton.
-- Agent role and workflow conventions.
-- GitHub issue/milestone conventions.
-- Safety and privacy posture.
-- Initial roadmap planning issue.
-- Initial product definition for Meteora LP position visualization.
-- Initial technical/provider boundary decisions.
+- [#2: Spec and documentation review](https://github.com/NimoDreams/met-visualizer/issues/2)
+- [#3: Candle feasibility](https://github.com/NimoDreams/met-visualizer/issues/3)
+- [#4: RPC position feasibility](https://github.com/NimoDreams/met-visualizer/issues/4)
+- [#5: Technical direction and user gate](https://github.com/NimoDreams/met-visualizer/issues/5)
 
-Non-goals:
+Current authorization covers
+documentation and GitHub planning. Creating feasibility issues does not start
+a product scaffold, deployment, paid service, or private-credential test.
 
-- Broad implementation before planning.
-- Committing secrets or sensitive local data.
-- Choosing external services before the project needs are clear.
-- Adding trading, signing, wallet connection, swaps, liquidity mutation, or
-  transaction behavior.
+## Proposed MVP Delivery (Not Yet Authorized)
 
-## Future Roadmap
+1. One complete path: CA → reference chart → one DLMM pool → a position's
+   liquidity overlay. This is an intermediate slice, not the complete MVP.
+2. Expand to discovered pools/positions, selection, aggregation, and size filters,
+   with honest loading and coverage.
+3. Complete refresh/recovery, in-app Docs, accessibility and small-screen behavior,
+   and static hosting verification. The user evaluates the full MVP.
 
-To be planned.
+Create implementation issues after the Phase 0 gate. Confirm and create dev
+before the first feature branch. Developers use issue-scoped branches/worktrees
+and PRs into dev; reviewers post readiness directly on GitHub. Promotion to main
+follows the [promotion workflow](workflows/dev-to-main-promotion.md) and requires
+user approval.
+
+No trading or fund-movement features are planned. Further phases remain open.
