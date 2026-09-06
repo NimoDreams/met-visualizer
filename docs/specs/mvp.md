@@ -50,20 +50,57 @@ mutation, transaction submission, and fund movement.
 - Reference-market changes are visible and reload the series. No automatic
   candle-provider fallback is approved for the MVP.
 
+## Agreed Progressive Loading
+
+Load the chart and pool discovery in parallel. After the initial meaningful
+DLMM pool is selected, first discover its position keys and count. Small pools
+may load in full. Large pools use a staged path so the first visualization
+represents the positions with the greatest current value rather than an
+arbitrary account batch.
+
+A large-pool ranking pass must inspect every position at least compactly. The
+standard RPC does not sort positions by size, and raw liquidity shares are not
+comparable across bins. Rank by current normalized position value calculated
+from position shares and current bin balances. Dynamically extended positions
+must include their extension data before ranking so they are not understated.
+
+The provisional initial target follows these guardrails:
+
+- load at least 25 positions when available;
+- after that minimum, stop when about 80% of current decoded LP position value
+  is represented; and
+- stop at roughly 100 positions even when value coverage is lower.
+
+Implementation evidence may tune these thresholds and add a decoded-byte
+budget. The interface must state the achieved position-count and value coverage,
+for example, `87 of 1,800 positions · 81.4% of current LP value`. It must offer
+load-next, load-all, and cancel controls without implying that partial coverage
+is complete.
+
+The 80% stopping target applies only when every discovered position has a
+current value and the full denominator is known. If valuation is missing or the
+RPC falls back to ordinary batches, show total value coverage as unknown. A
+percentage calculated for a valued subset must name that subset and cannot
+satisfy the total-value target.
+
+Initially loaded positions are selected automatically. Once the user manually
+changes position selection, later batches remain unselected so loading does not
+change the visualization unexpectedly. If a compatible RPC cannot support the
+ranking pass, load ordinary bounded batches and state that the partial result is
+not guaranteed to contain the largest positions.
+
 ## Proposed Defaults — Awaiting Approval
 
-- Enable one meaningful DLMM pool initially. Within each user-enabled pool, all
-  discovered positions are logically selected by default. Progressive loading
-  shows loaded contributions with honest coverage. Do not hydrate every pool's
-  positions eagerly; settle pool ranking and new-position behavior.
+- Enable one meaningful DLMM pool initially; its exact ranking and tie-breaking
+  policy remain open. Do not hydrate every pool's positions eagerly.
 - USD token price, 15-minute initial candles, and candle polling no faster than
   once per 60 seconds while visible. These candle defaults are supported by
   [Phase 0 evidence](../reviews/phase-0-candle-feasibility.md); RPC refresh has
   its own budget and status. Use explicit RPC refresh for the MVP.
 - Stable session reference chosen using available history, recent activity,
   and liquidity. Exact ranking, tie-breaking, and manual override remain open.
-- Size filters use a labeled common valuation basis; settle thresholds, sorting,
-  missing valuations, and how manual selection interacts with filtering.
+- Size filters use the same labeled valuation basis as loading priority; settle
+  filter thresholds and missing-valuation behavior.
 
 ## First Usable Release Acceptance
 

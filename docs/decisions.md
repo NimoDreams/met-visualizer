@@ -66,3 +66,24 @@ Consequence: Budget for approximately ten calls/minute, present freshness and
 missing data honestly, and recheck the deployed GitHub Pages origin and provider
 terms before release. Meteora OHLCV remains an unapproved comparison source
 until its units and usable range are validated.
+
+## 2026-09-06: Prioritize Large Positions During Progressive Loading
+
+Context: Some tokens have hundreds of DLMM pools and individual pools can have
+thousands of positions. Loading every full account before showing useful data
+would spend excessive user RPC bandwidth and delay the visualization.
+
+Decision: Load small enabled pools completely. For a large enabled pool, inspect
+all positions through a compact ranking pass, calculate current normalized
+position value from shares and bin balances, and render the largest positions
+first. Start with targets of at least 25 positions, about 80% of decoded value,
+and a cap near 100 positions, then tune from implementation evidence. Provide
+load-next, load-all, cancellation, and explicit count/value coverage.
+
+Consequence: The initial chart becomes useful before full hydration while still
+describing partial coverage honestly. Raw share totals cannot determine size;
+dynamic positions need extension data. A provider that cannot support compact
+ranking falls back to bounded ordinary batches labeled as unordered partial
+coverage. Manual selection stops later batches from being auto-selected.
+The 80% target applies only when the complete valuation denominator is known;
+otherwise value coverage is unknown and cannot trigger that stopping rule.
