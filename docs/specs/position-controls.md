@@ -37,6 +37,14 @@ positions whose values are currently known in those pools. Discovered pools that
 have not been enabled or ranked, incomplete pool loads, and positions with
 unavailable values are outside that denominator.
 
+The global enabled-pool denominator is complete only when every position
+discovered in every enabled pool has a current USD value from the same refresh
+generation. Values produced by the compact ranking pass qualify; a position does
+not need full display hydration. An in-progress or failed enabled-pool scan,
+ranking pass, bin read, or conversion makes the denominator incomplete. Disabled
+and unopened pools are explicitly outside this scope and do not prevent the
+enabled-pool denominator from becoming complete.
+
 State the scope beside the controls, for example:
 
 ```text
@@ -57,9 +65,9 @@ ordering and result against the new observed universe.
 - Provide a global minimum-USD input with no hard-coded dust threshold. Token and
   pool scales vary too widely for one default dollar cutoff.
 - Provide a `Largest contributors` action that includes positions from largest
-  downward until they represent about 80% of the complete known valued universe.
-  Disable that action when the denominator is incomplete; do not substitute a
-  percentage of only the successful subset.
+  downward until they represent about 80% of the complete enabled-pool value.
+  Enable it only when the completeness predicate above is satisfied; do not
+  substitute a percentage of the successful or loaded subset.
 - Provide `Show all valued` and a clear-filter action. Keep the current threshold,
   contributor mode, result count, and covered value visible.
 - Apply the active filter to both the position list and liquidity overlay. Treat
