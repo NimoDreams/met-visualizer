@@ -85,14 +85,16 @@ describe("PublicGeckoTerminalProvider", () => {
   });
 
   it("shares a cached quote-price boundary for later position valuation", async () => {
-    const fetchMock = vi.spyOn(window, "fetch").mockResolvedValue(
-      Response.json({
-        data: {
-          id: "fixture",
-          type: "simple_token_price",
-          attributes: { token_prices: { [QUOTE_MINT]: "1.002" } },
-        },
-      }),
+    const fetchMock = vi.spyOn(window, "fetch").mockImplementation(() =>
+      Promise.resolve(
+        Response.json({
+          data: {
+            id: "fixture",
+            type: "simple_token_price",
+            attributes: { token_prices: { [QUOTE_MINT]: "1.002" } },
+          },
+        }),
+      ),
     );
     const provider = new PublicGeckoTerminalProvider(new PublicRequestBudget());
 
@@ -101,8 +103,12 @@ describe("PublicGeckoTerminalProvider", () => {
     const [firstResult, secondResult] = await Promise.all([first, second]);
 
     expect(firstResult.get(QUOTE_MINT)?.priceUsd).toBe(1.002);
+    expect(firstResult.get(QUOTE_MINT)?.priceUsdExact).toBe("1.002");
     expect(secondResult.get(QUOTE_MINT)?.priceUsd).toBe(1.002);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await provider.getQuotePrices([QUOTE_MINT], { fresh: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("classifies provider schema changes and rate limits distinctly", async () => {

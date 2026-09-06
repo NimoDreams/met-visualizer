@@ -1,5 +1,12 @@
 import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
 import { useDlmmPools } from "../app/useDlmmPools";
+import { usePoolPositions } from "../app/usePoolPositions";
+import type { DlmmPoolItem } from "../domain/dlmmPools";
+import {
+  addRational,
+  rationalPercentage,
+  type Rational,
+} from "../domain/positionValuation";
 
 type DlmmPoolsPanelProps = {
   mint?: string;
@@ -42,11 +49,12 @@ export function DlmmPoolsPanel({ mint, rpc }: DlmmPoolsPanelProps) {
           <p>{state.message}</p>
         </div>
       ) : null}
-      {state.status === "ready" ? (
+      {state.status === "ready" && rpc ? (
         <PoolResults
           session={state.session}
           actionError={state.actionError}
           onToggle={toggle}
+          rpc={rpc}
         />
       ) : null}
     </aside>
@@ -57,6 +65,7 @@ function PoolResults({
   session,
   actionError,
   onToggle,
+  rpc,
 }: {
   session: Extract<
     ReturnType<typeof useDlmmPools>["state"],
@@ -64,6 +73,7 @@ function PoolResults({
   >["session"];
   actionError?: string;
   onToggle: (address: string) => void;
+  rpc: ReadOnlySolanaRpc;
 }) {
   return (
     <>
@@ -183,6 +193,15 @@ function PoolResults({
                   ) : null}
                 </dl>
                 <p className="pool-detail-note">{pool.qualificationDetail}</p>
+                {enabled && ready ? (
+                  <PoolPositions
+                    key={pool.address}
+                    pool={pool}
+                    mint={session.mint}
+                    minContextSlot={session.maximumSlot}
+                    rpc={rpc}
+                  />
+                ) : null}
               </details>
             );
           })}
@@ -190,9 +209,9 @@ function PoolResults({
       )}
       <p className="pool-footnote">
         RPC is authoritative for pool identity. Meteora’s keyless API ranks
-        current candidates. Position counts are loaded only for up to three
-        initial candidates; full positions arrive in the next implementation
-        step.
+        current candidates. Enabled pools discover and value PositionV2 accounts
+        from the connected RPC; no endpoint data is sent to either public
+        provider.
       </p>
       <p className="pool-footnote">
         RPC slots {session.minimumSlot.toLocaleString()}–
@@ -200,6 +219,177 @@ function PoolResults({
         ranking requests
       </p>
     </>
+  );
+}
+
+function PoolPositions({
+  rpc,
+  pool,
+  mint,
+  minContextSlot,
+}: {
+  rpc: ReadOnlySolanaRpc;
+  pool: DlmmPoolItem;
+  mint: string;
+  minContextSlot: number;
+}) {
+  const { state, cancel, restart, refresh, reveal, toggle } = usePoolPositions(
+    rpc,
+    pool,
+    mint,
+    minContextSlot,
+  );
+  if (state.status === "loading") {
+    return (
+      <div className="position-progress" role="status">
+        <strong>Loading positions…</strong>
+        <span>
+          {state.progress.hydrated.toLocaleString()} of{" "}
+          {state.progress.discovered.toLocaleString()} accounts hydrated
+        </span>
+        <button className="button-secondary" type="button" onClick={cancel}>
+          Cancel
+        </button>
+      </div>
+    );
+  }
+  if (state.status === "cancelled") {
+    return (
+      <div className="position-progress warning" role="status">
+        <span>
+          Loading cancelled after {state.progress.hydrated.toLocaleString()} of{" "}
+          {state.progress.discovered.toLocaleString()} accounts.
+        </span>
+        <button className="button-secondary" type="button" onClick={restart}>
+          Restart
+        </button>
+      </div>
+    );
+  }
+  if (state.status === "error") {
+    return (
+      <div className="market-error position-error" role="alert">
+        <strong>Positions unavailable</strong>
+        <p>{state.message}</p>
+        <button className="button-secondary" type="button" onClick={restart}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const { session } = state;
+  const visible = session.positions.slice(0, session.visibleCount);
+  const loadedValue = visible.reduce<Rational>(
+    (sum, position) =>
+      position.valueUsd ? addRational(sum, position.valueUsd) : sum,
+    { numerator: 0n, denominator: 1n },
+  );
+  const valuePercent =
+    session.valueCoverage === "complete" && session.totalValueUsd
+      ? rationalPercentage(loadedValue, session.totalValueUsd)
+      : undefined;
+  return (
+    <section className="pool-positions" aria-label="Pool positions">
+      <div className="position-coverage">
+        <strong>
+          {session.visibleCount.toLocaleString()} /{" "}
+          {session.discoveredCount.toLocaleString()} positions loaded
+        </strong>
+        <span>
+          Value coverage:{" "}
+          {valuePercent === undefined
+            ? "Unknown (subset)"
+            : `${valuePercent.toFixed(1)}%`}
+        </span>
+        <span>
+          {session.selectedAddresses.length.toLocaleString()} loaded positions
+          selected
+        </span>
+        <span>
+          {session.binArrayCount.toLocaleString()} bin arrays loaded
+          {session.missingBinCount > 0
+            ? ` · ${session.missingBinCount.toLocaleString()} bins unavailable`
+            : ""}
+        </span>
+      </div>
+      <p className="pool-detail-note">{session.detail}</p>
+      {session.quoteObservedAt ? (
+        <p className="pool-detail-note">
+          USD quote observed{" "}
+          {new Date(session.quoteObservedAt).toLocaleTimeString()} via
+          GeckoTerminal
+          {session.quotePriceUsdExact
+            ? ` ($${session.quotePriceUsdExact})`
+            : ""}
+        </p>
+      ) : null}
+      {session.stale && state.actionError ? (
+        <div className="market-action-error" role="alert">
+          Position refresh failed. Last-good snapshot remains visible.{" "}
+          {state.actionError}
+        </div>
+      ) : null}
+      <div className="position-actions">
+        <button
+          className="button-secondary"
+          type="button"
+          disabled={state.refreshing}
+          onClick={refresh}
+        >
+          {state.refreshing ? "Refreshing…" : "Refresh positions"}
+        </button>
+        {state.refreshing ? (
+          <button className="button-secondary" type="button" onClick={cancel}>
+            Cancel refresh
+          </button>
+        ) : null}
+        {session.visibleCount < session.positions.length ? (
+          <>
+            <button
+              className="button-secondary"
+              type="button"
+              onClick={() => reveal("next")}
+            >
+              Load next 100
+            </button>
+            <button
+              className="button-secondary"
+              type="button"
+              onClick={() => reveal("all")}
+            >
+              Load all
+            </button>
+          </>
+        ) : null}
+      </div>
+      <div className="position-list">
+        {visible.map((position) => (
+          <label className="position-row" key={position.address}>
+            <input
+              type="checkbox"
+              checked={session.selectedAddresses.includes(position.address)}
+              onChange={() => toggle(position.address)}
+            />
+            <span>
+              <strong>{shortAddress(position.address)}</strong>
+              <small>
+                bins {position.lowerBinId}–{position.upperBinId} · owner{" "}
+                {shortAddress(position.owner)}
+              </small>
+            </span>
+            <b>{formatUsdMicros(position.valueUsdMicros)}</b>
+          </label>
+        ))}
+      </div>
+      <p className="position-metrics">
+        RPC slots {session.minimumSlot.toLocaleString()}–
+        {session.maximumSlot.toLocaleString()} · {session.requests} RPC requests
+        · {formatBytes(session.bytes)} · {session.elapsedMs.toLocaleString()} ms
+        · observed {new Date(session.observedAt).toLocaleTimeString()} ·
+        portable batched RPC
+      </p>
+    </section>
   );
 }
 
@@ -238,4 +428,18 @@ function formatUsd(value: number): string {
     notation: value >= 10_000 ? "compact" : "standard",
     maximumFractionDigits: value >= 10_000 ? 1 : 0,
   }).format(value);
+}
+
+function formatUsdMicros(value?: bigint): string {
+  if (value === undefined) return "Value unknown";
+  const cents = (value + 5_000n) / 10_000n;
+  const dollars = cents / 100n;
+  const fraction = (cents % 100n).toString().padStart(2, "0");
+  return `$${dollars.toLocaleString()}.${fraction}`;
+}
+
+function formatBytes(value: number): string {
+  return value >= 1_000_000
+    ? `${(value / 1_000_000).toFixed(1)} MB`
+    : `${Math.round(value / 1_000)} KB`;
 }

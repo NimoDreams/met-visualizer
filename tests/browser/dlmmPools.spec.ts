@@ -7,6 +7,8 @@ import {
   tokenResponse,
 } from "../../src/test/fixtures/geckoTerminal";
 import oracle from "../../src/test/fixtures/lbPairOracle.json" with { type: "json" };
+import positionOracle from "../../src/test/fixtures/positionOracle.json" with { type: "json" };
+import { encodeBase58 } from "../../src/domain/base58";
 
 test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async ({
   page,
@@ -14,6 +16,9 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   const rpcMarker = "dlmm-browser-secret";
   const externalRequests: string[] = [];
   const now = Math.floor(Date.now() / 1_000);
+  const positionAddresses = Array.from({ length: 1_800 }, (_, index) =>
+    numberedAddress(index),
+  );
 
   await page.route("https://api.geckoterminal.com/**", async (route) => {
     const url = route.request().url();
@@ -90,19 +95,38 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
         filters: Array<{ memcmp: { bytes: string; offset: number } }>;
       };
       const positionProbe = config.filters[0]?.memcmp.bytes === "LgkNAEYaVX3";
+      const binArrayScan = config.filters[0]?.memcmp.bytes === "GUunkrC2gRJ";
       const tokenYScan = config.filters[1]?.memcmp.offset === 120;
       result = {
-        context: { slot: positionProbe ? 102 : 100 },
-        value:
-          positionProbe || tokenYScan
-            ? [{ pubkey: oracle.address, account: rpcAccount("") }]
-            : [],
+        context: { slot: binArrayScan ? 105 : positionProbe ? 103 : 100 },
+        value: binArrayScan
+          ? positionOracle.binArrayData.map((data, index) => ({
+              pubkey: `bin-${index}`,
+              account: rpcAccount(data),
+            }))
+          : positionProbe
+            ? positionAddresses.map((pubkey) => ({
+                pubkey,
+                account: rpcAccount(""),
+              }))
+            : tokenYScan
+              ? [{ pubkey: oracle.address, account: rpcAccount("") }]
+              : [],
       };
     } else if (body.method === "getMultipleAccounts") {
+      const addresses = body.params[0] as string[];
       result = {
-        context: { slot: 101 },
-        value: [rpcAccount(oracle.data)],
+        context: { slot: addresses[0] === oracle.address ? 101 : 104 },
+        value: addresses.map((address) =>
+          rpcAccount(
+            address === oracle.address
+              ? poolAtActiveBinZero()
+              : positionOracle.positionData,
+          ),
+        ),
       };
+    } else if (body.method === "getTokenSupply") {
+      result = { context: { slot: 105 }, value: { amount: "1", decimals: 6 } };
     } else {
       result = { value: null };
     }
@@ -124,7 +148,14 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   await expect(page.getByText("Ready", { exact: true })).toBeVisible();
   await page.getByText("JUP-SOL").click();
   await expect(page.getByText(oracle.address, { exact: true })).toBeVisible();
-  await expect(page.getByText("1", { exact: true })).toBeVisible();
+  await expect(page.getByText("1,800", { exact: true })).toBeVisible();
+  await expect(page.getByText("100 / 1,800 positions loaded")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByText("Value coverage: 5.5%")).toBeVisible();
+  await expect(
+    page.getByText(/USD quote observed.*GeckoTerminal/),
+  ).toBeVisible();
 
   expect(externalRequests.every((url) => !url.includes(rpcMarker))).toBe(true);
   expect(page.url()).not.toContain(rpcMarker);
@@ -141,4 +172,17 @@ function rpcAccount(data: string) {
     lamports: 1,
     owner: oracle.owner,
   };
+}
+
+function numberedAddress(index: number): string {
+  const bytes = new Uint8Array(32);
+  new DataView(bytes.buffer).setUint32(28, index + 1, false);
+  return encodeBase58(bytes);
+}
+
+function poolAtActiveBinZero(): string {
+  const bytes = Buffer.from(oracle.data, "base64");
+  bytes.writeInt32LE(0, 76);
+  bytes.writeUInt16LE(100, 80);
+  return bytes.toString("base64");
 }
