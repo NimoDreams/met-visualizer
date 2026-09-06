@@ -21,7 +21,9 @@ mutation, transaction submission, and fund movement.
    occupy 25–33%. Specify a usable small-screen layout before implementation.
 3. Familiar candles, volume, crosshair, pan/zoom, and timeframe controls. Identify
    provider, reference pool/DEX, and denomination. The reference market may be
-   Raydium or Orca while positions remain DLMM-only. Selection never changes candles.
+   Raydium or Orca while positions remain DLMM-only. Selection never changes
+   candles. Default to verified Market Cap (USD), fall back to explicitly labeled
+   FDV (USD), and use Price (USD) only when neither supply basis is available.
 4. Expandable pools and positions with checkboxes, identifiers, and size/range
    context. Collapsing a pool does not deselect positions.
 5. Combined selected liquidity appears as horizontal bars aligned to price.
@@ -31,7 +33,8 @@ mutation, transaction submission, and fund movement.
    historical candle. Show update status and coverage beside it.
 7. A small Docs tab explains onboarding, session-only RPC, sources, refresh,
    reference markets, normalization, selection/filter semantics, and limitations.
-   Link to it from the visualization.
+   It must explain the Market Cap/FDV distinction and that historical valuation
+   candles use the current session supply. Link to it from the visualization.
 
 ## Data And Failure Behavior
 
@@ -49,6 +52,8 @@ mutation, transaction submission, and fund movement.
   must not overwrite a newer search.
 - Reference-market changes are visible and reload the series. No automatic
   candle-provider fallback is approved for the MVP.
+- Keep the reference market fixed for the token session. A refresh failure keeps
+  last-good candles visibly stale and never silently switches pools.
 
 ## Agreed Progressive Loading
 
@@ -93,14 +98,32 @@ not guaranteed to contain the largest positions.
 
 - Enable one meaningful DLMM pool initially; its exact ranking and tie-breaking
   policy remain open. Do not hydrate every pool's positions eagerly.
-- USD token price, 15-minute initial candles, and candle polling no faster than
-  once per 60 seconds while visible. These candle defaults are supported by
-  [Phase 0 evidence](../reviews/phase-0-candle-feasibility.md); RPC refresh has
-  its own budget and status. Use explicit RPC refresh for the MVP.
-- Stable session reference chosen using available history, recent activity,
-  and liquidity. Exact ranking, tie-breaking, and manual override remain open.
 - Size filters use the same labeled valuation basis as loading priority; settle
   filter thresholds and missing-valuation behavior.
+
+## Approved Reference And Denomination Defaults
+
+- Use GeckoTerminal's liquidity-and-volume-ranked token pools. Check up to three
+  candidates and choose the highest-ranked usable pool with enough history for
+  the approximately 24-hour viewport, treating a new pool's available lifetime
+  as enough. If none qualifies, use the highest-ranked candidate with any usable
+  candles and label its history limited. Do not prefer a DEX by name.
+- Keep the selected reference stable. Manual changes reload the series; refresh
+  failures retain stale last-good data without automatic switching.
+- Use Market Cap (USD) only when the keyless public GeckoTerminal response
+  supplies a non-null verified value, without an FDV fallback. Otherwise use the
+  current RPC mint supply and label the result FDV (USD). A supply failure
+  degrades to Price (USD). No market-data credential is introduced.
+- Use 15-minute initial candles and poll no faster than once per 60 seconds while
+  visible. RPC liquidity, mint supply, and enabled-pool quote conversions refresh
+  explicitly. All GeckoTerminal metadata, pool, candle, and quote-conversion
+  reads share one approximately ten-request-per-minute budget.
+- Convert enabled DLMM bins to the entered token's USD price with current public
+  quote-token prices, then apply the chart's supply basis. Unsupported conversion
+  disables that pool's common-axis overlay without hiding its positions.
+
+See [reference market and valuation axis](reference-market.md) for the complete
+contract and required in-app disclosure.
 
 ## First Usable Release Acceptance
 

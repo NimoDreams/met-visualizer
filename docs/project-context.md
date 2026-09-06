@@ -24,6 +24,13 @@ Public free APIs may supply data without additional credentials; GeckoTerminal
 is the agreed starting candle source. Include an in-app Docs tab and visible
 source, freshness, and coverage context. All functionality remains read-only.
 
+The chart defaults to verified Market Cap (USD). When circulating supply is not
+verified, it uses current RPC mint supply and explicitly says FDV (USD); if no
+supply basis is available, it degrades to Price (USD). A GeckoTerminal-ranked,
+validated reference pool stays fixed for the token session, and enabled Meteora
+bins use current public quote-token prices on the same valuation axis. See the
+[reference-market spec](specs/reference-market.md).
+
 GeckoTerminal candle feasibility and the portable/indexed RPC paths are
 independently reviewed. Large pools use approved progressive loading that
 prioritizes current position value and reports honest count/value coverage.
@@ -35,11 +42,9 @@ Docker Compose. See the [technical foundation](specs/technical-foundation.md).
 
 ## Outstanding Gates
 
-1. Approve exact reference-market ranking, denomination/conversion, refresh,
-   and fallback behavior.
-2. Approve size-filter units and thresholds, missing valuations, and responsive
+1. Approve size-filter units and thresholds, missing valuations, and responsive
    behavior.
-3. Obtain explicit user approval to end Phase 0 and begin implementation.
+2. Obtain explicit user approval to end Phase 0 and begin implementation.
 
 Create dev from the accepted Phase 0 main immediately before implementation;
 use issue-scoped developer branches/worktrees and independent review thereafter.

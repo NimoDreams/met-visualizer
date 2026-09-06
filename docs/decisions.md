@@ -135,3 +135,27 @@ target `dev`, and reviewed merge-commit promotions target `main`. Do not deploy
 Consequence: Pages stays disabled until the first approved deployment. CI uses
 no provider secret, actions are SHA-pinned, production accepts HTTPS RPCs only,
 and the exact Pages origin requires a pre-release browser smoke test.
+
+## 2026-09-06: Use A Stable Reference Market And Honest Valuation Labels
+
+Context: Traders commonly read token charts in USD market-cap terms, while a
+generic Solana RPC exposes total mint supply rather than circulating supply.
+GeckoTerminal returns verified market cap for some assets and `null` for
+unverified assets.
+
+Decision: Choose a stable session reference from the keyless public
+GeckoTerminal API's ranked pools, checking a bounded three candidates for usable
+correctly oriented USD candles and adequate history before using a limited-
+history fallback. Use Market Cap (USD) only for a non-null verified value without
+requesting an FDV fallback. Otherwise multiply USD prices by current RPC mint
+supply and label the axis FDV (USD); degrade to Price (USD) if no supply basis is
+available. Apply the same fixed supply basis to converted DLMM bin prices. Never
+switch reference pools silently or introduce a market-data credential.
+
+Consequence: The UI and Docs must identify the pool, DEX, provider, supply basis,
+conversion source, refresh cadence, and observation times. Historical valuation
+candles use the current session supply and do not claim historical supply. A
+pool without a supported USD quote conversion remains browsable but cannot join
+the common-axis overlay. All GeckoTerminal reads share one conservative public
+request budget; missing activity metadata produces unknown freshness rather than
+a false fresh-data claim.
