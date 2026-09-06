@@ -86,9 +86,11 @@ without changing the market-selection contract.
 Normalize every enabled DLMM pool so a bin's y-coordinate expresses the entered
 token's USD price, then multiply it by the same display supply used by candles.
 Use the current bin ratio and a public USD price for the pool's other token.
-Fetch conversions from the keyless public GeckoTerminal API only for enabled
-pools, cache them by mint, and record their source and observation time. Do not
-assume that a stablecoin equals exactly one dollar.
+Fetch conversions from the keyless public GeckoTerminal API for enabled pools
+and the bounded candidates being checked for initial enablement. Cache them by
+mint, reuse a successful candidate conversion after enabling, and record their
+source and observation time. Do not assume that a stablecoin equals exactly one
+dollar.
 
 Take conversion prices with the explicit RPC liquidity refresh rather than
 silently moving a snapshot on each candle poll. If a pool's other token has no
@@ -102,22 +104,34 @@ prices and quote conversions.
 ## Initially Enabled DLMM Pool
 
 Use Meteora's keyless public pool metadata to rank the RPC-discovered DLMM pools
-for the entered mint. Query both token orientations, reconcile every metadata
-address and mint relationship with decoded RPC results, and exclude blacklisted
-or non-positive-TVL entries from automatic selection.
+for the entered mint. Query the first 20 TVL-sorted results for both token
+orientations, reconcile every metadata address and mint relationship with decoded
+RPC results, and exclude blacklisted or non-positive-TVL entries from automatic
+selection. Merge the two orientations and resolve a three-candidate boundary tie
+with another page; if it cannot be resolved within the request budget, require a
+manual choice.
 
 Rank eligible pools by current reported USD TVL descending, then 24-hour USD
 volume descending, then pool address ascending. Probe at most three candidates
 in that order. Automatically enable the first with at least one PositionV2
 account and a supported common-axis USD conversion, then begin progressive
-position loading. Do not give the candle-reference pool special priority; the
+position loading. A candidate conversion check is allowed before enablement and
+is cached for reuse. Do not give the candle-reference pool special priority; the
 initial LP pool serves current liquidity relevance.
 
 Keep the enabled choice stable for the token session. Refresh its metadata
 without replacing it. If metadata is missing, inconsistent with RPC, or no
 candidate qualifies within the bounded probes, leave all pools disabled and ask
 the user to choose from the RPC-discovered list. Never choose an arbitrary RPC
-result-order pool. See the
+result-order pool. Permit one bounded metadata retry; treat a missing orientation,
+invalid/truncated page, non-monotonic TVL order, or unresolved boundary tie as an
+incomplete ranking that requires manual selection.
+
+After enablement, a metadata failure keeps the pool and last-good ranking data
+visibly stale. A quote-price failure keeps the pool selected and its last-good
+overlay visibly stale; without a prior conversion, disable only the common-axis
+overlay. Never clear position selections or choose another pool because a later
+provider refresh failed. See the
 [ranking feasibility report](../reviews/phase-0-pool-ranking-feasibility.md).
 
 ## Refresh And Request Budget
@@ -128,6 +142,8 @@ result-order pool. See the
   explicit RPC refresh. Do not poll large RPC snapshots.
 - Load Meteora ranking metadata on token load and explicit refresh. Keep its
   errors separate from GeckoTerminal and RPC, and never send it the user RPC.
+  Its request shape must pass a real browser check during implementation; a
+  non-browser client received HTTP 403 during independent review.
 - Cache market metadata and quote prices by mint, deduplicate in-flight reads,
   stop hidden-tab candle polling, and cancel work for an obsolete CA or RPC.
 - Route token metadata, pool discovery, OHLCV, and quote-token conversion through

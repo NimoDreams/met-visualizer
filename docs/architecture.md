@@ -62,7 +62,9 @@ supports exact mint filters, TVL sorting, volume, and blacklist metadata. A live
 request from the intended Pages origin returned permissive CORS. Use this keyless
 endpoint for initial DLMM-pool ranking, then reconcile addresses and orientation
 with RPC discovery. Do not use its pool metadata as a substitute for on-chain
-position or bin data. See the
+position or bin data. An independent non-browser client received HTTP 403, so a
+real browser fetch is an implementation gate before relying on automatic
+selection. See the
 [ranking feasibility report](reviews/phase-0-pool-ranking-feasibility.md).
 
 [DexPaprika](https://docs.dexpaprika.com/knowledge-base/response-headers)
