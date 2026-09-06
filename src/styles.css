@@ -271,6 +271,197 @@ button:disabled {
   padding: 20px;
 }
 
+.pool-panel-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pool-refresh {
+  padding: 7px 10px;
+  font-size: 0.72rem;
+}
+
+.pool-loading {
+  min-height: 300px;
+  padding: 28px;
+  border: 1px dashed #34445b;
+  border-radius: 10px;
+  color: #9cacbf;
+}
+
+.pool-status {
+  display: grid;
+  gap: 3px;
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #266f50;
+  border-radius: 8px;
+  color: #9cacbf;
+  background: #10251f;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.pool-status strong {
+  color: #69dda9;
+}
+
+.pool-status.warning {
+  border-color: #705a2a;
+  background: #251f12;
+}
+
+.pool-status.warning strong {
+  color: #ffd178;
+}
+
+.pool-list {
+  display: grid;
+  max-height: 650px;
+  overflow: auto;
+  border: 1px solid #27364d;
+  border-radius: 9px;
+}
+
+.pool-entry {
+  border-bottom: 1px solid #27364d;
+  background: #0c1421;
+}
+
+.pool-entry:last-child {
+  border-bottom: 0;
+}
+
+.pool-entry summary {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  padding: 11px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.pool-entry summary::-webkit-details-marker {
+  display: none;
+}
+
+.pool-entry summary::after {
+  position: absolute;
+  top: 50%;
+  right: 11px;
+  color: #71839c;
+  content: "+";
+  transform: translateY(-50%);
+}
+
+.pool-entry[open] summary::after {
+  content: "−";
+}
+
+.pool-entry summary > .pool-state {
+  grid-column: 3;
+  grid-row: 1;
+  margin-right: 20px;
+}
+
+.pool-entry input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #4fdb9a;
+}
+
+.pool-summary-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.pool-summary-copy strong,
+.pool-summary-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pool-summary-copy strong {
+  font-size: 0.78rem;
+}
+
+.pool-summary-copy small,
+.pool-detail-note,
+.pool-footnote {
+  color: #8494aa;
+  font-size: 0.68rem;
+}
+
+.pool-state {
+  padding: 3px 6px;
+  border: 1px solid #3b4b63;
+  border-radius: 999px;
+  color: #9cacbf;
+  font-size: 0.6rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pool-state-qualified {
+  color: #69dda9;
+  border-color: #266f50;
+}
+
+.pool-state-no-positions,
+.pool-state-no-conversion,
+.pool-state-decode-unavailable {
+  color: #ffd178;
+  border-color: #705a2a;
+}
+
+.pool-details {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+  border-top: 1px solid #27364d;
+  background: #101827;
+}
+
+.pool-details div {
+  min-width: 0;
+}
+
+.pool-details dt {
+  margin-bottom: 2px;
+  color: #71839c;
+  font-size: 0.61rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pool-details dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: #c4cfdd;
+  font-size: 0.68rem;
+}
+
+.pool-detail-note {
+  margin: 0;
+  padding: 0 12px 12px;
+  background: #101827;
+  line-height: 1.45;
+}
+
+.pool-footnote {
+  margin: 12px 0 0;
+  line-height: 1.5;
+}
+
 .panel-heading {
   display: flex;
   justify-content: space-between;

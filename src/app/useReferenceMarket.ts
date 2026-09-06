@@ -9,7 +9,7 @@ import {
 } from "../domain/referenceMarket";
 import {
   GeckoTerminalError,
-  PublicGeckoTerminalProvider,
+  publicGeckoTerminalProvider,
   type CandleInterval,
   type GeckoTerminalProvider,
 } from "../providers/geckoTerminal";
@@ -34,12 +34,10 @@ export type ReferenceMarketState =
       actionError?: string;
     };
 
-const defaultProvider = new PublicGeckoTerminalProvider();
-
 export function useReferenceMarket(
   mint: string | undefined,
   rpc: ReadOnlySolanaRpc | undefined,
-  provider: GeckoTerminalProvider = defaultProvider,
+  provider: GeckoTerminalProvider = publicGeckoTerminalProvider,
 ) {
   const [state, setState] = useState<ReferenceMarketState>({ status: "idle" });
   const sessionController = useRef<AbortController | undefined>(undefined);
