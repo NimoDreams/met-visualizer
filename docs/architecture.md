@@ -82,6 +82,10 @@ origin behavior remains a pre-release smoke test.
 - Track snapshot consistency and discovered/loaded/selected coverage separately.
   Define compatible RPC capabilities rather than promising every endpoint can
   serve large account scans.
+- Calculate position size from current per-bin principal valued in USD. Apply one
+  filter across the known valued positions in enabled pools, while keeping
+  incomplete and unavailable data outside its denominator and visibly accounted
+  for.
 - Keep reference candles independent of position selection. Reload and identify
   changed sources/pools instead of silently splicing histories.
 - LP liquidity is not necessarily all executable liquidity; limit orders are
@@ -133,5 +137,6 @@ positions contributed to the valuation denominator. Missing valuations or the
 unordered fallback make total value coverage unknown. A subset percentage must
 identify its denominator and cannot stand in for pool-wide coverage.
 
-See the [MVP spec](specs/mvp.md) and the
-[reference-market contract](specs/reference-market.md).
+See the [MVP spec](specs/mvp.md), the
+[reference-market contract](specs/reference-market.md), and
+[position-control contract](specs/position-controls.md).

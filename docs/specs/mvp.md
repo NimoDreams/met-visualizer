@@ -25,7 +25,9 @@ mutation, transaction submission, and fund movement.
    candles. Default to verified Market Cap (USD), fall back to explicitly labeled
    FDV (USD), and use Price (USD) only when neither supply basis is available.
 4. Expandable pools and positions with checkboxes, identifiers, and size/range
-   context. Collapsing a pool does not deselect positions.
+   context. Current estimated USD principal value is the primary size. One
+   filter spans valued positions across enabled pools. Collapsing a pool does
+   not deselect positions.
 5. Combined selected liquidity appears as horizontal bars aligned to price.
    Hover highlights a position's contribution. Deselection subtracts it; size
    filters affect the overlay as well as the list.
@@ -98,8 +100,6 @@ not guaranteed to contain the largest positions.
 
 - Enable one meaningful DLMM pool initially; its exact ranking and tie-breaking
   policy remain open. Do not hydrate every pool's positions eagerly.
-- Size filters use the same labeled valuation basis as loading priority; settle
-  filter thresholds and missing-valuation behavior.
 
 ## Approved Reference And Denomination Defaults
 
@@ -124,6 +124,30 @@ not guaranteed to contain the largest positions.
 
 See [reference market and valuation axis](reference-market.md) for the complete
 contract and required in-app disclosure.
+
+## Approved Position-Control And Responsive Defaults
+
+- Rank and filter positions by current estimated USD principal value across the
+  known valued positions in all enabled pools. State which pools, incomplete
+  loads, and unavailable values are outside that universe.
+- Start with all positions produced by progressive loading shown and selected.
+  Provide a global minimum-USD input, `Largest contributors` for about 80% of a
+  denominator containing every valued position discovered in every enabled pool,
+  and clear/show-all controls. Compact ranking values qualify without full display
+  hydration. Disable the action while any enabled-pool value is missing. Do not
+  impose a fixed dollar dust threshold; unopened pools remain visibly out of scope.
+- Treat filtering as a temporary inclusion mask over checkbox selection. It
+  affects both the list and overlay without destroying prior selections.
+- Keep unavailable-value positions visible with reasons and outside numeric
+  filters and value-coverage claims. Disable their common-axis overlays until
+  required bin and conversion data are available.
+- Use the approximately 70/30 split on desktop, stack chart then positions at
+  constrained widths, and switch between state-preserving Chart and Positions
+  modes on narrow phones. Keep a compact selection/status summary in both phone
+  modes.
+
+See [position controls and responsive layout](position-controls.md) for the
+complete contract.
 
 ## First Usable Release Acceptance
 

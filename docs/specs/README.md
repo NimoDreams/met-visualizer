@@ -22,3 +22,5 @@ Current specs:
 - [Technical foundation](technical-foundation.md) — approved Phase 0 direction.
 - [Reference market and valuation axis](reference-market.md) — approved
   selection, denomination, conversion, and refresh direction.
+- [Position controls and responsive layout](position-controls.md) — approved
+  value, filtering, missing-data, and cross-screen behavior.
