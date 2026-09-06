@@ -4,6 +4,13 @@ Help Solana traders understand where liquidity is positioned around a token's
 current price. The starting action is clear: enter a Solana token contract
 address (CA).
 
+The expected primary audience is Solana memecoin traders, while the product
+continues to accept arbitrary Solana mints with supported market and DLMM data.
+Optimize the ordinary experience for newer, fast-moving tokens that may have
+short price history, unverified circulating supply, and one or several meaningful
+Meteora pools. Use established tokens such as JUP as scale and stress cases rather
+than treating their pool counts and payload sizes as typical sessions.
+
 ## Agreed Experience
 
 A lightweight SPA shows a reference candlestick chart (66–75% of desktop visual
