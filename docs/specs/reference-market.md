@@ -11,16 +11,20 @@ which market, supply basis, conversion source, and observation times it uses.
 
 ## Reference-Market Selection
 
-Use GeckoTerminal's Solana token-pools endpoint for candidates. Preserve its
-default ranking, which combines USD liquidity and 24-hour volume, and verify the
-entered mint's base/quote membership by address.
+Use the keyless public GeckoTerminal Solana token-pools endpoint at
+`api.geckoterminal.com` for candidates. Preserve its default ranking, which
+combines USD liquidity and 24-hour volume, and verify the entered mint's
+base/quote membership by address. Do not use CoinGecko Pro endpoints or add a
+market-data credential.
 
-Check a bounded initial set of the three highest-ranked candidates in order.
-Select the first candidate with valid USD OHLCV for the entered token, at least
-one completed candle, and usable metadata. Prefer a candidate covering the
-approximately 24-hour default viewport; accept its available lifetime when the
-pool is newer. If a higher-ranked candidate has unusable candles, record the
-reason and try the next candidate without exceeding the public request budget.
+Check a bounded initial set of the three highest-ranked candidates. A candidate
+is usable when it has correctly oriented USD OHLCV for the entered token, at
+least one completed candle, and valid metadata. Its history is adequate when it
+covers the approximately 24-hour default viewport or its available lifetime if
+the pool is newer. Select the highest-ranked usable candidate with adequate
+history. If none has adequate history, select the highest-ranked usable
+candidate and label its history limited. Record rejected-candidate reasons and
+stay within the public request budget.
 
 Do not give a DEX a fixed preference. Keep the chosen pool stable for the token
 session. Show provider, DEX, pair, pool address, USD liquidity, 24-hour volume,
@@ -30,10 +34,13 @@ never joins candles from different pools.
 
 Compare the newest candle with the pool's reported last trade so provider lag
 and market inactivity are described separately. Tune the numeric stale threshold
-from implementation evidence. A refresh failure keeps last-good candles with a
-stale label. It does not silently select another pool. If no candidate supplies
-usable candles, the pool/position workflow remains available without fabricated
-history.
+from implementation evidence. When the public response omits a last-trade
+timestamp, use its recent transaction/volume windows only as an activity signal.
+If neither comparison signal is available, show the candle observation time and
+label freshness unknown rather than claiming the data is fresh. A refresh failure
+keeps last-good candles with a stale label. It does not silently select another
+pool. If no candidate supplies usable candles, the pool/position workflow remains
+available without fabricated history.
 
 ## Default Valuation Axis
 
@@ -48,9 +55,13 @@ USD candle volume is not multiplied.
 
 Use these states in order:
 
-1. **Market Cap (USD):** when GeckoTerminal returns a non-null verified
-   `market_cap_usd` and a valid `price_usd`, derive the current implied
-   circulating supply as `market_cap_usd / price_usd`.
+1. **Market Cap (USD):** read `market_cap_usd` and `price_usd` from the keyless
+   public token response. CoinGecko documents a non-null market cap as its
+   verified/sourced value and returns `null` when unverified; there is no separate
+   verification flag in this contract. When both fields are valid, derive the
+   current implied circulating supply as `market_cap_usd / price_usd`. Do not
+   request or accept `fdv_usd`, `normalized_total_supply`, or any FDV-as-market-
+   cap fallback as market cap.
 2. **FDV (USD):** otherwise, read the current Solana mint supply through the
    user's RPC and use it as the display supply.
 3. **Price (USD):** if neither supply basis is available, keep usable candles
@@ -75,9 +86,9 @@ without changing the market-selection contract.
 Normalize every enabled DLMM pool so a bin's y-coordinate expresses the entered
 token's USD price, then multiply it by the same display supply used by candles.
 Use the current bin ratio and a public USD price for the pool's other token.
-Fetch conversions only for enabled pools, cache them by mint, and record their
-source and observation time. Do not assume that a stablecoin equals exactly one
-dollar.
+Fetch conversions from the keyless public GeckoTerminal API only for enabled
+pools, cache them by mint, and record their source and observation time. Do not
+assume that a stablecoin equals exactly one dollar.
 
 Take conversion prices with the explicit RPC liquidity refresh rather than
 silently moving a snapshot on each candle poll. If a pool's other token has no
@@ -96,8 +107,13 @@ prices and quote conversions.
   explicit RPC refresh. Do not poll large RPC snapshots.
 - Cache market metadata and quote prices by mint, deduplicate in-flight reads,
   stop hidden-tab candle polling, and cancel work for an obsolete CA or RPC.
-- Budget discovery plus at most three initial candle probes against approximately
-  ten public requests per minute. Back off on 429 and transient 5xx responses.
+- Route token metadata, pool discovery, OHLCV, and quote-token conversion through
+  one shared GeckoTerminal scheduler budgeted at approximately ten total public
+  requests per minute. Initial token load uses one metadata request, one pool
+  discovery request, and up to three candidate candle probes. On-demand quote
+  conversions use the remaining shared budget and may visibly queue. Selected-
+  market refresh and direct user actions take priority over speculative candidate
+  checks. Back off on 429 and transient 5xx responses.
 - Keep candle, supply, conversion, and RPC statuses separate so one failure does
   not erase usable data from another boundary.
 
@@ -118,4 +134,6 @@ The Docs view must explain:
 Sources: [GeckoTerminal/CoinGecko top-pool ranking](https://docs.coingecko.com/reference/top-pools-contract-address),
 [pool OHLCV parameters](https://docs.coingecko.com/reference/pool-ohlcv-contract-address),
 [market-cap and FDV behavior](https://docs.coingecko.com/reference/onchain-simple-price),
+[GeckoTerminal authentication](https://apiguide.geckoterminal.com/authentication),
+[GeckoTerminal live API reference](https://api.geckoterminal.com/docs/index.html),
 and [Solana `getTokenSupply`](https://solana.com/docs/rpc/http/gettokensupply).

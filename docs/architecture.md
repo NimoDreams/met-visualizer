@@ -77,7 +77,8 @@ origin behavior remains a pre-release smoke test.
   Current quote conversions apply to snapshots, not historical candles.
 - Use a verified provider market cap when available; otherwise multiply USD
   prices by current RPC mint supply and label the result FDV. Apply the same
-  fixed session supply and quote conversion to candle and overlay y-coordinates.
+  fixed session supply to candle and overlay y-coordinates; quote conversion
+  applies only when normalizing a DLMM pool's bins to USD.
 - Track snapshot consistency and discovered/loaded/selected coverage separately.
   Define compatible RPC capabilities rather than promising every endpoint can
   serve large account scans.

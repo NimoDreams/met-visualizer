@@ -103,18 +103,21 @@ not guaranteed to contain the largest positions.
 
 ## Approved Reference And Denomination Defaults
 
-- Use GeckoTerminal's liquidity-and-volume-ranked token pools. Validate up to
-  three candidates in order and choose the first with usable correctly oriented
-  USD candles, favoring enough history for the approximately 24-hour viewport.
-  Do not prefer a DEX by name.
+- Use GeckoTerminal's liquidity-and-volume-ranked token pools. Check up to three
+  candidates and choose the highest-ranked usable pool with enough history for
+  the approximately 24-hour viewport, treating a new pool's available lifetime
+  as enough. If none qualifies, use the highest-ranked candidate with any usable
+  candles and label its history limited. Do not prefer a DEX by name.
 - Keep the selected reference stable. Manual changes reload the series; refresh
   failures retain stale last-good data without automatic switching.
-- Use verified Market Cap (USD) when GeckoTerminal supplies it. Otherwise use
-  the current RPC mint supply and label the result FDV (USD). A supply failure
-  degrades to Price (USD).
+- Use Market Cap (USD) only when the keyless public GeckoTerminal response
+  supplies a non-null verified value, without an FDV fallback. Otherwise use the
+  current RPC mint supply and label the result FDV (USD). A supply failure
+  degrades to Price (USD). No market-data credential is introduced.
 - Use 15-minute initial candles and poll no faster than once per 60 seconds while
   visible. RPC liquidity, mint supply, and enabled-pool quote conversions refresh
-  explicitly.
+  explicitly. All GeckoTerminal metadata, pool, candle, and quote-conversion
+  reads share one approximately ten-request-per-minute budget.
 - Convert enabled DLMM bins to the entered token's USD price with current public
   quote-token prices, then apply the chart's supply basis. Unsupported conversion
   disables that pool's common-axis overlay without hiding its positions.
