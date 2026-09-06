@@ -1,6 +1,7 @@
 # Architecture
 
-Status: Phase 1 foundation implemented on `dev`; feature data flows remain queued.
+Status: Phase 1 foundation and reference-market flow are implemented on `dev`;
+DLMM discovery and position flows remain queued.
 
 ## Agreed Boundaries
 
@@ -82,6 +83,17 @@ local SPA in Playwright Chromium. GeckoTerminal token-pool discovery and Meteora
 TVL-sorted pool metadata both returned CORS-visible HTTP 200 JSON. This resolves
 the earlier Meteora non-browser request-shape uncertainty for local browser use.
 See the [scaffold browser proof](reviews/phase-1-scaffold-browser-proof.md).
+
+Issue #17 establishes one GeckoTerminal adapter for token metadata, ranked pool
+discovery, USD OHLCV, and cached USD quote prices. Live response validation found
+numeric values encoded as strings, pool identity in base/quote relationship IDs,
+and OHLCV as newest-first six-value tuples; the adapter validates and normalizes
+these at its boundary. All calls share a priority-aware rolling budget of ten
+dispatches per minute, concurrent reads are deduplicated, and `Retry-After` is
+honored after HTTP 429. Deterministic browser routing proved that the user RPC
+marker never entered GeckoTerminal request URLs, page content, or browser
+storage. See the
+[reference-market browser proof](reviews/phase-1-reference-market-browser-proof.md).
 
 ## Data Semantics
 

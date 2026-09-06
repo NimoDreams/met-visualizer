@@ -41,6 +41,31 @@ describe("NativeReadOnlySolanaRpc", () => {
       () => new NativeReadOnlySolanaRpc(new URL("http://rpc.example.invalid")),
     ).toThrow("RPC endpoints must use HTTPS.");
   });
+
+  it("reads current mint supply through the same narrow RPC boundary", async () => {
+    const fetchMock = vi.spyOn(window, "fetch").mockResolvedValue(
+      Response.json({
+        jsonrpc: "2.0",
+        id: 1,
+        result: { value: { amount: "420000000", decimals: 6 } },
+      }),
+    );
+    const client = new NativeReadOnlySolanaRpc(
+      new URL("https://rpc.example.invalid/"),
+    );
+
+    await client.getTokenSupply("So11111111111111111111111111111111111111112");
+
+    const requestBody = fetchMock.mock.calls[0]?.[1]?.body;
+    if (typeof requestBody !== "string") throw new Error("missing RPC body");
+    expect(JSON.parse(requestBody)).toMatchObject({
+      method: "getTokenSupply",
+      params: [
+        "So11111111111111111111111111111111111111112",
+        { commitment: "confirmed" },
+      ],
+    });
+  });
 });
 
 describe("RpcSessionManager", () => {

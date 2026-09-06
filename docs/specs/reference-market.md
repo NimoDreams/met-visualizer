@@ -1,7 +1,13 @@
 # Reference Market And Valuation Axis
 
-Status: approved Phase 0 direction. Implementation details remain subject to
-fixture and browser verification.
+Status: approved Phase 0 contract; the reference-market and candle-chart portion
+is implemented by issue #17. DLMM conversion and overlays remain later work.
+
+Issue #17 implements this reference-market contract with strict response-shape
+validation. The selected freshness threshold is two candle intervals: a newest
+candle that trails a reported trade by more than that is delayed. When only a
+recent-transaction signal exists, allow an additional five minutes before
+labeling it delayed. Keep freshness unknown when neither signal exists.
 
 ## Goal
 
