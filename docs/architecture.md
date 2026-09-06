@@ -31,7 +31,10 @@ environment variables must not become published browser credentials.
 
 ## Provider Research — 2026-09-06
 
-GeckoTerminal is the starting choice, not a verified production dependency.
+GeckoTerminal is the validated starting choice for implementation, subject to
+release smoke testing and beta-API monitoring. The detailed
+[feasibility review](reviews/phase-0-candle-feasibility.md) records samples,
+observations, and remaining limits.
 Its [public reference](https://api.geckoterminal.com/docs/index.html) documents
 pool OHLCV, 1m/5m/15m/1h/4h/12h/1d, up to 1,000 bars per request, pagination,
 and USD or quote-token denomination. The live reference lists a one-minute
@@ -40,20 +43,19 @@ cache and approximately 10 calls/minute; the
 [CoinGecko's guide](https://www.coingecko.com/learn/dex-data-api) describes up to
 six months of free history, subject to available pool history.
 
-[Meteora OHLCV](https://docs.meteora.ag/api-reference/dlmm/pools/ohlcv) is a
-fallback candidate, not an approved automatic fallback. Native intervals are
-5m/30m/1h/2h/4h/12h/24h. Denomination, retention, actual returned bar limits,
-freshness, and browser access remain unverified.
+[Meteora OHLCV](https://docs.meteora.ag/api-reference/dlmm/pools/ohlcv) allowed
+cross-origin access in the sample, but returned ten recent, quote-denominated
+bars and rejected a 24-hour 5-minute range as too large. Keep it as a narrow
+diagnostic/recent fallback after unit validation, not a general historical source.
 
 [DexPaprika](https://docs.dexpaprika.com/knowledge-base/response-headers)
 documents missing browser CORS headers. Birdeye and GMGN require additional API
 credentials. [DEX Screener](https://docs.dexscreener.com/api/reference) has no
 documented public historical candle endpoint. None is required for the MVP.
 
-Command-line public API probes returned HTTP 403; the browser tool blocked a
-direct GeckoTerminal API URL. These are inconclusive environment results, not
-proof of deployed-browser incompatibility. No successful cross-origin check or
-coverage benchmark has been completed.
+Direct HTTP and localhost browser-origin checks succeeded after using the
+documented version header and normal browser request shape. Exact GitHub Pages
+origin behavior remains a pre-release smoke test.
 
 ## Data Semantics To Validate
 
