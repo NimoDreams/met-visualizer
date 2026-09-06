@@ -22,6 +22,34 @@ tracked in [Phase 1 epic #15](https://github.com/NimoDreams/met-visualizer/issue
 - `main` holds the stable accepted baseline; `dev` integrates Phase 1 work.
   Developers use issue branches into `dev` and reviewed promotions to `main`.
 
+## Local Development
+
+Use the pinned Node.js version and install from the committed lockfile:
+
+```sh
+nvm use
+npm ci
+npm run dev
+```
+
+The production build uses the GitHub project path `/met-visualizer/`. Run the
+complete deterministic checks with:
+
+```sh
+npm run format:check
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+npm run verify:artifact
+npm run test:browser
+```
+
+The explicit `test:browser:providers` command makes live, keyless requests to
+the approved public market-data providers. It is intentionally outside
+deterministic CI. The app never loads `.env` files; enter an HTTPS RPC in the UI,
+where it remains only in page memory.
+
 ## Docs
 
 - [Project Context](docs/project-context.md)
