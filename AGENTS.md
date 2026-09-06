@@ -22,16 +22,14 @@ of the work.
 
 ## Current Project State
 
-This project starts with project-management structure only. The product seed is
-to visualize Meteora LP positions on arbitrary Solana tokens.
-
-Phase 0 direction is now recorded in `docs/specs/mvp.md`. The user authorized
-planning documentation and GitHub planning only; implementation and creation
-of `dev` remain gated on explicit approval. The selected foundation is a single
+Phase 0 direction is accepted and recorded in `docs/specs/mvp.md`. The user
+authorized Phase 1 implementation, creation of `dev`, and issue-scoped Developer
+handoffs on 2026-09-06. GitHub Pages activation and promotion from `dev` to
+`main` remain separate approval gates. The selected foundation is a single
 Node.js 24/npm package using strict TypeScript, React, Vite, and Lightweight
 Charts. The intended product is a static GitHub Pages SPA using a session-only
 user RPC and free public market data, starting with GeckoTerminal. See
-`docs/specs/technical-foundation.md`.
+`docs/specs/technical-foundation.md`. Active work is tracked by Phase 1 epic #15.
 
 Expected operating model:
 
