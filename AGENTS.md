@@ -27,9 +27,11 @@ to visualize Meteora LP positions on arbitrary Solana tokens.
 
 Phase 0 direction is now recorded in `docs/specs/mvp.md`. The user authorized
 planning documentation and GitHub planning only; implementation and creation
-of `dev` remain gated on explicit approval. TypeScript/React/Vite/Lightweight
-Charts are proposals. The intended product is a static GitHub Pages SPA using
-a session-only user RPC and free public market data, starting with GeckoTerminal.
+of `dev` remain gated on explicit approval. The selected foundation is a single
+Node.js 24/npm package using strict TypeScript, React, Vite, and Lightweight
+Charts. The intended product is a static GitHub Pages SPA using a session-only
+user RPC and free public market data, starting with GeckoTerminal. See
+`docs/specs/technical-foundation.md`.
 
 Expected operating model:
 
@@ -38,8 +40,8 @@ Expected operating model:
 - Local docs preserve durable context, decisions, architecture, specs, reviews,
   and agent handoff knowledge.
 - Work should be small, issue-linked, and reviewed before merge.
-- Docker Compose is the preferred direction for local runtime once applications
-  are added, unless the project chooses a different path explicitly.
+- Native Node and Vite are the approved local runtime. Do not add Docker Compose
+  unless a future server, database, validator, or supporting service justifies it.
 - `main` should remain stable once the project has a usable baseline.
 - Create a `dev` integration branch before active multi-agent feature work,
   unless the user explicitly chooses a simpler early-bootstrap workflow.
@@ -177,17 +179,18 @@ required credential into the MVP without an explicitly approved scope change.
 
 ## Technical Direction
 
-The technical direction is intentionally open until the project is planned.
-
-Default lean:
-
-- Monorepo-friendly structure.
-- Local web application or applications.
-- Docker Compose for local runtime.
-- Database choice decided by project needs.
-- External services only when explicitly chosen and documented.
-- Solana/Meteora data access should be read-only and should stay behind
-  documented provider boundaries.
+- Use one root npm package with Node.js 24 LTS, strict TypeScript, React, Vite,
+  and Lightweight Charts. Pin exact versions in the implementation lockfile.
+- Use native Node/Vite development without Docker Compose for the static MVP.
+- Keep all runtime state in memory; disable Vite environment-file loading and
+  never expose an RPC through client build variables.
+- Keep Solana/Meteora reads behind documented provider boundaries. Use only
+  RPC-specific Solana modules in production and project-owned Meteora read
+  decoders verified against a pinned official SDK/IDL.
+- Use hash navigation and the `/met-visualizer/` base path. GitHub Pages deploys
+  reviewed `main` builds only; Pages remains disabled until an approved release.
+- Do not add a backend, database, persistent browser storage, service worker,
+  wallet, signer, or transaction surface without an explicit scope decision.
 
 ## Documentation Habits
 

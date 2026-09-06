@@ -87,3 +87,51 @@ ranking falls back to bounded ordinary batches labeled as unordered partial
 coverage. Manual selection stops later batches from being auto-selected.
 The 80% target applies only when the complete valuation denominator is known;
 otherwise value coverage is unknown and cannot trigger that stopping rule.
+
+## 2026-09-06: Select A Client-Only TypeScript Foundation
+
+Context: The approved product is one static read-only SPA with no backend or
+database. It needs responsive charting, exact account arithmetic, cancellable
+browser RPC reads, and a build that works below a GitHub project-site path.
+
+Decision: Use a single root package with Node.js 24 LTS, npm, strict TypeScript,
+React 19.2, Vite 8, and Lightweight Charts 5.2. Use React reducers and explicit
+loading state machines before adding general state libraries. Move large-pool
+decoding and aggregation into a Web Worker. Use native Node/Vite development;
+Docker Compose is not part of the MVP.
+
+Consequence: The scaffold must pin exact versions, add `.nvmrc`, validate the
+chart primitive and worker boundary, and provide format, lint, type-check, test,
+build, preview, and focused browser-test commands.
+
+## 2026-09-06: Keep The Published Data Client Narrow And Read-Only
+
+Context: Solana's modular RPC packages cover typed HTTP reads and cancellation,
+while the full Meteora SDK exposes transaction construction and installs much
+more than the visualization requires.
+
+Decision: Initially use Solana's RPC-only modules behind a project provider
+interface. Ship project-owned minimum Meteora account decoders validated against
+a pinned official SDK and IDL; do not ship the full SDK runtime. Permit a native
+JSON-RPC transport substitution if the scaffold's measured bundle comparison
+shows it is materially smaller without losing correctness.
+
+Consequence: Production imports exclude wallet, signer, transaction,
+instruction, subscription, and send modules. SDK/layout changes fail visibly
+until decoding compatibility is re-established.
+
+## 2026-09-06: Use Main-Only GitHub Pages Deployment
+
+Context: GitHub Pages provides one static project site at a repository path and
+cannot proxy incompatible RPC endpoints. Development needs an integration branch
+without publishing partial work.
+
+Decision: Build for `/met-visualizer/`, use hash navigation, and deploy only the
+`dist/` artifact from reviewed `main` through GitHub Actions. Create `dev` from
+the approved Phase 0 baseline immediately before implementation; feature PRs
+target `dev`, and reviewed merge-commit promotions target `main`. Do not deploy
+`dev` or PR previews to the repository Pages site.
+
+Consequence: Pages stays disabled until the first approved deployment. CI uses
+no provider secret, actions are SHA-pinned, production accepts HTTPS RPCs only,
+and the exact Pages origin requires a pre-release browser smoke test.
