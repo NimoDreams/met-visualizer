@@ -51,3 +51,17 @@ Implementation, dev creation, and Phase 0 completion await explicit user approva
 
 Consequence: Use a documentation branch from main for this bootstrap pass;
 no application code, deployment, or promotion is authorized by this decision.
+
+## 2026-09-06: Use GeckoTerminal As The Initial Candle Provider
+
+Context: Phase 0 browser and API samples verified keyless cross-origin access,
+Solana pool discovery, deep and sparse histories, price orientation, and
+pagination. The public API is beta and its documentation disagrees on limits.
+
+Decision: Use GeckoTerminal as the initial MVP candle provider. Default to USD
+15-minute candles, a stable explicitly identified reference pool, timestamp
+deduplication, and polling no faster than once per 60 seconds while visible.
+
+Consequence: Budget for approximately ten calls/minute, present freshness and
+missing data honestly, and recheck the deployed GitHub Pages origin and provider
+terms before release. Meteora OHLCV is only a narrow recent-data fallback.
