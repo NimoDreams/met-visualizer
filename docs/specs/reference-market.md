@@ -107,9 +107,13 @@ Use Meteora's keyless public pool metadata to rank the RPC-discovered DLMM pools
 for the entered mint. Query the first 20 TVL-sorted results for both token
 orientations, reconcile every metadata address and mint relationship with decoded
 RPC results, and exclude blacklisted or non-positive-TVL entries from automatic
-selection. Merge the two orientations and resolve a three-candidate boundary tie
-with another page; if it cannot be resolved within the request budget, require a
-manual choice.
+selection. After these cheap exclusions, fetch more from an unfinished orientation
+while fewer than three candidates remain or its last-row TVL is greater than or
+equal to the current third candidate's TVL. Automatic ranking is complete only
+when both orientations are exhausted or their frontiers are strictly below the
+third candidate. This collects the complete TVL-boundary tie set before applying
+volume and address tie-breakers. If the frontier cannot be cleared within the
+request budget, require a manual choice.
 
 Rank eligible pools by current reported USD TVL descending, then 24-hour USD
 volume descending, then pool address ascending. Probe at most three candidates
@@ -124,7 +128,7 @@ without replacing it. If metadata is missing, inconsistent with RPC, or no
 candidate qualifies within the bounded probes, leave all pools disabled and ask
 the user to choose from the RPC-discovered list. Never choose an arbitrary RPC
 result-order pool. Permit one bounded metadata retry; treat a missing orientation,
-invalid/truncated page, non-monotonic TVL order, or unresolved boundary tie as an
+invalid/truncated page, non-monotonic TVL order, or uncleared TVL frontier as an
 incomplete ranking that requires manual selection.
 
 After enablement, a metadata failure keeps the pool and last-good ranking data

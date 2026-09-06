@@ -69,30 +69,33 @@ tests as expected constants. No raw response was committed.
    orientations.
 2. Request Meteora pool metadata separately for the exact mint as token X and
    token Y, sorted by TVL descending. Request the first 20 results for each
-   orientation, merge them, deduplicate by address, and sort locally by the
-   contract below. Because each provider response is already TVL-descending,
-   these two pages contain the global leading candidates across orientations.
-   No later page can outrank a first-page item with lower TVL. If the automatic
-   three-candidate boundary has exactly equal TVL and 24-hour volume with the
-   last item on either page, fetch the next relevant page until the tie ends;
-   if the boundary cannot be resolved within the request budget, do not
-   automatically enable a pool.
+   orientation, merge them, and deduplicate by address.
 3. Retain only metadata addresses that match a decoded RPC-discovered pool with
    the entered mint in the expected orientation. Exclude provider-blacklisted,
-   non-finite, and non-positive-TVL entries from automatic enablement.
-4. Rank eligible candidates by current reported USD TVL descending, then
+   non-finite, and non-positive-TVL entries from automatic enablement. If fewer
+   than three retained candidates remain, fetch another page from each unfinished
+   orientation that can still contribute, then repeat reconciliation.
+4. Once three candidates are retained, compare the third candidate's TVL with
+   each unfinished orientation's page frontier, defined as that page's final
+   row TVL. Continue that orientation while its frontier is greater than or equal
+   to the third candidate's TVL. Stop only when each orientation is exhausted or
+   its frontier is strictly lower. This collects every candidate tied at the
+   boundary before applying volume and address tie-breakers. If the frontier
+   cannot be cleared within the request budget, do not automatically enable a
+   pool.
+5. Rank retained candidates by current reported USD TVL descending, then
    24-hour USD volume descending, then pool address ascending.
-5. Probe candidates in order with bounded RPC position-key scans and keyless
-   GeckoTerminal quote-price checks. Automatically enable the first pool with at
-   least one PositionV2 account and a supported common-axis USD conversion.
-   Cache and reuse the candidate conversion as the enabled-pool conversion, then
-   begin the approved progressive-loading path.
-6. Stop after three automatic candidate probes. If none qualifies or either
+6. Probe the three highest-ranked candidates in order with bounded RPC
+   position-key scans and keyless GeckoTerminal quote-price checks. Automatically
+   enable the first pool with at least one PositionV2 account and a supported
+   common-axis USD conversion. Cache and reuse the candidate conversion as the
+   enabled-pool conversion, then begin the approved progressive-loading path.
+7. Stop after three automatic candidate probes. If none qualifies or either
    provider boundary fails, leave every pool disabled and prompt the user to
    choose from the RPC-discovered list.
 
 Treat an HTTP/CORS failure, invalid schema, missing orientation page, truncated
-page, non-monotonic TVL order, or unresolved boundary tie as incomplete ranking.
+page, non-monotonic TVL order, or uncleared TVL frontier as incomplete ranking.
 Allow at most one bounded retry after provider-directed or exponential backoff;
 then use manual selection. Never fill a missing orientation with the other side
 or use partial metadata as a complete ranking.
@@ -108,8 +111,9 @@ and the last-good overlay visibly stale; if no prior conversion exists, preserve
 the selection and disable only its common-axis overlay. Neither failure clears
 checkboxes or selects a replacement pool.
 
-The candle reference remains independent. The largest eligible Meteora pool is
-enabled first even when candles come from Orca, Raydium, or another Meteora pool.
+The candle reference remains independent. The highest-ranked qualifying Meteora
+pool within the bounded probes is enabled first even when candles come from
+Orca, Raydium, or another Meteora pool.
 
 ## Representative MVP Validation
 
