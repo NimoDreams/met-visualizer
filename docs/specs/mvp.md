@@ -149,9 +149,12 @@ complete contract.
 - Rank RPC-reconciled Meteora candidates by current USD TVL, then 24-hour volume,
   then pool address. Use Meteora's keyless pool metadata only for ranking; RPC
   remains authoritative for accounts and positions.
-- Merge the first 20 TVL-sorted results for each token orientation. Resolve a
-  tie at the three-candidate boundary with another bounded page or require manual
-  selection if the request budget cannot establish a deterministic order.
+- Merge the first 20 TVL-sorted results for each token orientation and apply
+  on-chain reconciliation and cheap metadata exclusions. Continue any unfinished
+  orientation until its last-row TVL is strictly below the third retained
+  candidate's TVL. This collects the complete boundary tie set for volume/address
+  tie-breaking; require manual selection if the request budget cannot establish
+  that frontier.
 - Probe at most three candidates and enable exactly one: the first with at least
   one PositionV2 account and supported USD conversion. Candidate quote checks
   occur before enablement and are cached for reuse. Then begin progressive
