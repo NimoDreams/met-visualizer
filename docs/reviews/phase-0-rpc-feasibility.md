@@ -4,7 +4,7 @@ Date: 2026-09-06
 
 Issue: [#4](https://github.com/NimoDreams/met-visualizer/issues/4)
 
-Status: live evidence complete; independent review pending
+Status: live evidence complete; independent review follow-up pending
 
 ## Result
 
@@ -105,10 +105,11 @@ provider-specific method part of the generic RPC contract.
 ### Position and bin hydration
 
 The SDK's `chunkedGetProgramAccounts()` first requests keys with a zero-length
-slice, then hydrates full accounts in batches of 100. PositionV2 uses 8,112
-bytes before its discriminator and adds 112 bytes for each bin beyond the
-first 70. Its current maximum is 1,400 bins. A fixed-size decoder would silently
-lose extended liquidity shares.
+slice, then hydrates full accounts in batches of 100. The PositionV2 account
+body is 8,112 bytes excluding its 8-byte discriminator, for an 8,120-byte
+minimum serialized account. It adds 112 bytes for each bin beyond the first 70,
+and its current maximum is 1,400 bins. A fixed-size decoder would silently lose
+extended liquidity shares.
 
 The JUP/SOL pool
 `C8Gr6AUuq9hEdSYJzoEpNcdjpojPZwqG5MtQbeouNNwg` was the large sample. At 16:01
@@ -210,6 +211,10 @@ Handle failures explicitly:
   pages; otherwise offer per-pool lazy loading and explain the limitation.
 - 429 or transient 5xx: bounded exponential backoff with jitter and visible
   last-good data. The probe did not intentionally induce rate limiting.
+- JSON-RPC `-32016` after applying `minContextSlot`: briefly back off and retry
+  with the same slot floor. Never weaken consistency by silently lowering the
+  floor. Persistent failure leaves coverage incomplete or starts a clearly new
+  snapshot with a new observation window.
 - Decode mismatch: stop that account type and report an SDK/layout mismatch;
   do not render partial bytes as liquidity.
 - Missing account during hydration: record a null/churn count, continue other
