@@ -99,12 +99,35 @@ The reference candle pool and an enabled DLMM pool are independent. A Raydium
 or Orca reference can anchor the chart while Meteora positions use their own bin
 prices and quote conversions.
 
+## Initially Enabled DLMM Pool
+
+Use Meteora's keyless public pool metadata to rank the RPC-discovered DLMM pools
+for the entered mint. Query both token orientations, reconcile every metadata
+address and mint relationship with decoded RPC results, and exclude blacklisted
+or non-positive-TVL entries from automatic selection.
+
+Rank eligible pools by current reported USD TVL descending, then 24-hour USD
+volume descending, then pool address ascending. Probe at most three candidates
+in that order. Automatically enable the first with at least one PositionV2
+account and a supported common-axis USD conversion, then begin progressive
+position loading. Do not give the candle-reference pool special priority; the
+initial LP pool serves current liquidity relevance.
+
+Keep the enabled choice stable for the token session. Refresh its metadata
+without replacing it. If metadata is missing, inconsistent with RPC, or no
+candidate qualifies within the bounded probes, leave all pools disabled and ask
+the user to choose from the RPC-discovered list. Never choose an arbitrary RPC
+result-order pool. See the
+[ranking feasibility report](../reviews/phase-0-pool-ranking-feasibility.md).
+
 ## Refresh And Request Budget
 
 - Poll only the selected reference's newest candles, no faster than once per 60
   seconds while the page is visible.
 - Load supply, DLMM state, and enabled-pool quote conversions on token load and
   explicit RPC refresh. Do not poll large RPC snapshots.
+- Load Meteora ranking metadata on token load and explicit refresh. Keep its
+  errors separate from GeckoTerminal and RPC, and never send it the user RPC.
 - Cache market metadata and quote prices by mint, deduplicate in-flight reads,
   stop hidden-tab candle polling, and cancel work for an obsolete CA or RPC.
 - Route token metadata, pool discovery, OHLCV, and quote-token conversion through

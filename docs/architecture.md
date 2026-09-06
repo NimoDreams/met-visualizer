@@ -12,6 +12,7 @@ credential is part of the planned MVP.
 | --- | --- |
 | User RPC | On-chain DLMM pools, positions, bin arrays, mint data |
 | GeckoTerminal public API | Reference-market discovery, candles, verified market cap, and enabled-pool quote-token USD prices |
+| Meteora public Data API | Current DLMM pool TVL/volume metadata used only to rank the initially enabled pool |
 | Application | Normalize prices/amounts, calculate selected liquidity, render chart/profile |
 | In-app Docs and status | Explain provider roles, reference market, refresh and coverage |
 
@@ -55,6 +56,14 @@ six months of free history, subject to available pool history.
 cross-origin access in the sample, but returned ten recent, quote-denominated
 bars and rejected a 24-hour 5-minute range as too large. It is an unapproved
 diagnostic comparison source until its units and usable range are validated.
+
+Meteora's [pool-list endpoint](https://docs.meteora.ag/api-reference/dlmm/pools/pools)
+supports exact mint filters, TVL sorting, volume, and blacklist metadata. A live
+request from the intended Pages origin returned permissive CORS. Use this keyless
+endpoint for initial DLMM-pool ranking, then reconcile addresses and orientation
+with RPC discovery. Do not use its pool metadata as a substitute for on-chain
+position or bin data. See the
+[ranking feasibility report](reviews/phase-0-pool-ranking-feasibility.md).
 
 [DexPaprika](https://docs.dexpaprika.com/knowledge-base/response-headers)
 documents missing browser CORS headers. Birdeye and GMGN require additional API

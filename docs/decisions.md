@@ -182,3 +182,22 @@ discovered position in every enabled pool from the same refresh generation;
 compact ranking values qualify, while unopened pools remain visibly out of scope.
 Responsive tests must preserve selection, loading, and chart state while changing
 modes or orientation.
+
+## 2026-09-06: Enable The Largest Eligible Meteora Pool First
+
+Context: Pool discovery can return hundreds of DLMM pools, many without
+PositionV2 accounts. Enabling every pool would trigger excessive RPC work. The
+primary audience is expected to be memecoin traders, while JUP serves as a useful
+scale/stress sample rather than the typical session.
+
+Decision: Rank RPC-reconciled pools with Meteora's keyless public metadata by
+current USD TVL, 24-hour volume, then address. Probe no more than three in order
+and automatically enable exactly one only when it has PositionV2 accounts and a
+supported USD conversion. Keep it stable for the session. If ranking or
+qualification fails, require an explicit user pool choice.
+
+Consequence: Candle and initial-LP selection stay independent. The app obtains an
+immediately meaningful overlay without eagerly hydrating every pool or trusting
+provider metadata over on-chain identity. Representative implementation evidence
+must include newer memecoin cases with short history and FDV fallback as well as
+the JUP stress case.

@@ -19,6 +19,11 @@ not yet authorized.
 Token CA → reference candles → expandable Meteora DLMM pools and all owners'
 positions → selectable current liquidity distribution across bins.
 
+The expected primary audience is Solana memecoin traders. Representative MVP
+validation should emphasize newer tokens with short histories, unverified market
+cap, SOL/stablecoin quotes, and one or several meaningful DLMM pools. JUP remains
+a scale/stress fixture and should not define expected average latency or payloads.
+
 The open-source SPA targets GitHub Pages. Users supply a session-only RPC.
 Public free APIs may supply data without additional credentials; GeckoTerminal
 is the agreed starting candle source. Include an in-app Docs tab and visible
@@ -38,6 +43,13 @@ and positions side by side; constrained layouts stack them; narrow phones use a
 state-preserving Chart/Positions switch. See the
 [position-control spec](specs/position-controls.md).
 
+The app initially enables the largest eligible Meteora pool by provider-reported
+USD TVL after reconciling it with RPC discovery, then 24-hour volume and address
+for ties. It probes at most three candidates for PositionV2 accounts and USD
+conversion. The choice is stable; failure leaves pools disabled for explicit user
+selection. See the
+[pool-ranking evidence](reviews/phase-0-pool-ranking-feasibility.md).
+
 GeckoTerminal candle feasibility and the portable/indexed RPC paths are
 independently reviewed. Large pools use approved progressive loading that
 prioritizes current position value and reports honest count/value coverage.
@@ -49,8 +61,7 @@ Docker Compose. See the [technical foundation](specs/technical-foundation.md).
 
 ## Outstanding Gates
 
-1. Settle the initially enabled DLMM-pool ranking and tie-breaking policy.
-2. Obtain explicit user approval to end Phase 0 and begin implementation.
+1. Obtain explicit user approval to end Phase 0 and begin implementation.
 
 Create dev from the accepted Phase 0 main immediately before implementation;
 use issue-scoped developer branches/worktrees and independent review thereafter.
