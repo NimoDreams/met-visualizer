@@ -11,7 +11,7 @@ credential is part of the planned MVP.
 | Boundary | Responsibility |
 | --- | --- |
 | User RPC | On-chain DLMM pools, positions, bin arrays, mint data |
-| GeckoTerminal public API | Starting source for reference-market discovery and candles |
+| GeckoTerminal public API | Reference-market discovery, candles, verified market cap, and enabled-pool quote-token USD prices |
 | Application | Normalize prices/amounts, calculate selected liquidity, render chart/profile |
 | In-app Docs and status | Explain provider roles, reference market, refresh and coverage |
 
@@ -75,6 +75,9 @@ origin behavior remains a pre-release smoke test.
   attribute the entire pool balance to every position.
 - Normalize decimals, orientation, and quote currency before aggregation.
   Current quote conversions apply to snapshots, not historical candles.
+- Use a verified provider market cap when available; otherwise multiply USD
+  prices by current RPC mint supply and label the result FDV. Apply the same
+  fixed session supply and quote conversion to candle and overlay y-coordinates.
 - Track snapshot consistency and discovered/loaded/selected coverage separately.
   Define compatible RPC capabilities rather than promising every endpoint can
   serve large account scans.
@@ -129,4 +132,5 @@ positions contributed to the valuation denominator. Missing valuations or the
 unordered fallback make total value coverage unknown. A subset percentage must
 identify its denominator and cannot stand in for pool-wide coverage.
 
-See the [MVP spec](specs/mvp.md).
+See the [MVP spec](specs/mvp.md) and the
+[reference-market contract](specs/reference-market.md).
