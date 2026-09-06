@@ -66,11 +66,12 @@ Docker Compose. See the [technical foundation](specs/technical-foundation.md).
 
 [Issues #16](https://github.com/NimoDreams/met-visualizer/issues/16) and
 [#17](https://github.com/NimoDreams/met-visualizer/issues/17) are merged in
-`dev`. [Issue #18](https://github.com/NimoDreams/met-visualizer/issues/18) is the
-next RPC-authoritative DLMM pool-selection gate and can reuse #17's shared
-quote-price adapter and public-request budget. Keep later issues queued behind
-their documented dependencies. GitHub Pages activation and eventual `dev` to
-`main` promotion require separate user approval.
+`dev`. [Issue #18](https://github.com/NimoDreams/met-visualizer/issues/18) has an
+RPC-authoritative DLMM discovery and initial-selection implementation ready for
+independent review. It reuses #17's shared quote-price adapter and public-request
+budget; all pool identity still comes from decoded RPC accounts. Keep later
+issues queued behind their documented dependencies. GitHub Pages activation and
+eventual `dev` to `main` promotion require separate user approval.
 
 ## Read Next
 

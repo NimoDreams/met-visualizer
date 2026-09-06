@@ -1,7 +1,7 @@
 # Architecture
 
 Status: Phase 1 foundation and reference-market flow are implemented on `dev`;
-DLMM discovery and position flows remain queued.
+DLMM discovery is implemented for review, while position hydration remains queued.
 
 ## Agreed Boundaries
 
@@ -96,6 +96,22 @@ no consumers remain. Deterministic browser routing proved that the user RPC
 marker never entered GeckoTerminal request URLs, page content, or browser storage.
 See the
 [reference-market browser proof](reviews/phase-1-reference-market-browser-proof.md).
+
+Issue #18 adds RPC-authoritative DLMM discovery with two discriminator-and-mint
+key scans, context-slot-aware account hydration, and a minimum project-owned LB
+pair decoder. The decoder reads only the identity and pool-state fields needed by
+the current UI and is checked against `@meteora-ag/dlmm` 1.9.14 at commit
+`576919e3e4368e542c402f000b4264724f7f23ec`; the SDK is not a production
+dependency. Position qualification uses only a zero-byte PositionV2 key/count
+scan. Full position accounts and bins remain issue #19 scope.
+
+The Meteora metadata boundary accepts the live browser response envelope
+`current_page`, `pages`, `page_size`, `total`, and `data`, then validates address,
+mint orientation, pagination, and descending TVL order before ranking. A live
+Chromium request with the production page size returned CORS-visible HTTP 200 and
+the expected shape. Metadata never supplies pool identity: each result must
+reconcile with the decoded RPC pool before it can rank or qualify. See the
+[DLMM pool-selection browser proof](reviews/phase-1-dlmm-pool-selection-proof.md).
 
 ## Data Semantics
 

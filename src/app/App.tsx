@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { ReferenceMarketPanel } from "../chart/ReferenceMarketPanel";
+import { DlmmPoolsPanel } from "../components/DlmmPoolsPanel";
 import { isSolanaAddress } from "../domain/solanaAddress";
 import { RpcSessionManager, type RpcSession } from "./session";
 import { useHashRoute } from "./useHashRoute";
@@ -59,9 +60,10 @@ function DocsView() {
           <h2>Sources and refresh</h2>
           <p>
             Candles and quote prices use GeckoTerminal’s keyless public API and
-            a shared conservative request budget. The selected chart polls no
-            faster than every 60 seconds while visible. Solana supply and future
-            DLMM snapshots use only your RPC and refresh separately.
+            a shared conservative request budget. Meteora’s keyless Data API
+            ranks pools, while your RPC determines which pools exist and reads
+            their accounts. The selected chart polls no faster than every 60
+            seconds while visible; DLMM data refreshes only when requested.
           </p>
         </section>
         <section className="surface">
@@ -253,29 +255,11 @@ export function App() {
               rpc={rpcSession?.client}
             />
 
-            <aside className="positions-panel surface">
-              <p className="eyebrow">Meteora DLMM</p>
-              <h2>Pools &amp; positions</h2>
-              <div className="empty-state">
-                <span aria-hidden="true">⌁</span>
-                <p>
-                  Connect your RPC and load a token CA. Pool discovery arrives
-                  in a later issue.
-                </p>
-              </div>
-              <dl className="session-summary">
-                <div>
-                  <dt>RPC</dt>
-                  <dd>
-                    {rpcConnected ? "Session connected" : "Not connected"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Token</dt>
-                  <dd>{activeToken ? "CA accepted" : "Not loaded"}</dd>
-                </div>
-              </dl>
-            </aside>
+            <DlmmPoolsPanel
+              key={`pools-${activeToken?.sequence ?? "idle"}`}
+              mint={activeToken?.mint}
+              rpc={rpcSession?.client}
+            />
           </section>
         </main>
       )}
