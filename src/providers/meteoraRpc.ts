@@ -175,6 +175,11 @@ export async function countPoolPositions(
     signal,
   );
   validateContext(response, "position probe");
+  if (response.context.slot < minContextSlot) {
+    throw new DlmmRpcDiscoveryError(
+      "RPC position probe returned below its requested minimum context slot.",
+    );
+  }
   return { count: response.value.length, slot: response.context.slot };
 }
 

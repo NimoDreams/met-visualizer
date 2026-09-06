@@ -92,7 +92,7 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
       const positionProbe = config.filters[0]?.memcmp.bytes === "LgkNAEYaVX3";
       const tokenYScan = config.filters[1]?.memcmp.offset === 120;
       result = {
-        context: { slot: 100 },
+        context: { slot: positionProbe ? 102 : 100 },
         value:
           positionProbe || tokenYScan
             ? [{ pubkey: oracle.address, account: rpcAccount("") }]

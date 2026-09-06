@@ -49,12 +49,21 @@ test("@provider Meteora metadata accepts the intended browser request shape", as
     );
     const body: unknown = response.ok ? await response.json() : undefined;
     let shape:
-      { currentPage: unknown; pageSize: unknown; rows: number } | undefined;
+      | {
+          currentPage: unknown;
+          pageCount: unknown;
+          pageSize: unknown;
+          total: unknown;
+          rows: number;
+        }
+      | undefined;
     if (body && typeof body === "object") {
       const record = body as Record<string, unknown>;
       shape = {
         currentPage: record.current_page,
+        pageCount: record.pages,
         pageSize: record.page_size,
+        total: record.total,
         rows: Array.isArray(record.data) ? record.data.length : -1,
       };
     }
@@ -75,4 +84,7 @@ test("@provider Meteora metadata accepts the intended browser request shape", as
   expect(result.contentType).toContain("application/json");
   expect(result.shape).toMatchObject({ currentPage: 1, pageSize: 20 });
   expect(result.shape?.rows).toBeGreaterThan(0);
+  expect(Number(result.shape?.pageCount)).toBe(
+    Math.ceil(Number(result.shape?.total) / 20),
+  );
 });

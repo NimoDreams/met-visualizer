@@ -17,15 +17,19 @@ orientation must reconcile with decoded RPC identity before a candidate can rank
 Eligible pools sort by current USD TVL, 24-hour volume, then address. The page
 crawler completes the TVL frontier and boundary ties across both orientations,
 or requires manual selection when pagination, ordering, schema, reconciliation,
-or the five-page-per-orientation bound cannot prove the result. At most three
+or the five-page-per-orientation bound cannot prove the result. Final-page counts
+must agree with the provider's total/page values, and TVL cannot increase across
+page boundaries. At most three
 candidates receive zero-byte PositionV2 count probes and shared GeckoTerminal
 quote checks. Exactly the first qualified pool starts enabled; every RPC-
 discovered pool remains expandable and manually selectable.
 
-Refresh keeps the user's enabled addresses stable. A later RPC failure leaves
+Refresh keeps the user's latest enabled addresses stable, including toggles made
+while a refresh is pending. A later RPC failure leaves
 last-good pool data visibly stale. A later metadata or conversion failure keeps
 last-good metadata or quote context visibly stale rather than choosing a new
-pool.
+pool. Position probes below the requested minimum context slot fail closed;
+successful probe slots extend the snapshot's published RPC slot range.
 
 ## Decoder Oracle
 
@@ -41,10 +45,11 @@ the dependency tree and production artifact.
 Using Node.js 24.20.0, npm 11.19.0, Playwright 1.63.0, and its Chromium 153
 runtime:
 
-- 49 unit and component tests cover decoder oracle parity, malformed accounts,
+- 56 unit and component tests cover decoder oracle parity, malformed accounts,
   both RPC mint filters, shared context slots, missing accounts, PositionV2
-  probes, provider shape/order failures, frontier ties, deterministic ranking,
-  unsupported memecoin conversions, and stale refresh retention;
+  probes, final-page and cross-page provider failures, frontier ties,
+  deterministic ranking, unsupported memecoin conversions, stale refresh
+  retention, and a manual toggle during deferred refresh;
 - five deterministic Chromium tests cover project routing, session-only RPC,
   reference charts, expandable DLMM pool state, automatic enablement, and a
   unique RPC marker absent from public requests, page content, URLs, and storage;

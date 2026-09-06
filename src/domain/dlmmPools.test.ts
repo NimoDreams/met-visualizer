@@ -58,6 +58,7 @@ describe("DLMM initial pool selection", () => {
     );
 
     expect(session.metadataState).toBe("complete");
+    expect(session.maximumSlot).toBe(12);
     expect(session.pools.map((pool) => [pool.address, pool.rank])).toEqual([
       [POOLS[1], 1],
       [POOLS[0], 2],
@@ -97,8 +98,12 @@ describe("DLMM initial pool selection", () => {
           ],
           false,
           100,
+          1,
+          3,
+          4,
+          2,
         ),
-        page("x", [metadataRow(tieWinner, 100, 999)]),
+        page("x", [metadataRow(tieWinner, 100, 999)], true, 100, 2, 3, 4, 2),
       ],
       y: [page("y", [])],
     });
@@ -123,13 +128,13 @@ describe("DLMM initial pool selection", () => {
 
   it("requires manual selection when the ranking frontier stays uncleared", async () => {
     const repeated = [
-      metadataRow(POOLS[0]!, 120, 1),
-      metadataRow(POOLS[1]!, 110, 1),
+      metadataRow(POOLS[0]!, 100, 1),
+      metadataRow(POOLS[1]!, 100, 1),
       metadataRow(POOLS[2]!, 100, 1),
     ];
     const metadata = new PageFixtureProvider({
       x: Array.from({ length: 5 }, (_, index) =>
-        page("x", repeated, false, 100, index + 1),
+        page("x", repeated, false, 100, index + 1, 3, 18, 6),
       ),
       y: [page("y", [])],
     });
@@ -211,6 +216,72 @@ describe("DLMM initial pool selection", () => {
     });
     expect(session.metadataDetail).toMatch(/truncated/i);
   });
+
+  it("requires manual selection when a position probe violates its minimum slot", async () => {
+    const rpc = new PoolFixtureRpc(
+      JUP,
+      [POOLS[0]!],
+      new Map([[POOLS[0]!, 1]]),
+      10,
+    );
+    const metadata = new PageFixtureProvider({
+      x: [page("x", [metadataRow(POOLS[0]!, 100, 1)])],
+      y: [page("y", [])],
+    });
+
+    const session = await loadDlmmPoolSession(
+      rpc,
+      metadata,
+      new QuoteFixtureProvider(true),
+      JUP,
+      new AbortController().signal,
+    );
+
+    expect(session).toMatchObject({
+      enabledAddresses: [],
+      selectionState: "manual-required",
+      maximumSlot: 11,
+    });
+    expect(session.selectionDetail).toMatch(/minimum context slot/i);
+  });
+
+  it("requires manual selection when TVL increases across pages", async () => {
+    const pools = [...POOLS, address(24)];
+    const metadata = new PageFixtureProvider({
+      x: [
+        page(
+          "x",
+          [
+            metadataRow(POOLS[0]!, 120, 1),
+            metadataRow(POOLS[1]!, 110, 1),
+            metadataRow(POOLS[2]!, 100, 1),
+          ],
+          false,
+          100,
+          1,
+          3,
+          4,
+          2,
+        ),
+        page("x", [metadataRow(pools[3]!, 105, 1)], true, 105, 2, 3, 4, 2),
+      ],
+      y: [page("y", [])],
+    });
+    const session = await loadDlmmPoolSession(
+      new PoolFixtureRpc(JUP, pools, new Map()),
+      metadata,
+      new QuoteFixtureProvider(true),
+      JUP,
+      new AbortController().signal,
+    );
+
+    expect(session).toMatchObject({
+      metadataState: "incomplete",
+      enabledAddresses: [],
+      selectionState: "manual-required",
+    });
+    expect(session.metadataDetail).toMatch(/increased across a page boundary/i);
+  });
 });
 
 class PoolFixtureRpc implements ReadOnlySolanaRpc {
@@ -220,6 +291,7 @@ class PoolFixtureRpc implements ReadOnlySolanaRpc {
     private readonly mint: string,
     private readonly pools: string[],
     private readonly positions: Map<string, number>,
+    private readonly positionSlot = 12,
   ) {}
 
   getTokenSupply<T>(): Promise<T> {
@@ -237,7 +309,7 @@ class PoolFixtureRpc implements ReadOnlySolanaRpc {
       const pool = filters[1]?.memcmp.bytes ?? "";
       this.positionProbes.push(pool);
       return Promise.resolve({
-        context: { slot: 12 },
+        context: { slot: this.positionSlot },
         value: Array.from(
           { length: this.positions.get(pool) ?? 0 },
           (_, index) => ({
@@ -325,13 +397,16 @@ function page(
   exhausted = true,
   frontierTvlUsd = pools.at(-1)?.tvlUsd,
   currentPage = 1,
+  pageSize = 20,
+  total = pools.length,
+  pageCount = exhausted ? currentPage : currentPage + 1,
 ): MeteoraPoolPage {
   return {
     orientation,
     currentPage,
-    pageCount: exhausted ? currentPage : currentPage + 1,
-    pageSize: 20,
-    total: pools.length,
+    pageCount,
+    pageSize,
+    total,
     pools,
     exhausted,
     frontierTvlUsd,

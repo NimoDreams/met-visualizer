@@ -117,12 +117,13 @@ function parsePoolPage(
   if (value.data.length > pageSize) {
     throw shapeError("Pool page exceeds its declared page size.");
   }
-  if (currentPage < pageCount && value.data.length !== pageSize) {
-    throw shapeError("Pool page appears truncated before its final page.");
-  }
-  if (pageCount === 0 && (total !== 0 || value.data.length !== 0)) {
-    throw shapeError("Empty pagination metadata is inconsistent.");
-  }
+  validatePagination(
+    currentPage,
+    pageCount,
+    pageSize,
+    total,
+    value.data.length,
+  );
 
   const observedAt = Date.now();
   const pools = value.data.map((pool, index) =>
@@ -185,6 +186,39 @@ function parsePool(
     blacklisted: value.is_blacklisted === true,
     observedAt,
   };
+}
+
+function validatePagination(
+  currentPage: number,
+  pageCount: number,
+  pageSize: number,
+  total: number,
+  rowCount: number,
+): void {
+  if (total === 0) {
+    if (
+      currentPage !== 1 ||
+      rowCount !== 0 ||
+      (pageCount !== 0 && pageCount !== 1)
+    ) {
+      throw shapeError("Empty pagination metadata is inconsistent.");
+    }
+    return;
+  }
+
+  const expectedPageCount = Math.ceil(total / pageSize);
+  if (pageCount !== expectedPageCount || currentPage > pageCount) {
+    throw shapeError("Pool page count is inconsistent with its total.");
+  }
+  const expectedRows =
+    currentPage < pageCount ? pageSize : total - pageSize * (pageCount - 1);
+  if (rowCount !== expectedRows) {
+    throw shapeError(
+      currentPage < pageCount
+        ? "Pool page appears truncated before its final page."
+        : "Final pool page is inconsistent with its declared total.",
+    );
+  }
 }
 
 function requiredAddress(value: unknown, label: string): string {

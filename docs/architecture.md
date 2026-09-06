@@ -113,6 +113,12 @@ the expected shape. Metadata never supplies pool identity: each result must
 reconcile with the decoded RPC pool before it can rank or qualify. See the
 [DLMM pool-selection browser proof](reviews/phase-1-dlmm-pool-selection-proof.md).
 
+Pagination proof checks final-page row counts against `total`, `pages`, and
+`page_size`, and requires TVL to remain descending across page boundaries. Any
+inconsistency leaves selection manual. PositionV2 qualification responses must
+meet their requested minimum context slot, and successful probe slots extend the
+session's reported RPC slot range.
+
 ## Data Semantics
 
 - Match mint addresses, not tickers; discover pools with the CA on either side.

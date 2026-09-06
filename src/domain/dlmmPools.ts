@@ -94,6 +94,7 @@ export async function loadDlmmPoolSession(
   >();
   let selectedAddress: string | undefined;
   let selectionDetail = metadataResult.detail;
+  let maximumSlot = discovery.maximumSlot;
 
   if (metadataResult.state === "complete") {
     try {
@@ -101,9 +102,10 @@ export async function loadDlmmPoolSession(
         const positions = await countPoolPositions(
           rpc,
           candidate.pool.address,
-          discovery.maximumSlot,
+          maximumSlot,
           signal,
         );
+        maximumSlot = Math.max(maximumSlot, positions.slot);
         if (positions.count === 0) {
           qualification.set(candidate.pool.address, {
             state: "no-positions",
@@ -250,7 +252,7 @@ export async function loadDlmmPoolSession(
     quoteStale: false,
     rpcStale: false,
     minimumSlot: discovery.minimumSlot,
-    maximumSlot: discovery.maximumSlot,
+    maximumSlot,
     observedAt: Date.now(),
   };
 }
@@ -289,6 +291,13 @@ async function collectRankedMetadata(
       () => {
         requests += 1;
       },
+      (candidate) =>
+        validatePageContinuity(
+          state.pages.at(-1),
+          candidate,
+          orientation,
+          state.nextPage,
+        ),
     );
     state.pages.push(page);
     state.nextPage += 1;
@@ -354,6 +363,43 @@ async function collectRankedMetadata(
       if (signal.aborted) throw error;
       return describeMetadataFailure(error, requests, states, readyPools, mint);
     }
+  }
+}
+
+function validatePageContinuity(
+  previous: MeteoraPoolPage | undefined,
+  page: MeteoraPoolPage,
+  orientation: MeteoraPoolOrientation,
+  expectedPage: number,
+): void {
+  if (page.orientation !== orientation || page.currentPage !== expectedPage) {
+    throw new MeteoraMetadataError(
+      "shape",
+      "Ranking page identity does not match the requested orientation or page.",
+    );
+  }
+  if (!previous) return;
+  if (
+    page.pageCount !== previous.pageCount ||
+    page.pageSize !== previous.pageSize ||
+    page.total !== previous.total
+  ) {
+    throw new MeteoraMetadataError(
+      "shape",
+      "Ranking pagination changed across pages.",
+    );
+  }
+  const previousFrontier = previous.pools.at(-1)?.tvlUsd;
+  const nextLeader = page.pools[0]?.tvlUsd;
+  if (
+    previousFrontier !== undefined &&
+    nextLeader !== undefined &&
+    nextLeader > previousFrontier
+  ) {
+    throw new MeteoraMetadataError(
+      "shape",
+      "Ranking TVL order increased across a page boundary.",
+    );
   }
 }
 
@@ -436,15 +482,30 @@ async function readPageWithRetry(
   pageNumber: number,
   signal: AbortSignal,
   onAttempt: () => void,
+  validate: (page: MeteoraPoolPage) => void,
 ): Promise<MeteoraPoolPage> {
   try {
     onAttempt();
-    return await provider.getPoolPage(mint, orientation, pageNumber, signal);
+    const page = await provider.getPoolPage(
+      mint,
+      orientation,
+      pageNumber,
+      signal,
+    );
+    validate(page);
+    return page;
   } catch (firstError) {
     if (signal.aborted) throw firstError;
     await abortableDelay(250, signal);
     onAttempt();
-    return provider.getPoolPage(mint, orientation, pageNumber, signal);
+    const page = await provider.getPoolPage(
+      mint,
+      orientation,
+      pageNumber,
+      signal,
+    );
+    validate(page);
+    return page;
   }
 }
 

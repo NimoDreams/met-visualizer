@@ -85,6 +85,22 @@ describe("PublicMeteoraMetadataProvider", () => {
     );
   });
 
+  it("rejects a final page inconsistent with its total and page size", async () => {
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      Response.json({
+        current_page: 2,
+        pages: 2,
+        page_size: 20,
+        total: 21,
+        data: [poolRow(oracle.address, 1, 1), poolRow(address(8), 1, 1)],
+      }),
+    );
+
+    await expect(
+      new PublicMeteoraMetadataProvider().getPoolPage(JUP, "x", 2),
+    ).rejects.toThrow(/final pool page/i);
+  });
+
   it("rejects a row whose orientation does not contain the requested mint", async () => {
     vi.spyOn(window, "fetch").mockResolvedValue(
       Response.json(

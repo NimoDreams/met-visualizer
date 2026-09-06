@@ -113,6 +113,20 @@ describe("Meteora RPC discovery", () => {
     });
   });
 
+  it("rejects a position probe below the requested context slot", async () => {
+    const rpc = new FixtureRpc([]);
+    rpc.positionSlot = 399;
+
+    await expect(
+      countPoolPositions(
+        rpc,
+        oracle.address,
+        400,
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow(/minimum context slot/i);
+  });
+
   it("hydrates the 626-pool JUP stress shape in bounded account batches", async () => {
     const rpc = new StressRpc(626);
     const result = await discoverDlmmPools(
@@ -146,6 +160,7 @@ class FixtureRpc implements ReadOnlySolanaRpc {
     config: MultipleAccountsConfig;
   }> = [];
   positionCount = 0;
+  positionSlot = 450;
 
   constructor(private readonly hydrated: Array<FixtureAccount | null>) {}
 
@@ -163,7 +178,7 @@ class FixtureRpc implements ReadOnlySolanaRpc {
     )[0];
     if (firstFilter?.memcmp.bytes === POSITION_V2_DISCRIMINATOR) {
       return Promise.resolve({
-        context: { slot: 450 },
+        context: { slot: this.positionSlot },
         value: Array.from({ length: this.positionCount }, (_, index) => ({
           pubkey: encodeBase58(new Uint8Array(32).fill(index + 10)),
           account: account(""),

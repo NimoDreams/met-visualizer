@@ -15,6 +15,7 @@ import type {
 import type {
   MeteoraMetadataProvider,
   MeteoraPoolOrientation,
+  MeteoraPoolPage,
 } from "../providers/meteoraMetadata";
 import type {
   AccountScanConfig,
@@ -81,6 +82,39 @@ describe("useDlmmPools", () => {
       },
     });
   });
+
+  it("preserves a manual toggle made while a successful refresh is pending", async () => {
+    const rpc = new OnePoolRpc();
+    const metadata = new ToggleMetadataProvider();
+    const gecko = new OneQuoteProvider();
+    const { result } = renderHook(() =>
+      useDlmmPools(JUP, rpc, metadata, gecko),
+    );
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+
+    metadata.deferNextX = true;
+    let refreshPromise: Promise<void> | undefined;
+    act(() => {
+      refreshPromise = result.current.refresh();
+    });
+    await waitFor(() =>
+      expect(result.current.state).toMatchObject({
+        status: "ready",
+        refreshing: true,
+      }),
+    );
+
+    act(() => result.current.toggle(oracle.address));
+    expect(readySession(result.current.state).enabledAddresses).toEqual([]);
+    expect(result.current.state).toMatchObject({ refreshing: true });
+
+    act(() => metadata.release());
+    await act(async () => refreshPromise);
+    expect(readySession(result.current.state)).toMatchObject({
+      enabledAddresses: [],
+      selectionState: "manual",
+    });
+  });
 });
 
 class OnePoolRpc implements ReadOnlySolanaRpc {
@@ -128,14 +162,34 @@ class OnePoolRpc implements ReadOnlySolanaRpc {
 
 class ToggleMetadataProvider implements MeteoraMetadataProvider {
   fail = false;
+  deferNextX = false;
+  #release?: () => void;
+
+  release(): void {
+    this.#release?.();
+    this.#release = undefined;
+  }
 
   getPoolPage(
     _mint: string,
     orientation: MeteoraPoolOrientation,
     page: number,
-  ) {
+  ): Promise<MeteoraPoolPage> {
     if (this.fail)
       return Promise.reject(new Error("fixture metadata unavailable"));
+    if (orientation === "x" && this.deferNextX) {
+      this.deferNextX = false;
+      return new Promise((resolve) => {
+        this.#release = () => resolve(this.page(orientation, page));
+      });
+    }
+    return Promise.resolve(this.page(orientation, page));
+  }
+
+  private page(
+    orientation: MeteoraPoolOrientation,
+    page: number,
+  ): MeteoraPoolPage {
     const pools =
       orientation === "x"
         ? [
@@ -151,7 +205,7 @@ class ToggleMetadataProvider implements MeteoraMetadataProvider {
             },
           ]
         : [];
-    return Promise.resolve({
+    return {
       orientation,
       currentPage: page,
       pageCount: page,
@@ -160,7 +214,7 @@ class ToggleMetadataProvider implements MeteoraMetadataProvider {
       pools,
       exhausted: true,
       frontierTvlUsd: pools.at(-1)?.tvlUsd,
-    });
+    };
   }
 }
 

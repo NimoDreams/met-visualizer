@@ -101,7 +101,9 @@ export function useDlmmPools(
         generation.current !== requestGeneration
       )
         return;
-      const session = preserveStableSelection(previous, loaded);
+      const latest = current.current;
+      if (!latest || latest.mint !== loaded.mint) return;
+      const session = preserveStableSelection(latest, loaded);
       current.current = session;
       setState({ status: "ready", session, refreshing: false });
     } catch (error) {
@@ -110,7 +112,8 @@ export function useDlmmPools(
         generation.current !== requestGeneration
       )
         return;
-      const session = { ...previous, rpcStale: true };
+      const latest = current.current ?? previous;
+      const session = { ...latest, rpcStale: true };
       current.current = session;
       setState({
         status: "ready",
@@ -138,7 +141,12 @@ export function useDlmmPools(
           : "No pool is enabled. Select any discovered pool to continue.",
     };
     current.current = session;
-    setState({ status: "ready", session, refreshing: false });
+    setState((state) => ({
+      status: "ready",
+      session,
+      refreshing: state.status === "ready" ? state.refreshing : false,
+      actionError: state.status === "ready" ? state.actionError : undefined,
+    }));
   }, []);
 
   return useMemo(() => ({ state, refresh, toggle }), [refresh, state, toggle]);
@@ -184,7 +192,11 @@ function preserveStableSelection(
   });
 
   const selectionState =
-    enabledAddresses.length === 0 ? "manual-required" : previous.selectionState;
+    previous.selectionState === "manual"
+      ? "manual"
+      : enabledAddresses.length === 0
+        ? "manual-required"
+        : previous.selectionState;
   return {
     ...loaded,
     pools,
@@ -196,7 +208,7 @@ function preserveStableSelection(
         : undefined,
     selectionState,
     selectionDetail:
-      enabledAddresses.length === 0
+      enabledAddresses.length === 0 && previous.selectionState !== "manual"
         ? "The prior selection is no longer present in RPC discovery. Choose a pool manually."
         : previous.selectionDetail,
     metadataStale,
