@@ -1,59 +1,47 @@
 # Project Context
 
-This document preserves durable context for future sessions and future agents.
-Update it when the project direction changes in a way future work needs to
-remember.
+## Current State — 2026-09-06
 
-## Current State
+This is a documentation-only bootstrap repository. The user authorized a Phase 0
+documentation and GitHub planning pass, not application implementation.
 
-This project currently contains a management and documentation skeleton copied
-from the Codex application template.
+- Local: met-visualizer repository root
+- GitHub: NimoDreams/met-visualizer
+- main holds the bootstrap baseline; dev has not been introduced.
+- The current documentation branch is codex/phase-0-planning, targeting main.
+- [Phase 0 epic #1](https://github.com/NimoDreams/met-visualizer/issues/1) and
+  its milestone track active work; [roadmap](roadmap.md) links the child issues.
+- PM, Developer, and Code Reviewer remain separate roles. Reviewers must post
+  GitHub-visible readiness; this planning pass does not authorize a merge.
 
-The product seed is `met-visualizer`: a way to view Meteora LP positions on
-arbitrary Solana tokens. The user has not yet completed Phase 0 planning, so
-future agents should not assume the app architecture, provider strategy,
-storage model, or UX shape is settled.
+## Agreed Direction
 
-## Product Intent
+Token CA → reference candles → expandable Meteora DLMM pools and all owners'
+positions → selectable current liquidity distribution across bins.
 
-The app should help the user understand Meteora LP position context around
-Solana tokens. The exact target workflows, first valuable screen, data sources,
-and interaction model still need PM planning.
+The open-source SPA targets GitHub Pages. Users supply a session-only RPC.
+Public free APIs may supply data without additional credentials; GeckoTerminal
+is the agreed starting candle source. Include an in-app Docs tab and visible
+source, freshness, and coverage context. All functionality remains read-only.
 
-## Operating Model
+## Outstanding Gates
 
-This repo uses a PM, Developer, and Code Reviewer workflow:
+1. Verify GeckoTerminal browser access, representative token coverage, history,
+   price denomination, and freshness under realistic rate limits.
+2. Verify complete pool/position discovery and per-position bin amounts through
+   a compatible user RPC, including large pools and dynamic positions.
+3. Approve stack, reference selection, refresh/coverage rules, and acceptance
+   criteria after reviewing feasibility evidence.
+4. Obtain explicit user approval to end Phase 0 and begin implementation.
 
-- GitHub Issues are the source of truth for active work.
-- Milestones group issues into phases or batches.
-- Local docs preserve durable context and decisions.
-- PRs should be small and linked to issues.
-- Code reviewers leave explicit GitHub-visible readiness signals.
-- Once the project has a usable baseline, keep `main` stable and use `dev` as
-  the integration branch for active work.
-- During active multi-agent work, issue branches normally start from `dev` and
-  PR back into `dev`.
+TypeScript, React, Vite, and Lightweight Charts remain proposals. Confirm and
+introduce dev immediately before implementation; use issue-scoped developer
+branches/worktrees and independent review thereafter.
 
-All agents should update durable context as they learn lasting information.
+## Read Next
 
-## Current Priorities
+[Vision](vision.md), [roadmap](roadmap.md), [architecture](architecture.md),
+[decisions](decisions.md), and [MVP spec](specs/mvp.md).
 
-1. Establish the project roadmap.
-2. Create initial milestones and issues.
-3. Decide initial technical architecture.
-4. Keep safety/privacy rules current as the project domain becomes clearer.
-5. Decide when to introduce a `dev` integration branch and promotion workflow.
-6. Define the read-only Meteora/Solana data boundary before implementation.
-
-## Open Questions
-
-- What is the product goal?
-- Who is the app for?
-- What is the initial technical stack?
-- What data needs to be protected?
-- What should Phase 0 accomplish?
-- Which Meteora position and pool data should the app visualize first?
-- Should the first workflow start from a token address, wallet address, pool
-  address, or saved watchlist?
-- Which external providers are needed, and what API keys/rate limits/terms
-  apply?
+Never commit human scratch notes, RPC credentials, local env files, raw provider
+dumps, or sensitive logs. Docs preserve durable knowledge; GitHub tracks work.
