@@ -22,7 +22,7 @@ test("serves the project base and preserves hash navigation across reload", asyn
   await page.getByRole("link", { name: "Visualizer", exact: true }).click();
   await expect(
     page.getByRole("img", {
-      name: "Sample reference candlestick chart with liquidity profile",
+      name: "Reference candlestick chart awaiting a token",
     }),
   ).toBeVisible();
   await expect(page.locator("canvas").first()).toBeVisible();

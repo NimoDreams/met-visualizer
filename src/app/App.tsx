@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ReferenceChart } from "../chart/ReferenceChart";
+import { ReferenceMarketPanel } from "../chart/ReferenceMarketPanel";
 import { isSolanaAddress } from "../domain/solanaAddress";
-import { RpcSessionManager } from "./session";
+import { RpcSessionManager, type RpcSession } from "./session";
 import { useHashRoute } from "./useHashRoute";
 
 function validateRpc(value: string): string | undefined {
@@ -39,11 +39,38 @@ function DocsView() {
           </p>
         </section>
         <section className="surface">
-          <h2>Foundation preview</h2>
+          <h2>Reference market and units</h2>
           <p>
-            The chart currently uses illustrative local data while the provider
-            workflows are built. Future releases will name the reference market,
-            source, units, freshness, and liquidity coverage beside every view.
+            GeckoTerminal ranks markets by liquidity and recent volume. The app
+            checks up to three and keeps one identified market stable until you
+            explicitly change it. A refresh never switches pools silently.
+          </p>
+        </section>
+        <section className="surface">
+          <h2>Market Cap, FDV, and Price</h2>
+          <p>
+            Verified provider market cap is preferred. Otherwise the chart uses
+            current on-chain mint supply and says FDV. If supply is unavailable,
+            it stays useful as Price (USD). Historical valuation candles reuse
+            that current session supply; they are not historical supply records.
+          </p>
+        </section>
+        <section className="surface">
+          <h2>Sources and refresh</h2>
+          <p>
+            Candles and quote prices use GeckoTerminal’s keyless public API and
+            a shared conservative request budget. The selected chart polls no
+            faster than every 60 seconds while visible. Solana supply and future
+            DLMM snapshots use only your RPC and refresh separately.
+          </p>
+        </section>
+        <section className="surface">
+          <h2>Current liquidity snapshot</h2>
+          <p>
+            Future DLMM overlays will convert the other pool token through a
+            current public USD quote and use the chart’s supply basis. They show
+            current liquidity, not liquidity at a historical candle. Unsupported
+            conversions stay visible without a common-axis overlay.
           </p>
         </section>
       </div>
@@ -54,12 +81,17 @@ function DocsView() {
 export function App() {
   const route = useHashRoute();
   const sessionManager = useRef(new RpcSessionManager());
+  const tokenSequence = useRef(0);
   const [rpcInput, setRpcInput] = useState("");
   const [rpcConnected, setRpcConnected] = useState(false);
+  const [rpcSession, setRpcSession] = useState<RpcSession>();
   const [rpcError, setRpcError] = useState<string>();
   const [tokenInput, setTokenInput] = useState("");
   const [tokenError, setTokenError] = useState<string>();
-  const [activeToken, setActiveToken] = useState<string>();
+  const [activeToken, setActiveToken] = useState<{
+    mint: string;
+    sequence: number;
+  }>();
 
   useEffect(() => {
     const manager = sessionManager.current;
@@ -75,8 +107,10 @@ export function App() {
       return;
     }
 
-    sessionManager.current.connect(normalized);
+    const session = sessionManager.current.connect(normalized);
+    setRpcSession(session);
     setRpcConnected(true);
+    setActiveToken(undefined);
     setRpcError(undefined);
     setRpcInput("");
   }
@@ -84,6 +118,8 @@ export function App() {
   function disconnectRpc() {
     sessionManager.current.disconnect();
     setRpcConnected(false);
+    setRpcSession(undefined);
+    setActiveToken(undefined);
     setRpcInput("");
   }
 
@@ -101,7 +137,7 @@ export function App() {
     }
 
     setTokenError(undefined);
-    setActiveToken(normalized);
+    setActiveToken({ mint: normalized, sequence: ++tokenSequence.current });
   }
 
   return (
@@ -211,22 +247,11 @@ export function App() {
           </form>
 
           <section className="workspace" aria-label="Visualization workspace">
-            <article className="chart-panel surface">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Reference market preview</p>
-                  <h2>
-                    {activeToken ? "Token session ready" : "Awaiting token CA"}
-                  </h2>
-                </div>
-                <span className="status">Illustrative data</span>
-              </div>
-              <ReferenceChart />
-              <p className="chart-note">
-                The green profile is a sample price-aligned series primitive. No
-                live token or liquidity data loads in this foundation issue.
-              </p>
-            </article>
+            <ReferenceMarketPanel
+              key={activeToken?.sequence}
+              mint={activeToken?.mint}
+              rpc={rpcSession?.client}
+            />
 
             <aside className="positions-panel surface">
               <p className="eyebrow">Meteora DLMM</p>

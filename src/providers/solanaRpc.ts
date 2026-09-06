@@ -14,6 +14,7 @@ export type AccountScanConfig = Readonly<Record<string, unknown>>;
 export type MultipleAccountsConfig = Readonly<Record<string, unknown>>;
 
 export interface ReadOnlySolanaRpc {
+  getTokenSupply<T>(mint: string, signal?: AbortSignal): Promise<T>;
   getProgramAccounts<T>(
     programAddress: string,
     config: AccountScanConfig,
@@ -32,7 +33,10 @@ export interface ReadOnlySolanaRpc {
 }
 
 type ReadMethod =
-  "getProgramAccounts" | "getMultipleAccounts" | "getProgramAccountsV2";
+  | "getTokenSupply"
+  | "getProgramAccounts"
+  | "getMultipleAccounts"
+  | "getProgramAccountsV2";
 
 export class NativeReadOnlySolanaRpc implements ReadOnlySolanaRpc {
   #nextId = 1;
@@ -41,6 +45,14 @@ export class NativeReadOnlySolanaRpc implements ReadOnlySolanaRpc {
     if (endpoint.protocol !== "https:") {
       throw new Error("RPC endpoints must use HTTPS.");
     }
+  }
+
+  getTokenSupply<T>(mint: string, signal?: AbortSignal): Promise<T> {
+    return this.#request(
+      "getTokenSupply",
+      [mint, { commitment: "confirmed" }],
+      signal,
+    );
   }
 
   getProgramAccounts<T>(

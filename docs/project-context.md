@@ -64,9 +64,13 @@ Docker Compose. See the [technical foundation](specs/technical-foundation.md).
 
 ## Active Delivery Gate
 
-Start with [issue #16](https://github.com/NimoDreams/met-visualizer/issues/16).
-Keep later issues queued behind their documented dependencies. GitHub Pages
-activation and eventual `dev` to `main` promotion require separate user approval.
+[Issues #16](https://github.com/NimoDreams/met-visualizer/issues/16) and
+[#17](https://github.com/NimoDreams/met-visualizer/issues/17) are merged in
+`dev`. [Issue #18](https://github.com/NimoDreams/met-visualizer/issues/18) is the
+next RPC-authoritative DLMM pool-selection gate and can reuse #17's shared
+quote-price adapter and public-request budget. Keep later issues queued behind
+their documented dependencies. GitHub Pages activation and eventual `dev` to
+`main` promotion require separate user approval.
 
 ## Read Next
 
