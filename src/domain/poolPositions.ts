@@ -15,6 +15,7 @@ import { rankPositions } from "../workers/positionWorker";
 
 export type PoolPositionSession = {
   poolAddress: string;
+  enteredMint: string;
   positions: ValuedPosition[];
   visibleCount: number;
   selectedAddresses: string[];
@@ -34,6 +35,9 @@ export type PoolPositionSession = {
   quoteMint?: string;
   quotePriceUsdExact?: string;
   quoteObservedAt?: number;
+  quoteSide: "x" | "y";
+  quoteDecimals: number;
+  currentPriceQ64?: bigint;
   stale: boolean;
   loadingMode: "portable-batched";
   detail: string;
@@ -92,6 +96,7 @@ export async function loadPoolPositionSession(
   const visible = result.positions.slice(0, visibleCount);
   return {
     poolAddress: pool.address,
+    enteredMint,
     positions: result.positions,
     visibleCount,
     selectedAddresses: visible.map(({ address }) => address),
@@ -112,6 +117,9 @@ export async function loadPoolPositionSession(
     quotePriceUsdExact:
       quoteResult?.priceUsdExact ?? quoteResult?.priceUsd.toString(),
     quoteObservedAt: quoteResult?.observedAt,
+    quoteSide,
+    quoteDecimals: rpcSnapshot.quoteDecimals,
+    currentPriceQ64: result.currentPriceQ64,
     stale: false,
     loadingMode: "portable-batched",
     detail: quoteResult

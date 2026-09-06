@@ -1,0 +1,107 @@
+import { describe, expect, it, vi } from "vitest";
+import type { LiquidityLevel } from "../domain/liquidityOverlay";
+import { LiquidityProfilePrimitive } from "./LiquidityProfilePrimitive";
+
+describe("LiquidityProfilePrimitive", () => {
+  it("draws price-aligned horizontal rows and exposes aggregated hover contributions", () => {
+    const fills: number[][] = [];
+    const requestUpdate = vi.fn();
+    const primitive = new LiquidityProfilePrimitive([
+      level("first", 100, 60n, "position-a"),
+      level("second", 104, 40n, "position-b"),
+    ]);
+    primitive.attached({
+      series: { priceToCoordinate: (price: number) => price / 10 },
+      requestUpdate,
+    } as never);
+    const renderer = primitive.paneViews()[0]?.renderer();
+    renderer?.draw({
+      useBitmapCoordinateSpace: (draw: (scope: unknown) => void) =>
+        draw({
+          context: {
+            fillStyle: "",
+            save: vi.fn(),
+            restore: vi.fn(),
+            fillRect: (...values: number[]) => fills.push(values),
+          },
+          bitmapSize: { width: 100, height: 100 },
+          horizontalPixelRatio: 1,
+          verticalPixelRatio: 1,
+        }),
+    } as never);
+
+    expect(fills).toHaveLength(1);
+    const hit = primitive.hitTest(99, 10);
+    expect(hit).toMatchObject({ zOrder: "top", cursorStyle: "crosshair" });
+    const hover = primitive.hover(hit?.externalId);
+    expect(hover).toMatchObject({
+      minimumPrice: 100,
+      maximumPrice: 104,
+      valueUsd: { numerator: 100n, denominator: 1n },
+    });
+    expect(hover?.contributions.map(({ positionKey }) => positionKey)).toEqual([
+      "pool:position-a",
+      "pool:position-b",
+    ]);
+    expect(requestUpdate).toHaveBeenCalledOnce();
+  });
+
+  it("supports keyboard-level highlighting and clears resources on detach", () => {
+    const requestUpdate = vi.fn();
+    const primitive = new LiquidityProfilePrimitive([
+      level("first", 100, 1n, "position-a"),
+    ]);
+    primitive.attached({
+      series: { priceToCoordinate: () => 10 },
+      requestUpdate,
+    } as never);
+    primitive
+      .paneViews()[0]
+      ?.renderer()
+      ?.draw({
+        useBitmapCoordinateSpace: (draw: (scope: unknown) => void) =>
+          draw({
+            context: {
+              fillStyle: "",
+              save: vi.fn(),
+              restore: vi.fn(),
+              fillRect: vi.fn(),
+            },
+            bitmapSize: { width: 100, height: 100 },
+            horizontalPixelRatio: 1,
+            verticalPixelRatio: 1,
+          }),
+      } as never);
+
+    expect(primitive.hoverLevel("first")?.contributions).toHaveLength(1);
+    primitive.hoverLevel(undefined);
+    expect(requestUpdate).toHaveBeenCalledTimes(2);
+    primitive.detached();
+    expect(primitive.hitTest(99, 10)).toBeNull();
+  });
+});
+
+function level(
+  id: string,
+  axisPrice: number,
+  value: bigint,
+  positionAddress: string,
+): LiquidityLevel {
+  return {
+    id,
+    axisPrice,
+    valueUsd: { numerator: value, denominator: 1n },
+    contributions: [
+      {
+        id: `${id}:contribution`,
+        poolAddress: "pool",
+        poolLabel: "POOL",
+        positionAddress,
+        positionKey: `pool:${positionAddress}`,
+        binId: 1,
+        axisPrice,
+        valueUsd: { numerator: value, denominator: 1n },
+      },
+    ],
+  };
+}

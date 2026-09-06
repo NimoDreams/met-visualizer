@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CandlestickSeries,
   ColorType,
@@ -13,17 +13,37 @@ import type {
   ReferenceMarketSession,
   ValuationCandle,
 } from "../domain/referenceMarket";
+import type { LiquidityOverlayModel } from "../domain/liquidityOverlay";
+import { rationalToNumber } from "../domain/liquidityOverlay";
+import {
+  LiquidityProfilePrimitive,
+  type LiquidityHover,
+} from "./LiquidityProfilePrimitive";
 
 export function ReferenceChart({
   session,
+  overlay,
+  onHoverPositionKeys,
 }: {
   session?: ReferenceMarketSession;
+  overlay?: LiquidityOverlayModel;
+  onHoverPositionKeys?: (keys: readonly string[]) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const primitiveRef = useRef<LiquidityProfilePrimitive | undefined>(undefined);
+  const keyboardIndex = useRef(-1);
+  const [hoverState, setHoverState] = useState<{
+    overlay?: LiquidityOverlayModel;
+    value: LiquidityHover;
+  }>();
+  const hover =
+    hoverState && hoverState.overlay === overlay ? hoverState.value : undefined;
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    keyboardIndex.current = -1;
+    onHoverPositionKeys?.([]);
 
     const chart = createChart(container, {
       autoSize: true,
@@ -59,6 +79,12 @@ export function ReferenceChart({
     });
     candleSeries.setData(session.candles.map(toChartCandle));
 
+    const primitive = overlay?.levels.length
+      ? new LiquidityProfilePrimitive(overlay.levels)
+      : undefined;
+    primitiveRef.current = primitive;
+    if (primitive) candleSeries.attachPrimitive(primitive);
+
     const volumeSeries = chart.addSeries(HistogramSeries, {
       priceScaleId: "volume",
       priceFormat: { type: "volume" },
@@ -69,21 +95,131 @@ export function ReferenceChart({
     volumeSeries.setData(session.candles.map(toChartVolume));
     chart.timeScale().fitContent();
 
-    return () => chart.remove();
-  }, [session]);
+    const handleCrosshair = (event: { hoveredObjectId?: unknown }) => {
+      const next = primitive?.hover(event.hoveredObjectId);
+      setHoverState(next ? { overlay, value: next } : undefined);
+      onHoverPositionKeys?.(
+        next
+          ? [
+              ...new Set(
+                next.contributions.map(({ positionKey }) => positionKey),
+              ),
+            ]
+          : [],
+      );
+    };
+    chart.subscribeCrosshairMove(handleCrosshair);
+
+    return () => {
+      chart.unsubscribeCrosshairMove(handleCrosshair);
+      primitiveRef.current = undefined;
+      chart.remove();
+    };
+  }, [onHoverPositionKeys, overlay, session]);
+
+  function navigateLiquidity(direction: 1 | -1) {
+    if (!overlay?.levels.length) return;
+    keyboardIndex.current =
+      (keyboardIndex.current + direction + overlay.levels.length) %
+      overlay.levels.length;
+    const level = overlay.levels[keyboardIndex.current];
+    const next = primitiveRef.current?.hoverLevel(level?.id);
+    setHoverState(next ? { overlay, value: next } : undefined);
+    onHoverPositionKeys?.(
+      next
+        ? [...new Set(next.contributions.map(({ positionKey }) => positionKey))]
+        : [],
+    );
+  }
 
   return (
-    <div
-      ref={containerRef}
-      className="chart-canvas"
-      aria-label={
-        session
-          ? `${session.token.symbol} ${session.basis.label} reference candlestick chart`
-          : "Reference candlestick chart awaiting a token"
-      }
-      role="img"
-    />
+    <>
+      <div
+        ref={containerRef}
+        className="chart-canvas"
+        aria-label={
+          session
+            ? `${session.token.symbol} ${session.basis.label} reference candlestick chart with ${overlay?.levels.length ?? 0} selected liquidity levels`
+            : "Reference candlestick chart awaiting a token"
+        }
+        aria-describedby={hover ? "liquidity-hover-detail" : undefined}
+        onBlur={() => {
+          primitiveRef.current?.hoverLevel(undefined);
+          setHoverState(undefined);
+          onHoverPositionKeys?.([]);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            navigateLiquidity(event.key === "ArrowDown" ? 1 : -1);
+          } else if (event.key === "Escape") {
+            primitiveRef.current?.hoverLevel(undefined);
+            setHoverState(undefined);
+            onHoverPositionKeys?.([]);
+          }
+        }}
+        role="img"
+        tabIndex={session && overlay?.levels.length ? 0 : undefined}
+      />
+      {hover ? (
+        <div
+          className="liquidity-tooltip"
+          id="liquidity-hover-detail"
+          role="status"
+        >
+          <strong>
+            Liquidity at{" "}
+            {formatAxisRange(hover.minimumPrice, hover.maximumPrice)}
+          </strong>
+          <span>
+            {formatUsd(hover.valueUsd)} selected principal in this row
+          </span>
+          <ul>
+            {hover.contributions.slice(0, 5).map((contribution) => (
+              <li key={contribution.id}>
+                {contribution.poolLabel} ·{" "}
+                {shortAddress(contribution.positionAddress)} · bin{" "}
+                {contribution.binId}: {formatUsd(contribution.valueUsd)}
+              </li>
+            ))}
+          </ul>
+          {hover.contributions.length > 5 ? (
+            <span>+{hover.contributions.length - 5} more contributions</span>
+          ) : null}
+        </div>
+      ) : null}
+      {session && overlay?.levels.length ? (
+        <p className="chart-note liquidity-keyboard-note">
+          Focus the chart and use the up/down arrows to inspect liquidity rows.
+        </p>
+      ) : null}
+    </>
   );
+}
+
+function formatAxisRange(minimum: number, maximum: number): string {
+  const formatter = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: minimum >= 10_000 ? "compact" : "standard",
+    maximumFractionDigits: minimum >= 10_000 ? 2 : 6,
+  });
+  return minimum === maximum
+    ? formatter.format(minimum)
+    : `${formatter.format(minimum)}–${formatter.format(maximum)}`;
+}
+
+function formatUsd(value: import("../domain/positionValuation").Rational) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 2,
+  }).format(rationalToNumber(value));
+}
+
+function shortAddress(address: string): string {
+  return `${address.slice(0, 5)}…${address.slice(-5)}`;
 }
 
 function toChartCandle(candle: ValuationCandle): CandlestickData<UTCTimestamp> {

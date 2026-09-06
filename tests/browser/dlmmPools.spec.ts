@@ -13,8 +13,10 @@ import { encodeBase58 } from "../../src/domain/base58";
 test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   const rpcMarker = "dlmm-browser-secret";
   const externalRequests: string[] = [];
+  let positionSnapshotScans = 0;
   const now = Math.floor(Date.now() / 1_000);
   const positionAddresses = Array.from({ length: 1_800 }, (_, index) =>
     numberedAddress(index),
@@ -30,7 +32,7 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
             id: "quotes",
             type: "simple_token_price",
             attributes: {
-              token_prices: { [oracle.expected.tokenXMint]: "1.25" },
+              token_prices: { [oracle.expected.tokenXMint]: "2" },
             },
           },
         },
@@ -93,12 +95,18 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
     if (body.method === "getProgramAccounts") {
       const config = body.params[1] as {
         filters: Array<{ memcmp: { bytes: string; offset: number } }>;
+        minContextSlot?: number;
       };
       const positionProbe = config.filters[0]?.memcmp.bytes === "LgkNAEYaVX3";
       const binArrayScan = config.filters[0]?.memcmp.bytes === "GUunkrC2gRJ";
       const tokenYScan = config.filters[1]?.memcmp.offset === 120;
+      const slot = Math.max(
+        config.minContextSlot ?? 0,
+        binArrayScan ? 105 : positionProbe ? 103 : 100,
+      );
+      if (positionProbe) positionSnapshotScans += 1;
       result = {
-        context: { slot: binArrayScan ? 105 : positionProbe ? 103 : 100 },
+        context: { slot },
         value: binArrayScan
           ? positionOracle.binArrayData.map((data, index) => ({
               pubkey: `bin-${index}`,
@@ -115,8 +123,14 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
       };
     } else if (body.method === "getMultipleAccounts") {
       const addresses = body.params[0] as string[];
+      const config = body.params[1] as { minContextSlot?: number };
       result = {
-        context: { slot: addresses[0] === oracle.address ? 101 : 104 },
+        context: {
+          slot: Math.max(
+            config.minContextSlot ?? 0,
+            addresses[0] === oracle.address ? 101 : 104,
+          ),
+        },
         value: addresses.map((address) =>
           rpcAccount(
             address === oracle.address
@@ -126,7 +140,11 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
         ),
       };
     } else if (body.method === "getTokenSupply") {
-      result = { context: { slot: 105 }, value: { amount: "1", decimals: 6 } };
+      const config = body.params[1] as { minContextSlot?: number };
+      result = {
+        context: { slot: Math.max(config.minContextSlot ?? 0, 105) },
+        value: { amount: "1", decimals: 6 },
+      };
     } else {
       result = { value: null };
     }
@@ -156,6 +174,70 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   await expect(
     page.getByText(/USD quote observed.*GeckoTerminal/),
   ).toBeVisible();
+  await expect(
+    page.getByText("100 shown of 1,800 valued positions"),
+  ).toBeVisible();
+  await expect(page.getByText("Complete scope")).toBeVisible();
+  const chart = page.getByRole("img", {
+    name: /reference candlestick chart with 4 selected liquidity levels/i,
+  });
+  await expect(chart).toBeVisible();
+
+  await page.getByLabel("Minimum position value (USD)").fill("1");
+  await page.getByRole("button", { name: "Apply" }).click();
+  await expect(
+    page.getByText("0 shown of 1,800 valued positions"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", {
+      name: /reference candlestick chart with 0 selected liquidity levels/i,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Clear filter" }).click();
+  await expect(
+    page.getByText("100 shown of 1,800 valued positions"),
+  ).toBeVisible();
+
+  const firstPosition = page.locator(".position-row input").first();
+  await firstPosition.uncheck();
+  await expect(page.getByText(/99 selected and included/)).toBeVisible();
+  await chart.focus();
+  await chart.press("ArrowDown");
+  await expect(page.getByText(/Liquidity at/)).toBeVisible();
+  await expect(page.getByText(/JUP-SOL.*bin/).first()).toBeVisible();
+  await chart.press("Escape");
+
+  await page.getByText("JUP-SOL").click();
+  await expect(chart).toHaveAttribute(
+    "aria-label",
+    /with 4 selected liquidity levels/i,
+  );
+  await page.getByText("JUP-SOL").click();
+
+  const poolToggle = page.getByLabel(`Show pool ${oracle.address}`);
+  await poolToggle.uncheck();
+  await expect(
+    page.getByRole("img", {
+      name: /reference candlestick chart with 0 selected liquidity levels/i,
+    }),
+  ).toBeVisible();
+  await poolToggle.check();
+  await expect.poll(() => positionSnapshotScans).toBeGreaterThanOrEqual(3);
+  await expect(
+    page.getByRole("button", { name: "Refresh positions" }),
+  ).toBeEnabled({ timeout: 30_000 });
+  await expect(page.getByText(/99 selected and included/)).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByText("Complete scope")).toBeVisible({
+    timeout: 30_000,
+  });
+
+  await page.getByRole("button", { name: "Largest contributors" }).click();
+  await expect(
+    page.getByText("1,440 shown of 1,800 valued positions"),
+  ).toBeVisible();
+  await expect(page.getByText(/80\.0% of known value/)).toBeVisible();
 
   expect(externalRequests.every((url) => !url.includes(rpcMarker))).toBe(true);
   expect(page.url()).not.toContain(rpcMarker);

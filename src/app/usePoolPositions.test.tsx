@@ -243,6 +243,50 @@ describe("usePoolPositions generations", () => {
       }),
     );
   });
+
+  it("pauses a disabled pool and restores its selection before refreshing on re-enable", async () => {
+    const initial = {
+      ...session("pool"),
+      positions: [position("a"), position("b")],
+      visibleCount: 2,
+      selectedAddresses: ["b"],
+      manualSelection: true,
+    };
+    load.mockResolvedValueOnce(initial);
+    const pool = poolItem("pool");
+    const { result, rerender } = renderHook(
+      ({ active, slot }) =>
+        usePoolPositions(rpc, pool, "mint", slot, gecko, active),
+      { initialProps: { active: true, slot: 1 } },
+    );
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+
+    rerender({ active: false, slot: 9 });
+    await Promise.resolve();
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(result.current.state).toMatchObject({
+      status: "ready",
+      session: { selectedAddresses: ["b"], manualSelection: true },
+    });
+
+    const pending = deferred<PoolPositionSession>();
+    load.mockReturnValueOnce(pending.promise);
+    rerender({ active: true, slot: 9 });
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+    expect(result.current.state).toMatchObject({
+      status: "ready",
+      refreshing: true,
+      session: { selectedAddresses: ["b"] },
+    });
+    act(() => pending.resolve({ ...initial, maximumSlot: 10 }));
+    await waitFor(() =>
+      expect(result.current.state).toMatchObject({
+        status: "ready",
+        refreshing: false,
+        session: { selectedAddresses: ["b"], maximumSlot: 10 },
+      }),
+    );
+  });
 });
 
 function poolItem(address: string): DlmmPoolItem {
@@ -268,6 +312,7 @@ function poolItem(address: string): DlmmPoolItem {
 function session(poolAddress: string): PoolPositionSession {
   return {
     poolAddress,
+    enteredMint: "mint",
     positions: [],
     visibleCount: 0,
     selectedAddresses: [],
@@ -284,6 +329,9 @@ function session(poolAddress: string): PoolPositionSession {
     bytes: 0,
     elapsedMs: 1,
     observedAt: 1,
+    quoteSide: "y",
+    quoteDecimals: 6,
+    currentPriceQ64: 1n << 64n,
     stale: false,
     loadingMode: "portable-batched",
     detail: "fixture",

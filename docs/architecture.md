@@ -1,7 +1,7 @@
 # Architecture
 
-Status: Phase 1 foundation and reference-market flow are implemented on `dev`;
-DLMM discovery is implemented for review, while position hydration remains queued.
+Status: Phase 1 foundation, reference-market, DLMM discovery, and position
+loading are implemented on `dev`; the common-axis liquidity overlay is in review.
 
 ## Agreed Boundaries
 
@@ -219,3 +219,23 @@ closed rather than understating liquidity. Every position, bin-array, and token
 supply response joins the published RPC context-slot range and must meet the
 latest requested minimum slot. The quote-token supply request sends that
 `minContextSlot` as well as validating the returned slot.
+
+## Liquidity Overlay
+
+Issue #20 adds a project-owned Lightweight Charts series primitive. It places
+each selected bin contribution on the reference chart's current Market Cap, FDV,
+or Price axis after normalizing pool orientation, token decimals, the enabled
+pool's exact quote-token USD price, and the reference session's fixed display
+supply. The bin's own price controls vertical placement only. Horizontal weight
+comes from current principal valued at the pool's active-bin conversion price.
+Each reviewed per-position value is apportioned exactly across its bins so the
+rendered contributions reconcile to the filter denominator.
+
+The overlay model sorts positions globally across enabled pools with stable
+pool/address ties and applies one exact minimum-USD or complete-denominator 80%
+mask. Filters do not mutate checkbox selection. While a refresh makes the
+denominator incomplete, an existing largest-contributor mask remains visible
+and cannot be recomputed. Unopened pools, in-progress enabled pools, unknown
+values, stale snapshots, and unsupported common-axis conversions remain explicit
+in the control scope. Dense price levels are grouped by exact normalized price
+in the domain and then bucketed to visible pixels by the primitive.

@@ -37,6 +37,7 @@ export function usePoolPositions(
   enteredMint: string,
   minContextSlot: number,
   gecko: GeckoTerminalProvider = publicGeckoTerminalProvider,
+  active = true,
 ) {
   const generation = useRef(0);
   const controller = useRef<AbortController | undefined>(undefined);
@@ -131,6 +132,10 @@ export function usePoolPositions(
   );
 
   useEffect(() => {
+    if (!active) {
+      controller.current?.abort();
+      return;
+    }
     const previousIdentity = identity.current;
     const samePoolSession =
       previousIdentity?.rpc === rpc &&
@@ -141,7 +146,7 @@ export function usePoolPositions(
     if (!samePoolSession) current.current = undefined;
     void run(Boolean(samePoolSession));
     return () => controller.current?.abort();
-  }, [enteredMint, pool.address, rpc, run]);
+  }, [active, enteredMint, pool.address, rpc, run]);
 
   const cancel = useCallback(() => {
     controller.current?.abort();

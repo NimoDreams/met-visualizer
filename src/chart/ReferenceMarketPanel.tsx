@@ -1,19 +1,32 @@
+import { useEffect } from "react";
 import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
 import type { CandleInterval } from "../providers/geckoTerminal";
 import { useReferenceMarket } from "../app/useReferenceMarket";
 import { ReferenceChart } from "./ReferenceChart";
+import type { ReferenceMarketSession } from "../domain/referenceMarket";
+import type { LiquidityOverlayModel } from "../domain/liquidityOverlay";
 
 const intervals: CandleInterval[] = ["5m", "15m", "1h", "4h"];
 
 export function ReferenceMarketPanel({
   mint,
   rpc,
+  overlay,
+  onSessionChange,
+  onHoverPositionKeys,
 }: {
   mint?: string;
   rpc?: ReadOnlySolanaRpc;
+  overlay?: LiquidityOverlayModel;
+  onSessionChange?: (session?: ReferenceMarketSession) => void;
+  onHoverPositionKeys?: (keys: readonly string[]) => void;
 }) {
   const { state, refresh, changeInterval, changeMarket, loadOlder } =
     useReferenceMarket(mint, rpc);
+
+  useEffect(() => {
+    onSessionChange?.(state.status === "ready" ? state.session : undefined);
+  }, [onSessionChange, state]);
 
   if (state.status === "idle") {
     return (
@@ -201,7 +214,11 @@ export function ReferenceMarketPanel({
         </p>
       )}
 
-      <ReferenceChart session={session} />
+      <ReferenceChart
+        session={session}
+        overlay={overlay}
+        onHoverPositionKeys={onHoverPositionKeys}
+      />
       <p className="chart-note">
         {session.freshness.detail} Candles are a cached market-data view, not a
         tick stream.

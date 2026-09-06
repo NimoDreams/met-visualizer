@@ -140,6 +140,7 @@ function fixtureSession(): PoolPositionSession {
   }));
   return {
     poolAddress: "pool",
+    enteredMint: "mint",
     positions,
     visibleCount: 25,
     selectedAddresses: positions.slice(0, 25).map(({ address }) => address),
@@ -156,6 +157,9 @@ function fixtureSession(): PoolPositionSession {
     bytes: 100,
     elapsedMs: 10,
     observedAt: 1,
+    quoteSide: "y",
+    quoteDecimals: 6,
+    currentPriceQ64: 1n << 64n,
     stale: false,
     loadingMode: "portable-batched",
     detail: "complete",
