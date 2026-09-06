@@ -35,8 +35,8 @@ Context: The user prefers an open-source GitHub Pages SPA without maintaining
 a shared market-data key.
 
 Decision: Users provide a memory-only RPC endpoint; free public data APIs are
-allowed. Start with GeckoTerminal for candles. Meteora candles remain a fallback
-candidate. No additional market-data credential is required for the MVP.
+allowed. Start with GeckoTerminal for candles. No additional market-data
+credential is required for the MVP.
 
 Consequence: Browser access, coverage, rate limits, and price normalization must
 be validated. A static build must never contain a developer RPC credential.
@@ -64,4 +64,5 @@ deduplication, and polling no faster than once per 60 seconds while visible.
 
 Consequence: Budget for approximately ten calls/minute, present freshness and
 missing data honestly, and recheck the deployed GitHub Pages origin and provider
-terms before release. Meteora OHLCV is only a narrow recent-data fallback.
+terms before release. Meteora OHLCV remains an unapproved comparison source
+until its units and usable range are validated.
