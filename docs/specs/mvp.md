@@ -96,11 +96,6 @@ change the visualization unexpectedly. If a compatible RPC cannot support the
 ranking pass, load ordinary bounded batches and state that the partial result is
 not guaranteed to contain the largest positions.
 
-## Proposed Defaults — Awaiting Approval
-
-- Enable one meaningful DLMM pool initially; its exact ranking and tie-breaking
-  policy remain open. Do not hydrate every pool's positions eagerly.
-
 ## Approved Reference And Denomination Defaults
 
 - Use GeckoTerminal's liquidity-and-volume-ranked token pools. Check up to three
@@ -148,6 +143,32 @@ contract and required in-app disclosure.
 
 See [position controls and responsive layout](position-controls.md) for the
 complete contract.
+
+## Approved Initial DLMM Pool Default
+
+- Rank RPC-reconciled Meteora candidates by current USD TVL, then 24-hour volume,
+  then pool address. Use Meteora's keyless pool metadata only for ranking; RPC
+  remains authoritative for accounts and positions.
+- Merge the first 20 TVL-sorted results for each token orientation and apply
+  on-chain reconciliation and cheap metadata exclusions. Continue any unfinished
+  orientation until its last-row TVL is strictly below the third retained
+  candidate's TVL. This collects the complete boundary tie set for volume/address
+  tie-breaking; require manual selection if the request budget cannot establish
+  that frontier.
+- Probe at most three candidates and enable exactly one: the first with at least
+  one PositionV2 account and supported USD conversion. Candidate quote checks
+  occur before enablement and are cached for reuse. Then begin progressive
+  loading. Do not prioritize the candle-reference pool.
+- Keep the initial choice stable. If ranking fails or no candidate qualifies,
+  leave all pools disabled and ask the user to choose; never use arbitrary RPC
+  response order. Later metadata or quote-refresh failure preserves the chosen
+  pool, selections, and any visibly stale last-good overlay rather than selecting
+  a replacement.
+- Optimize representative validation for newer memecoin paths, including short
+  history and FDV fallback. Keep JUP as a scale/stress case rather than the
+  expected average session.
+
+See the [ranking feasibility report](../reviews/phase-0-pool-ranking-feasibility.md).
 
 ## First Usable Release Acceptance
 

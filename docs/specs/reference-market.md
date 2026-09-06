@@ -86,9 +86,11 @@ without changing the market-selection contract.
 Normalize every enabled DLMM pool so a bin's y-coordinate expresses the entered
 token's USD price, then multiply it by the same display supply used by candles.
 Use the current bin ratio and a public USD price for the pool's other token.
-Fetch conversions from the keyless public GeckoTerminal API only for enabled
-pools, cache them by mint, and record their source and observation time. Do not
-assume that a stablecoin equals exactly one dollar.
+Fetch conversions from the keyless public GeckoTerminal API for enabled pools
+and the bounded candidates being checked for initial enablement. Cache them by
+mint, reuse a successful candidate conversion after enabling, and record their
+source and observation time. Do not assume that a stablecoin equals exactly one
+dollar.
 
 Take conversion prices with the explicit RPC liquidity refresh rather than
 silently moving a snapshot on each candle poll. If a pool's other token has no
@@ -99,12 +101,53 @@ The reference candle pool and an enabled DLMM pool are independent. A Raydium
 or Orca reference can anchor the chart while Meteora positions use their own bin
 prices and quote conversions.
 
+## Initially Enabled DLMM Pool
+
+Use Meteora's keyless public pool metadata to rank the RPC-discovered DLMM pools
+for the entered mint. Query the first 20 TVL-sorted results for both token
+orientations, reconcile every metadata address and mint relationship with decoded
+RPC results, and exclude blacklisted or non-positive-TVL entries from automatic
+selection. After these cheap exclusions, fetch more from an unfinished orientation
+while fewer than three candidates remain or its last-row TVL is greater than or
+equal to the current third candidate's TVL. Automatic ranking is complete only
+when both orientations are exhausted or their frontiers are strictly below the
+third candidate. This collects the complete TVL-boundary tie set before applying
+volume and address tie-breakers. If the frontier cannot be cleared within the
+request budget, require a manual choice.
+
+Rank eligible pools by current reported USD TVL descending, then 24-hour USD
+volume descending, then pool address ascending. Probe at most three candidates
+in that order. Automatically enable the first with at least one PositionV2
+account and a supported common-axis USD conversion, then begin progressive
+position loading. A candidate conversion check is allowed before enablement and
+is cached for reuse. Do not give the candle-reference pool special priority; the
+initial LP pool serves current liquidity relevance.
+
+Keep the enabled choice stable for the token session. Refresh its metadata
+without replacing it. If metadata is missing, inconsistent with RPC, or no
+candidate qualifies within the bounded probes, leave all pools disabled and ask
+the user to choose from the RPC-discovered list. Never choose an arbitrary RPC
+result-order pool. Permit one bounded metadata retry; treat a missing orientation,
+invalid/truncated page, non-monotonic TVL order, or uncleared TVL frontier as an
+incomplete ranking that requires manual selection.
+
+After enablement, a metadata failure keeps the pool and last-good ranking data
+visibly stale. A quote-price failure keeps the pool selected and its last-good
+overlay visibly stale; without a prior conversion, disable only the common-axis
+overlay. Never clear position selections or choose another pool because a later
+provider refresh failed. See the
+[ranking feasibility report](../reviews/phase-0-pool-ranking-feasibility.md).
+
 ## Refresh And Request Budget
 
 - Poll only the selected reference's newest candles, no faster than once per 60
   seconds while the page is visible.
 - Load supply, DLMM state, and enabled-pool quote conversions on token load and
   explicit RPC refresh. Do not poll large RPC snapshots.
+- Load Meteora ranking metadata on token load and explicit refresh. Keep its
+  errors separate from GeckoTerminal and RPC, and never send it the user RPC.
+  Its request shape must pass a real browser check during implementation; a
+  non-browser client received HTTP 403 during independent review.
 - Cache market metadata and quote prices by mint, deduplicate in-flight reads,
   stop hidden-tab candle polling, and cancel work for an obsolete CA or RPC.
 - Route token metadata, pool discovery, OHLCV, and quote-token conversion through
