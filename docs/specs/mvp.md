@@ -1,8 +1,7 @@
 # MVP — Token Chart And Current DLMM Liquidity
 
-Status: Phase 0 completion candidate. Product direction is agreed and
-independently reviewed; explicit Phase 0 acceptance and implementation
-authorization remain pending.
+Status: approved for Phase 1 implementation on 2026-09-06. Product direction is
+agreed, independently reviewed, and accepted by the user.
 
 ## Purpose And Scope
 
@@ -199,5 +198,5 @@ See the [ranking feasibility report](../reviews/phase-0-pool-ranking-feasibility
 | Technical | Selected stack/local workflow, reference/refresh policy, RPC compatibility, responsive/filter defaults |
 | User | Spec/evidence review, Phase 0 acceptance, explicit implementation authorization |
 
-Credential use or a code-based feasibility spike needs a scoped authorized
-handoff. Creating the planning issue does not start implementation.
+Implementation proceeds through the issue-scoped Phase 1 workflow. Credential
+handling remains limited to the approved session-only RPC boundary.
