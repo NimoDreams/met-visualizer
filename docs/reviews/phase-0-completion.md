@@ -6,16 +6,20 @@ Epic: [#1](https://github.com/NimoDreams/met-visualizer/issues/1)
 
 Gate: [#5](https://github.com/NimoDreams/met-visualizer/issues/5)
 
-Status: ready for independent review and explicit user acceptance. Application
-implementation is not authorized by this document.
+Status: complete. Independently reviewed in
+[PR #14](https://github.com/NimoDreams/met-visualizer/pull/14) and accepted by
+the user on 2026-09-06. The user authorized `dev`, Phase 1 planning, and
+developer handoffs.
 
 ## Outcome
 
-Phase 0 has a documented product direction, provider/data boundaries, feasible
+Phase 0 established a documented product direction, provider/data boundaries, feasible
 read paths, loading and interaction contracts, technical foundation, branch
-strategy, and safety scope. Issues #2–#4 are closed with reviewed evidence. All
-listed planning decisions in #5 are resolved. No application code, dependency
-tree, `dev` branch, Pages deployment, or implementation issue has been created.
+strategy, and safety scope. Issues #2–#5 and epic #1 close with reviewed
+evidence. Phase 1 implementation is tracked in
+[milestone 2](https://github.com/NimoDreams/met-visualizer/milestone/2) and
+[epic #15](https://github.com/NimoDreams/met-visualizer/issues/15). GitHub Pages
+deployment remains separately gated.
 
 ## Accepted Product Direction
 
@@ -114,33 +118,26 @@ Any failed gate produces a focused follow-up or an explicitly accepted scope
 change. It does not justify silently weakening labels, coverage, safety, or
 provider boundaries.
 
-## Proposed Post-Approval Sequence
+## Authorized Delivery Sequence
 
-After explicit implementation authorization:
-
-1. Create a Phase 1 implementation milestone and issue breakdown from the
-   approved specs.
-2. Create `dev` from the accepted Phase 0 merge commit.
-3. Begin with the application scaffold, CI, static-host path, session-only RPC
+1. Create `dev` from the accepted Phase 0 closeout commit.
+2. Begin with the application scaffold, CI, static-host path, session-only RPC
    boundary, and provider/browser proof points.
-4. Add the CA-to-reference-chart path, followed by RPC pool discovery and one
+3. Add the CA-to-reference-chart path, followed by RPC pool discovery and one
    progressively loaded DLMM profile.
-5. Expand to multiple enabled pools, global filters, failure/refresh behavior,
+4. Expand to multiple enabled pools, global filters, failure/refresh behavior,
    responsive modes, in-app Docs, and release verification.
 
 Each implementation issue receives a developer worktree/branch and independent
 review. GitHub Pages remains disabled until a separately approved deployment.
 
-## Acceptance Requested
+## Acceptance Record
 
-The user decides separately whether to:
-
-1. accept this documented direction as completion of Phase 0; and
-2. authorize the PM to create `dev`, the Phase 1 milestone/issues, and developer
-   handoffs for implementation.
-
-Until both decisions are explicit, issues #1 and #5 and the Phase 0 milestone
-remain open, and implementation does not begin.
+On 2026-09-06 the user reviewed PR #14, accepted this direction as completion of
+Phase 0, and explicitly authorized the PM to merge it, close Phase 0, create
+`dev`, create the Phase 1 milestone and issues, and make developer handoffs.
+This authorization does not include GitHub Pages activation or a future `dev`
+to `main` promotion.
 
 ## Evidence
 
