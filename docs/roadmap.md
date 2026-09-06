@@ -4,7 +4,8 @@
 
 1. Review the documented product direction and MVP acceptance criteria.
 2. Validate free candle access and RPC position loading independently.
-3. Resolve technical proposals using the evidence.
+3. Resolve remaining reference-market, filter, and responsive behavior using
+   the approved technical foundation and feasibility evidence.
 4. Obtain user acceptance of Phase 0 and explicit implementation authorization.
 
 Exit evidence: reviewed MVP spec, candle/RPC feasibility findings or explicitly
@@ -22,6 +23,11 @@ and [epic #1](https://github.com/NimoDreams/met-visualizer/issues/1) track activ
 Current authorization covers
 documentation and GitHub planning. Creating feasibility issues does not start
 a product scaffold, deployment, paid service, or private-credential test.
+
+The selected foundation is a single Node.js 24/npm TypeScript, React, and Vite
+SPA with Lightweight Charts, a narrow read-only RPC layer, no Docker Compose,
+and GitHub Pages deployment from `main`. See the
+[technical foundation](specs/technical-foundation.md).
 
 ## Proposed MVP Delivery (Not Yet Authorized)
 
