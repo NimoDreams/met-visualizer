@@ -1,7 +1,8 @@
 # MVP — Token Chart And Current DLMM Liquidity
 
-Status: Phase 0 draft for user review. Agreed direction and proposed defaults
-are separated below. Implementation is not authorized.
+Status: Phase 0 completion candidate. Product direction is agreed and
+independently reviewed; explicit Phase 0 acceptance and implementation
+authorization remain pending.
 
 ## Purpose And Scope
 
