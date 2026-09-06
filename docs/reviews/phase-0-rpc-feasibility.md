@@ -4,193 +4,248 @@ Date: 2026-09-06
 
 Issue: [#4](https://github.com/NimoDreams/met-visualizer/issues/4)
 
-Status: account-model path established; authorized live-provider measurements pending
+Status: live evidence complete; independent review pending
 
-## Result So Far
+## Result
 
-The official Meteora account model supports the required all-owner view, but
-the public convenience methods do not expose that product query directly.
-The feasible path is a read-only sequence of filtered Solana program scans,
-chunked account hydration, dynamic-position decoding, deduplicated bin-array
-reads, and integer share calculations.
+The official Meteora account model and a user-provided Helius RPC support the
+required all-owner view. The feasible path uses filtered pool discovery,
+PositionV2 indexing, chunked dynamic-position hydration, deduplicated bin-array
+reads, and integer share calculations. Ordinary and extended positions both
+reconciled exactly with the official SDK.
 
-This is not yet the final feasibility result. No compatible RPC is configured
-in the repository, so position counts, response bytes, latency, provider limits,
-large-pool behavior, and numerical reconciliation remain unmeasured. The public
-Solana mainnet endpoint rejected the filtered position scan with HTTP 403. The
-2026-09-06 15:13:12 UTC probe used
-`https://api.mainnet-beta.solana.com`, the PositionV2 discriminator and
-`C8Gr6AUuq9hEdSYJzoEpNcdjpojPZwqG5MtQbeouNNwg` pool filters, zero-length
-`dataSlice`, `base64`, `confirmed`, `withContext`, and
-`Origin: https://nimodreams.github.io`. The response allowed cross-origin
-access but returned JSON-RPC error `403: Access forbidden`. A compatible user
-RPC must permit browser-origin POST requests and filtered
-`getProgramAccounts` calls.
+The evidence rejects eager hydration of every position in every discovered
+pool. JUP currently maps to 626 DLMM pools and 14,202 PositionV2 accounts. A
+lightweight browser should discover all pools, progressively load all owners'
+positions within user-enabled pools, and select those loaded positions by
+default. The most relevant pool can be enabled initially after the technical
+gate defines its ranking. Do not promise a continuously refreshed token-wide
+snapshot in the MVP.
 
-## Source Baseline
+## Safety And Reproducibility
+
+The live checks read `MET_VISUALIZER_RPC_URL` from the repository's ignored
+`.env.local` file. The full endpoint and key were never printed, committed,
+included in requests to another provider, or copied into this report. Results
+record only the provider hostname `mainnet.helius-rpc.com`, public on-chain
+identifiers, aggregate counts, and timings. Disposable probe code and package
+installs remained under `/private/tmp`.
+
+`git check-ignore` resolved `.env.local` to the repository's `.env.*` rule at
+`.gitignore` line 21, `git ls-files` confirmed it is untracked, and the `main`
+working tree remained clean.
 
 The source review pinned official `@meteora-ag/dlmm` version 1.9.14 at commit
 [`576919e`](https://github.com/MeteoraAg/dlmm-sdk/tree/576919e3e4368e542c402f000b4264724f7f23ec).
-Its runtime uses Anchor 0.31.0 and `@solana/web3.js` 1.x. Recheck these findings
-against the selected implementation version because the SDK and account model
-can change.
+Its lockfile resolves Anchor 0.31.0 and `@solana/web3.js` 1.95.3. The mainnet
+DLMM program is `LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo`.
 
-The mainnet DLMM program is
-`LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo`.
+Recheck account layouts against the implementation's pinned SDK version. The
+probes sent `Origin: https://nimodreams.github.io`; all successful Helius
+responses advertised `Access-Control-Allow-Origin: *`. An exact deployed-page
+browser check remains a release smoke test.
 
-## Required Read Path
+## Account Path
 
-### 1. Discover pools containing the entered mint
+### Pool discovery
 
-Run two filtered `getProgramAccounts` requests against the DLMM program: one
-for the entered mint in `tokenXMint`, and one for it in `tokenYMint`. Include
-the LB-pair discriminator at offset 0 and deduplicate account keys. The pinned
-IDL implies serialized mint offsets 88 and 120; the live check must validate
-these offsets against decoded results before they become an implementation
-contract.
+Two `getProgramAccounts` requests locate the entered mint in either side of an
+LB pair. Each request includes the LB-pair discriminator `6XZoLajBWVJ` at
+offset 0 and the mint at serialized offset 88 (`tokenXMint`) or 120
+(`tokenYMint`). The 2026-09-06 16:01 UTC run found 327 JUP-as-X pools and 299
+JUP-as-Y pools. Hydrating all 626 pool accounts took seven
+`getMultipleAccounts` calls, 857,093 decoded JSON bytes, and 448 ms cumulative
+request latency. Decoding produced zero filter/orientation mismatches.
 
-The SDK's `DLMM.getLbPairs()` calls `program.account.lbPair.all()` without a
-mint filter, so it would download every LB-pair account. That is unsuitable for
-a lightweight browser query. Discovery must use the lower-level filtered RPC
-path or an equally complete, measured source.
+The SDK's `DLMM.getLbPairs()` fetches every LB-pair account without a mint
+filter. Use the lower-level filtered path instead.
 
-### 2. Discover every position in each pool
+### Position discovery
 
-For each pool, scan the DLMM program with both filters below and
-`dataSlice: { offset: 0, length: 0 }`:
+Position scans must combine:
 
 - PositionV2 discriminator `LgkNAEYaVX3` at offset 0.
 - Pool public key at offset 8.
 
-Both filters matter. The pool key occupies the same offset in other DLMM
-account types, including limit orders, so a pool-only scan can misclassify
-accounts. The SDK's `getPositionsByUserAndLbPair()` and
-`getAllLbPairPositionsByUser()` add owner filters and therefore cannot return
-all owners. `getLbPairLockInfo()` scans by pool but intentionally returns only
-locked positions and does not establish the required result.
+The discriminator prevents limit orders and other DLMM account types with the
+same pool offset from being counted as LP positions. The SDK's
+`getPositionsByUserAndLbPair()` and `getAllLbPairPositionsByUser()` are
+wallet-scoped. `getLbPairLockInfo()` returns only locked positions. None is the
+product's all-owner query.
 
-The pinned SDK's `chunkedGetProgramAccounts()` uses this key-only scan followed
-by `getMultipleAccountsInfo()` batches of 100. Preserve that pattern: PositionV2
-starts at 8,112 bytes before its discriminator and adds 112 bytes for every bin
-beyond the first 70. A position can expand to 1,400 bins, making an unbounded
-full-data program scan inappropriate for the browser.
+There are two viable discovery modes:
 
-### 3. Hydrate positions and bin arrays
+1. Standard RPC can scan one enabled pool with both filters and a zero-length
+   data slice. This is the portable MVP path.
+2. A provider extension can index all PositionV2 accounts using a 32-byte data
+   slice at offset 8, group their public keys by pool, and discard unrelated
+   entries page by page. Helius `getProgramAccountsV2` provides bounded pages.
 
-Fetch position accounts in batches of at most 100. Decode their full account
-bytes so dynamically extended positions are included; fixed-size-only decoding
-would silently truncate liquidity shares above 70 bins. Derive every bin-array
-key covered by the decoded ranges, deduplicate the keys across positions, then
-hydrate those accounts in batches of at most 100.
+A standard global index succeeded at 16:02 UTC: 186,577 accounts, 51,129,404
+decoded JSON bytes, and 2,473 ms. The Helius V2 run at 16:04 UTC completed in 19
+pages with 186,581 accounts, 51,134,013 total decoded bytes, 6,537 ms cumulative
+latency, and a maximum page size of 2,741,106 bytes. Pages returned gzip content
+encoding but no content length, so compressed transfer bytes were unavailable.
+Context slots advanced from 444833679 to 444833698 during pagination.
 
-The standard Solana methods expose `minContextSlot`; responses with context can
-record the slot used. They do not provide an atomic snapshot across the full
-multi-request sequence. Track the minimum and maximum observed context slots,
-reject responses older than the initial floor, and present the result as a
-slot-range snapshot. A position closed between discovery and hydration may
-return `null`; record that as churn rather than silently calling the load
-complete.
+Filtering that index against the 626 JUP pools found 14,202 positions in 142
+pools; 484 pools had none. The largest observed pool counts were:
 
-### 4. Calculate each position's current contribution
+| Pool | Positions |
+| --- | ---: |
+| `2QrWsSWrGvoAqkDC5XSGqjS752RWLaopqAaGrbugSxBL` | 1,866 |
+| `C8Gr6AUuq9hEdSYJzoEpNcdjpojPZwqG5MtQbeouNNwg` | 1,800 |
+| `8ZBbyDGErfqvY65fRZnm6dtQBe3REuAPqzRN7819fzeW` | 1,324 |
+| `6cDtJkcJKFEsGDhptmgvy3XtbwyRqnW3GoGcmnwVzJ7U` | 1,067 |
+| `BrMYU1XWCqMAtBURD8yp3d9gni3uHxomoj5JG9LWr7Mj` | 1,019 |
 
-For a bin with total liquidity-token supply `S`, token amounts `X` and `Y`, and
-a position share `s`, the SDK calculates with integer division:
+Helius V2 is an optional optimization. Feature-detect it; do not make a
+provider-specific method part of the generic RPC contract.
+
+### Position and bin hydration
+
+The SDK's `chunkedGetProgramAccounts()` first requests keys with a zero-length
+slice, then hydrates full accounts in batches of 100. PositionV2 uses 8,112
+bytes before its discriminator and adds 112 bytes for each bin beyond the
+first 70. Its current maximum is 1,400 bins. A fixed-size decoder would silently
+lose extended liquidity shares.
+
+The JUP/SOL pool
+`C8Gr6AUuq9hEdSYJzoEpNcdjpojPZwqG5MtQbeouNNwg` was the large sample. At 16:01
+UTC it produced:
+
+| Measurement | Result |
+| --- | ---: |
+| Positions discovered and decoded | 1,800 |
+| Ordinary / dynamically extended | 1,770 / 30 |
+| Width range | 1–376 bins |
+| Position hydration | 18 calls; 20,009,689 decoded bytes |
+| Position hydration latency | 1,716 ms total; 95 ms p50; 117 ms max |
+| Unique bin arrays required and decoded | 12 |
+| Bin-array hydration | 1 call; 164,252 decoded bytes; 59 ms |
+| Null accounts / decode failures | 0 / 0 |
+
+The complete instrumented sequence included pool discovery, pool hydration,
+the large-pool load, one comparison pool, one inverted sample, and slot reads.
+It used 33 measured RPC calls, returned 21,749,687 decoded JSON bytes, and took
+2,824 ms cumulative request latency. SDK processing and three parallel candle
+comparison requests brought wall time to approximately nine seconds.
+
+Position counts changed from 1,800 to 1,799 and back to 1,800 across nearby
+runs, while each individual hydration had no nulls. This is expected on-chain
+churn and proves that the app must identify the observation window rather than
+claim an atomic snapshot.
+
+### Contribution correctness
+
+For bin supply `S`, bin amounts `X` and `Y`, and position share `s`, the SDK
+uses integer division:
 
 ```text
 positionX = S == 0 ? 0 : floor(s * X / S)
 positionY = S == 0 ? 0 : floor(s * Y / S)
 ```
 
-Calculate this once for each position/bin pair, then sum selected position
-contributions. Never assign the full bin balance to each position. Preserve raw
-integer amounts until display conversion; apply token decimals only at the
-presentation boundary.
+Independent calculations matched the SDK's X amount, Y amount, and normalized
+price for both reproducible samples:
 
-DLMM bin price is token Y per token X after decimal normalization. If the
-entered token is Y, invert the price and swap displayed token roles. Alignment
-to the USD candle axis also needs a timestamped USD conversion for the pool's
-other token. That conversion is external market data, not an RPC fact, and its
-source/freshness must be shown. Pools with no supported conversion remain
-viewable in native quote units and cannot be silently overlaid on a USD axis.
+| Position | Width | Serialized bytes | Checked bin | Result |
+| --- | ---: | ---: | ---: | --- |
+| `13xLNCSj43QiQdndY2N8u7euQyX5fy6uoiEYyHVfkmE2` | 69 | 8,120 | 142 | X, Y, and price matched |
+| `3DVybVuMGAf6jmjAXH7pFYKLfwyiCWcrt99iHC91A5NR` | 376 | 42,392 | -174 | X, Y, and price matched |
+
+The pool used 6-decimal JUP as token X and 9-decimal SOL as token Y. Raw
+integers remained exact through share calculation; decimals were applied to
+the price only at presentation.
+
+Pool `5YUW4n7MKdQTwvXavYjwxzaK6YvajWKCaQFpL6hmvKk` verified the inverted case:
+JUP was token Y and the pool had one PositionV2 account. Displaying JUP requires
+inverting the normalized Y-per-X bin price and swapping amount roles.
+
+At candle timestamp `1788710400`, GeckoTerminal returned direct JUP/USD,
+JUP/SOL, and SOL/USD closes for the same reference pool. Multiplying JUP/SOL by
+SOL/USD reproduced direct JUP/USD within approximately
+`1.8e-11` basis points. Cross-quote conversion is therefore numerically sound,
+but it remains external market data whose provider and timestamp must be shown.
+Unsupported conversions stay in native quote units and cannot be silently
+overlaid on a USD chart.
 
 Limit-order liquidity is a separate DLMM mechanism. The MVP profile represents
 decoded LP PositionV2 accounts and must not claim to show all executable pool
 liquidity.
 
-## Expected Request Cost
+## Product And Loading Contract
 
-For `N` discovered pools, `P` total positions, and `B` unique bin arrays, the
-baseline full load is approximately:
+- List every discovered pool, but group or de-emphasize pools with zero
+  PositionV2 accounts and virtualize the 626-row sample.
+- Enable the selected reference or highest-ranked meaningful DLMM pool first.
+  The technical gate must settle ranking and manual pool enablement.
+- Load every owner's position within an enabled pool. Treat those positions as
+  selected by default and add contributions progressively as their bin arrays
+  arrive. Never label the overlay complete early.
+- Expose `positions discovered`, `positions decoded`, `bin arrays required`,
+  `bin arrays loaded`, failures, and observation slot range per enabled pool.
+- Prioritize the expanded pool and bound concurrent account batches. A 100-key
+  batch worked reliably; begin there.
+- Keep the last complete snapshot during transient failure and label it stale.
+  Cancel obsolete work when the CA or RPC changes.
+- Use explicit refresh for the MVP. A large-pool refresh is approximately 20 MB
+  before SDK overhead; a token-wide global index is approximately 51 MB before
+  any relevant position hydration. Do not poll either path automatically.
+- A candle-thin market is not necessarily position-thin: JUP/USDC pool
+  `AUgbdzNob9S8MiVHm4Qruqz3VsZGoqtMZnSzv45juDbL` had 701 positions. Base
+  loading policy on measured account counts, not trading activity alone.
 
-```text
-2 pool-discovery program scans
-+ N position-key program scans
-+ ceil(P / 100) position hydration calls
-+ ceil(B / 100) bin-array hydration calls
-+ a small bounded set of mint, clock, and supporting account reads
-```
+## Snapshot And Failure Contract
 
-The live run must replace this formula with observed requests, compressed and
-uncompressed response bytes, latency, account counts, nulls, retries, and slot
-ranges for ordinary, large, and dynamically extended samples. Helius currently
-documents `getProgramAccounts` as 10 credits, a 5-per-second free-plan method
-limit, and a paginated `getProgramAccountsV2` option. Provider-specific V2 and
-incremental features may optimize supported RPCs later; the MVP compatibility
-contract must continue to describe the standard methods it requires.
+Use `withContext` and `minContextSlot` where supported. Record the minimum and
+maximum context slots because Solana RPC does not make the multi-request load
+atomic. A position closed between discovery and hydration can return `null`;
+mark churn and keep coverage incomplete until the next deliberate refresh.
 
-## Progressive Loading And Coverage
+Handle failures explicitly:
 
-- Show pools after pool discovery, before position hydration finishes.
-- Within each pool, expose `positions discovered`, `positions decoded`,
-  `bin arrays required`, `bin arrays loaded`, failures, and snapshot slot range.
-- Treat every discovered position as logically selected by default, but add its
-  profile only after that position and its bin arrays are loaded. Label the
-  aggregate partial until all required accounts succeed.
-- Bound concurrency and prioritize the expanded pool. Continue other pools in
-  the background so a large pool cannot hide smaller usable results.
-- Keep the last complete snapshot during a transient refresh failure and mark
-  it stale. Cancel obsolete work when the CA or RPC changes.
-- Do not run the full program-scan sequence on a short polling interval. Start
-  with explicit refresh; approve an automatic cadence only after live cost and
-  churn measurements.
+- Browser CORS failure or filtered-scan HTTP/JSON-RPC 403: incompatible RPC.
+- 413, timeout, or provider result cap: retry with smaller provider-supported
+  pages; otherwise offer per-pool lazy loading and explain the limitation.
+- 429 or transient 5xx: bounded exponential backoff with jitter and visible
+  last-good data. The probe did not intentionally induce rate limiting.
+- Decode mismatch: stop that account type and report an SDK/layout mismatch;
+  do not render partial bytes as liquidity.
+- Missing account during hydration: record a null/churn count, continue other
+  accounts, and keep the snapshot incomplete.
+
+The public Solana endpoint was also probed at 15:13 UTC with the PositionV2 and
+large-pool filters, zero-length slice, `base64`, `confirmed`, `withContext`, and
+the GitHub Pages origin. It returned HTTP/JSON-RPC 403 while advertising CORS.
+This confirms that public endpoints cannot be assumed compatible.
 
 ## Compatible RPC Contract
 
-An MVP-compatible endpoint must:
+Every MVP-compatible endpoint must accept browser-origin POSTs and support:
 
-- accept browser CORS POSTs without exposing the credential beyond the user's
-  in-memory session;
-- support `getProgramAccounts` with multiple `memcmp` filters, zero-length
-  `dataSlice`, `base64` encoding, `withContext`, and `minContextSlot`;
-- support `getMultipleAccounts` for batches up to 100 and return context slots;
-- return complete filtered results for the measured large pool without silent
-  truncation, or provide a detectable error the app can explain;
-- tolerate the measured bounded concurrency and document actionable 403, 413,
-  429, timeout, and 5xx behavior.
+- `getProgramAccounts` with multiple `memcmp` filters, `dataSlice`, `base64`,
+  `withContext`, and `minContextSlot`;
+- `getMultipleAccounts` for batches of 100 with context slots;
+- complete filtered results for a measured 1,800-position pool, or a detectable
+  error the app can explain;
+- the measured bounded sequential workload without silent truncation.
 
-The app should run a cheap capability check before a token load and report an
-incompatible endpoint separately from an empty token or pool result.
+Capability levels should be visible:
 
-## Live Validation Still Required
+- **Portable:** pool discovery plus complete on-demand per-pool position scans.
+- **Indexed:** paginated global PositionV2 discovery, such as Helius
+  `getProgramAccountsV2`, enabling counts for all pools with bounded page memory.
 
-Use a locally ignored `MET_VISUALIZER_RPC_URL` value without printing, storing,
-or committing it. Record only redacted provider identity and aggregate metrics.
-The live matrix must cover:
-
-- a normal PositionV2 pool and an inverted token orientation;
-- at least one dynamically extended position over 70 bins;
-- a high-position-count pool and a thin pool;
-- per-bin share reconciliation, decimal conversion, and a cross-quote USD
-  conversion with explicit source time;
-- CORS, filtered-scan completeness, response sizes, latency, rate-limit/error
-  behavior, null-account churn, and context-slot spread;
-- full-load and refresh cost, followed by a recommendation for concurrency,
-  retry bounds, and any automatic refresh interval.
+No RPC refresh should use transaction-history, signing, subscriptions, or write
+methods in the MVP. Re-evaluate the SDK, provider limits, CORS, and response
+sizes before release because all are external contracts.
 
 Sources: [Meteora TypeScript SDK reference](https://docs.meteora.ag/developer-guides/dlmm/typescript-sdk/reference),
 [Meteora SDK source](https://github.com/MeteoraAg/dlmm-sdk),
 [Solana `getProgramAccounts`](https://solana.com/docs/rpc/http/getprogramaccounts),
 [Solana `getMultipleAccounts`](https://solana.com/docs/rpc/http/getmultipleaccounts),
 [Helius `getProgramAccounts`](https://www.helius.dev/docs/api-reference/rpc/http/getprogramaccounts),
+[Helius `getProgramAccountsV2`](https://www.helius.dev/docs/api-reference/rpc/http/getprogramaccountsv2),
 [Helius rate limits](https://www.helius.dev/docs/billing/rate-limits), and
 [Helius credits](https://www.helius.dev/docs/billing/credits).

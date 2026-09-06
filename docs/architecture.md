@@ -57,7 +57,7 @@ Direct HTTP and localhost browser-origin checks succeeded after using the
 documented version header and normal browser request shape. Exact GitHub Pages
 origin behavior remains a pre-release smoke test.
 
-## Data Semantics To Validate
+## Data Semantics
 
 - Match mint addresses, not tickers; discover pools with the CA on either side.
 - Enumerate all owners' positions using the pool relationship and account type.
@@ -77,17 +77,20 @@ origin behavior remains a pre-release smoke test.
 
 ## RPC Account-Model Research — 2026-09-06
 
-Official SDK review establishes a feasible lower-level read path for all-owner
-PositionV2 data: two mint-oriented filtered pool scans, one discriminator-plus-
-pool position-key scan per discovered pool, chunked full position reads, and
-deduplicated bin-array reads. Wallet-scoped SDK helpers do not satisfy the
+Official SDK and live Helius checks establish a feasible lower-level read path
+for all-owner PositionV2 data: two mint-oriented filtered pool scans, an
+on-demand discriminator-plus-pool position scan, chunked full position reads,
+and deduplicated bin-array reads. Wallet-scoped SDK helpers do not satisfy the
 product query. Dynamic positions require their extension bytes, and each
 position's bin amounts come from its share of bin supply rather than the full
 bin balance.
 
-The result remains operationally unverified until a compatible user RPC is
-configured for response-size, latency, completeness, slot consistency, and
-large-pool measurements. See the
-[Phase 0 RPC feasibility report](reviews/phase-0-rpc-feasibility.md).
+JUP produced 626 pools and 14,202 positions across 142 of them. Eager token-wide
+hydration is outside the lightweight MVP budget. Discover all pools, load all
+owners' positions within enabled pools, and select those loaded positions by
+default. A provider-specific paginated global index may add counts without
+changing the portable on-demand contract. Use explicit RPC refresh because the
+large-pool sample returned approximately 20 MB of decoded position JSON. See
+the [Phase 0 RPC feasibility report](reviews/phase-0-rpc-feasibility.md).
 
 See the [MVP spec](specs/mvp.md).

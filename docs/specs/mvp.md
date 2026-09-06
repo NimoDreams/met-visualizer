@@ -52,12 +52,14 @@ mutation, transaction submission, and fund movement.
 
 ## Proposed Defaults — Awaiting Approval
 
-- All discovered positions logically selected by default. Progressive loading
-  shows loaded contributions with honest coverage; settle new-position behavior.
+- Enable one meaningful DLMM pool initially. Within each user-enabled pool, all
+  discovered positions are logically selected by default. Progressive loading
+  shows loaded contributions with honest coverage. Do not hydrate every pool's
+  positions eagerly; settle pool ranking and new-position behavior.
 - USD token price, 15-minute initial candles, and candle polling no faster than
   once per 60 seconds while visible. These candle defaults are supported by
   [Phase 0 evidence](../reviews/phase-0-candle-feasibility.md); RPC refresh has
-  its own budget and status.
+  its own budget and status. Use explicit RPC refresh for the MVP.
 - Stable session reference chosen using available history, recent activity,
   and liquidity. Exact ranking, tie-breaking, and manual override remain open.
 - Size filters use a labeled common valuation basis; settle thresholds, sorting,
