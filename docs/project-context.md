@@ -2,9 +2,10 @@
 
 ## Current State — 2026-09-06
 
-This is a documentation-only Phase 0 repository. Product, feasibility, loading,
-and technical-foundation planning are approved; application implementation is
-not yet authorized.
+This is a documentation-only Phase 0 repository. All listed product, feasibility,
+loading, provider, UX, and technical-foundation decisions are resolved and the
+[completion review](reviews/phase-0-completion.md) is ready for independent review
+and explicit user acceptance. Application implementation is not yet authorized.
 
 - Local: /Users/nimo/Documents/Development/met-visualizer
 - GitHub: NimoDreams/met-visualizer
