@@ -20,7 +20,8 @@ Implementation is not yet authorized.
 - Product seed: visualize Meteora LP positions for arbitrary Solana tokens.
 - Active work should be planned through GitHub Issues and milestones.
 - Durable project memory should live in `docs/`.
-- The branch strategy should be confirmed during the first PM planning session.
+- Create `dev` from the accepted Phase 0 baseline immediately before authorized
+  implementation; use issue branches into `dev` and reviewed promotions to main.
 
 ## Docs
 
@@ -34,6 +35,7 @@ Implementation is not yet authorized.
 - [Follow-Ups](docs/follow-ups.md)
 - [Specs](docs/specs/README.md)
 - [Reviews](docs/reviews/README.md)
+- [Phase 0 Completion Review](docs/reviews/phase-0-completion.md)
 - [Phases](docs/phases/README.md)
 - [Epics](docs/epics/README.md)
 

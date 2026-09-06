@@ -8,6 +8,10 @@
    the approved technical foundation and feasibility evidence.
 4. Obtain user acceptance of Phase 0 and explicit implementation authorization.
 
+Steps 1–3 are complete and independently reviewed. The
+[Phase 0 completion review](reviews/phase-0-completion.md) assembles the evidence
+and remaining implementation/release gates for step 4.
+
 Exit evidence: reviewed MVP spec, candle/RPC feasibility findings or explicitly
 accepted limitations, selected stack/local workflow, agreed branch strategy,
 and a scoped first developer handoff. The user decides when this is satisfactory.
