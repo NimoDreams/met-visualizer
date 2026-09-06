@@ -25,6 +25,12 @@ of the work.
 This project starts with project-management structure only. The product seed is
 to visualize Meteora LP positions on arbitrary Solana tokens.
 
+Phase 0 direction is now recorded in `docs/specs/mvp.md`. The user authorized
+planning documentation and GitHub planning only; implementation and creation
+of `dev` remain gated on explicit approval. TypeScript/React/Vite/Lightweight
+Charts are proposals. The intended product is a static GitHub Pages SPA using
+a session-only user RPC and free public market data, starting with GeckoTerminal.
+
 Expected operating model:
 
 - GitHub Issues are the source of truth for active work.
@@ -163,6 +169,11 @@ and visualization. Do not add trading, signing, wallet connection, private-key
 handling, seed-phrase handling, swaps, liquidity mutation, transaction
 submission, or fund-movement behavior unless a future explicit roadmap/spec
 changes scope.
+
+For the planned SPA, never persist or log the user-provided RPC endpoint, send
+it to a market-data provider, or embed developer credentials in a public build.
+Keep it only in page-session memory. Free public APIs must not introduce another
+required credential into the MVP without an explicitly approved scope change.
 
 ## Technical Direction
 

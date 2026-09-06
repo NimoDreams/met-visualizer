@@ -4,7 +4,14 @@ A way to view Meteora LP positions on arbitrary Solana tokens.
 
 This project is intentionally at the planning/bootstrap stage. The first goal is
 to define the product direction, technical boundaries, and agent workflow before
-broad implementation begins.
+broad implementation begins. The agreed MVP is a static SPA: enter a token CA,
+provide a session-only RPC, view reference candles and expandable DLMM
+pools/positions, and select current bin-liquidity contributions. GeckoTerminal
+is the starting free candle source, pending validation. An in-app Docs tab
+will explain sources, refresh behavior, and limitations.
+
+See the [MVP spec](docs/specs/mvp.md), a Phase 0 draft for review.
+Implementation is not yet authorized; the stack remains a proposal.
 
 ## Current Setup
 

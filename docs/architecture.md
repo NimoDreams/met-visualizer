@@ -1,38 +1,76 @@
 # Architecture
 
-The architecture is intentionally open until the project is planned.
+Status: Phase 0 direction and proposals; no application stack is implemented.
 
-## Current Lean
+## Agreed Boundaries
 
-- Monorepo-friendly structure.
-- Local web application or applications.
-- Docker Compose for local runtime where useful.
-- Database choice determined by project needs.
-- External services only when explicitly chosen and documented.
-- Solana/Meteora data access should be read-only and should be planned before
-  implementation.
+The intended deployment is a static SPA on GitHub Pages. Runtime reads originate
+in the browser. No backend, database, account, or project-maintained market-data
+credential is part of the planned MVP.
 
-## Safety Boundaries
+| Boundary | Responsibility |
+| --- | --- |
+| User RPC | On-chain DLMM pools, positions, bin arrays, mint data |
+| GeckoTerminal public API | Starting source for reference-market discovery and candles |
+| Application | Normalize prices/amounts, calculate selected liquidity, render chart/profile |
+| In-app Docs and status | Explain provider roles, reference market, refresh and coverage |
 
-Document project-specific safety boundaries before implementing sensitive
-features.
+Keep the RPC endpoint only in memory, out of storage, URLs, logs, analytics,
+source control, and builds. Do not forward it to market-data services. Developer
+environment variables must not become published browser credentials.
 
-Initial boundary: visualization and research only. Do not add trading, signing,
-wallet connection, private-key handling, seed-phrase handling, swaps, liquidity
-mutation, transaction submission, or fund movement without a future explicit
-spec and review process.
+## Proposals Awaiting Approval
 
-## Data Boundaries
+- TypeScript, React, Vite, Lightweight Charts.
+- In-memory application state with no persistent user configuration.
+- Separate read-provider boundaries for RPC and candles.
+- A static local development workflow; explicitly resolve whether to depart
+  from the template's Docker Compose preference at the technical gate.
+- Periodic candle refresh and a separate RPC snapshot cadence; no promise of
+  tick-by-tick streaming before validation.
 
-Never commit:
+## Provider Research — 2026-09-06
 
-- local databases,
-- database dumps,
-- backups,
-- exports containing sensitive data,
-- API keys,
-- `.env` files,
-- credentials,
-- secrets.
+GeckoTerminal is the starting choice, not a verified production dependency.
+Its [public reference](https://api.geckoterminal.com/docs/index.html) documents
+pool OHLCV, 1m/5m/15m/1h/4h/12h/1d, up to 1,000 bars per request, pagination,
+and USD or quote-token denomination. The live reference lists a one-minute
+cache and approximately 10 calls/minute; the
+[FAQ](https://apiguide.geckoterminal.com/faq) says 30. Budget conservatively.
+[CoinGecko's guide](https://www.coingecko.com/learn/dex-data-api) describes up to
+six months of free history, subject to available pool history.
 
-Demo fixtures should use synthetic data only.
+[Meteora OHLCV](https://docs.meteora.ag/api-reference/dlmm/pools/ohlcv) is a
+fallback candidate, not an approved automatic fallback. Native intervals are
+5m/30m/1h/2h/4h/12h/24h. Denomination, retention, actual returned bar limits,
+freshness, and browser access remain unverified.
+
+[DexPaprika](https://docs.dexpaprika.com/knowledge-base/response-headers)
+documents missing browser CORS headers. Birdeye and GMGN require additional API
+credentials. [DEX Screener](https://docs.dexscreener.com/api/reference) has no
+documented public historical candle endpoint. None is required for the MVP.
+
+Command-line public API probes returned HTTP 403; the browser tool blocked a
+direct GeckoTerminal API URL. These are inconclusive environment results, not
+proof of deployed-browser incompatibility. No successful cross-origin check or
+coverage benchmark has been completed.
+
+## Data Semantics To Validate
+
+- Match mint addresses, not tickers; discover pools with the CA on either side.
+- Enumerate all owners' positions using the pool relationship and account type.
+  Wallet-scoped helpers are insufficient. Validate against the
+  [official SDK](https://github.com/MeteoraAg/dlmm-sdk), including dynamic positions.
+- Compute per-position bin contributions from shares and bin state; do not
+  attribute the entire pool balance to every position.
+- Normalize decimals, orientation, and quote currency before aggregation.
+  Current quote conversions apply to snapshots, not historical candles.
+- Track snapshot consistency and discovered/loaded/selected coverage separately.
+  Define compatible RPC capabilities rather than promising every endpoint can
+  serve large account scans.
+- Keep reference candles independent of position selection. Reload and identify
+  changed sources/pools instead of silently splicing histories.
+- LP liquidity is not necessarily all executable liquidity; limit orders are
+  outside this MVP.
+
+See the [MVP spec](specs/mvp.md).
