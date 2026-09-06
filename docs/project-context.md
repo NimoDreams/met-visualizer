@@ -2,18 +2,20 @@
 
 ## Current State — 2026-09-06
 
-This is a documentation-only Phase 0 repository. All listed product, feasibility,
-loading, provider, UX, and technical-foundation decisions are resolved and the
-[completion review](reviews/phase-0-completion.md) is ready for independent review
-and explicit user acceptance. Application implementation is not yet authorized.
+Phase 0 is complete. Its product, feasibility, loading, provider, UX, technical,
+branch, privacy, and safety direction was independently reviewed and accepted by
+the user on 2026-09-06. Phase 1 implementation is authorized and tracked in
+[milestone 2](https://github.com/NimoDreams/met-visualizer/milestone/2) and
+[epic #15](https://github.com/NimoDreams/met-visualizer/issues/15).
 
 - Local: met-visualizer repository root
 - GitHub: NimoDreams/met-visualizer
-- main holds the reviewed Phase 0 documentation; dev has not been introduced.
-- [Phase 0 epic #1](https://github.com/NimoDreams/met-visualizer/issues/1) and
-  its milestone track active work; [roadmap](roadmap.md) links the child issues.
+- `main` holds the accepted Phase 0 baseline. `dev` is the Phase 1 integration
+  branch; issue branches start from and target `dev`.
+- Phase 0 [epic #1](https://github.com/NimoDreams/met-visualizer/issues/1) and
+  milestone are closed; the [roadmap](roadmap.md) links active Phase 1 work.
 - PM, Developer, and Code Reviewer remain separate roles. Reviewers must post
-  GitHub-visible readiness; implementation remains gated on explicit approval.
+  GitHub-visible readiness before merge.
 
 ## Agreed Direction
 
@@ -60,12 +62,11 @@ Vite, Lightweight Charts, RPC-only Solana modules, minimum Meteora read decoders
 and a main-only GitHub Pages workflow. The local runtime intentionally excludes
 Docker Compose. See the [technical foundation](specs/technical-foundation.md).
 
-## Outstanding Gates
+## Active Delivery Gate
 
-1. Obtain explicit user approval to end Phase 0 and begin implementation.
-
-Create dev from the accepted Phase 0 main immediately before implementation;
-use issue-scoped developer branches/worktrees and independent review thereafter.
+Start with [issue #16](https://github.com/NimoDreams/met-visualizer/issues/16).
+Keep later issues queued behind their documented dependencies. GitHub Pages
+activation and eventual `dev` to `main` promotion require separate user approval.
 
 ## Read Next
 

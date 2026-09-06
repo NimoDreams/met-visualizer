@@ -2,17 +2,16 @@
 
 A way to view Meteora LP positions on arbitrary Solana tokens.
 
-This project is intentionally at the planning/bootstrap stage. The first goal is
-to define the product direction, technical boundaries, and agent workflow before
-broad implementation begins. The agreed MVP is a static SPA: enter a token CA,
+Phase 0 planning is complete and the first implementation phase is active. The
+agreed MVP is a static SPA: enter a token CA,
 provide a session-only RPC, view reference candles and expandable DLMM
 pools/positions, and select current bin-liquidity contributions. GeckoTerminal
 is the validated starting free candle source. An in-app Docs tab
 will explain sources, refresh behavior, and limitations.
 
 See the [MVP spec](docs/specs/mvp.md) and selected
-[technical foundation](docs/specs/technical-foundation.md).
-Implementation is not yet authorized.
+[technical foundation](docs/specs/technical-foundation.md). Active delivery is
+tracked in [Phase 1 epic #15](https://github.com/NimoDreams/met-visualizer/issues/15).
 
 ## Current Setup
 
@@ -20,8 +19,8 @@ Implementation is not yet authorized.
 - Product seed: visualize Meteora LP positions for arbitrary Solana tokens.
 - Active work should be planned through GitHub Issues and milestones.
 - Durable project memory should live in `docs/`.
-- Create `dev` from the accepted Phase 0 baseline immediately before authorized
-  implementation; use issue branches into `dev` and reviewed promotions to main.
+- `main` holds the stable accepted baseline; `dev` integrates Phase 1 work.
+  Developers use issue branches into `dev` and reviewed promotions to `main`.
 
 ## Docs
 
