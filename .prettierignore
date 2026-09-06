@@ -1,0 +1,10 @@
+dist
+coverage
+node_modules
+playwright-report
+test-results
+package-lock.json
+AGENTS.md
+README.md
+docs
+LICENSE
