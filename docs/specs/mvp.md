@@ -47,15 +47,17 @@ mutation, transaction submission, and fund movement.
   unsupported conversion is visible.
 - Bound retries and visibly mark last-good stale data. Results for an old CA
   must not overwrite a newer search.
-- Reference-market changes are visible and reload the series. Exact fallback
-  behavior awaits feasibility findings.
+- Reference-market changes are visible and reload the series. No automatic
+  candle-provider fallback is approved for the MVP.
 
 ## Proposed Defaults — Awaiting Approval
 
 - All discovered positions logically selected by default. Progressive loading
   shows loaded contributions with honest coverage; settle new-position behavior.
-- USD token price, 15-minute initial candles, approximately one-minute candle
-  refresh. RPC refresh has its own budget and status.
+- USD token price, 15-minute initial candles, and candle polling no faster than
+  once per 60 seconds while visible. These candle defaults are supported by
+  [Phase 0 evidence](../reviews/phase-0-candle-feasibility.md); RPC refresh has
+  its own budget and status.
 - Stable session reference chosen using available history, recent activity,
   and liquidity. Exact ranking, tie-breaking, and manual override remain open.
 - Size filters use a labeled common valuation basis; settle thresholds, sorting,
