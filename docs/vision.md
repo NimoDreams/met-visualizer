@@ -26,7 +26,8 @@ not historical position movement.
 - Users supply one RPC endpoint, held only in page-session memory.
 - Free public data sources are allowed without another user credential or a
   project-maintained market-data key.
-- GeckoTerminal is the starting candle source, pending feasibility validation.
+- GeckoTerminal is the validated starting candle source, subject to documented
+  implementation and release checks.
 - An in-app Docs tab explains sources, refresh behavior, reference-market
   selection, normalization, selection semantics, and limitations.
 - Reference market, units, freshness, and coverage are visible beside the data.
