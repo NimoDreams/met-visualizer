@@ -69,10 +69,11 @@ function DocsView() {
         <section className="surface">
           <h2>Current liquidity snapshot</h2>
           <p>
-            Future DLMM overlays will convert the other pool token through a
-            current public USD quote and use the chart’s supply basis. They show
-            current liquidity, not liquidity at a historical candle. Unsupported
-            conversions stay visible without a common-axis overlay.
+            Enabled pools load all owners’ PositionV2 accounts in bounded RPC
+            batches and value their current principal from each position’s bin
+            shares. Large pools show the largest positions first, with separate
+            count and value coverage. Unsupported or incomplete conversions stay
+            visible as unknown instead of claiming a complete denominator.
           </p>
         </section>
       </div>

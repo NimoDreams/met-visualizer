@@ -200,6 +200,31 @@ compact ranking values qualify, while unopened pools remain visibly out of scope
 Responsive tests must preserve selection, loading, and chart state while changing
 modes or orientation.
 
+## 2026-09-06: Use Exact Project-Owned Position Decoders And Bounded RPC Batches
+
+Context: PositionV2 stores 70 shares in its fixed body and appends one 112-byte
+`positionBinData` record for every additional bin, up to a width of 1,400. A
+single standard-RPC `dataSlice` cannot include the fixed shares, trailing range
+bounds, and variable extension together. Omitting an extension would understate
+the largest-position ranking.
+
+Decision: Discover every PositionV2 key for each enabled pool, hydrate full
+accounts in batches of 100, scan that pool's BinArrays once, and move exact
+bigint share/bin valuation plus sorting into an abortable Web Worker. Validate
+the minimal decoders against the pinned official SDK/IDL oracle and reject any
+account whose exact extension length, discriminator, owner, or pool relationship
+does not match. Keep the full transaction-capable SDK outside production.
+Aggregate the position's token-X and token-Y principal from those bin shares,
+then value it with one current active-bin conversion price. Preserve the public
+USD quote as an exact decimal rational until display rounding. Refreshing
+positions obtains a fresh quote with its own observation timestamp and preserves
+same-pool selection and continuation state.
+
+Consequence: Large portable sessions pay the measured full-account bandwidth
+cost before largest-first presentation, but remain compatible with ordinary
+RPCs and never claim an incomplete value denominator. Provider-specific compact
+indexes can be evaluated later behind the same boundary.
+
 ## 2026-09-06: Enable The Largest Eligible Meteora Pool First
 
 Context: Pool discovery can return hundreds of DLMM pools, many without

@@ -65,12 +65,12 @@ Docker Compose. See the [technical foundation](specs/technical-foundation.md).
 ## Active Delivery Gate
 
 [Issues #16](https://github.com/NimoDreams/met-visualizer/issues/16) and
-[#17](https://github.com/NimoDreams/met-visualizer/issues/17) are merged in
-`dev`. [Issue #18](https://github.com/NimoDreams/met-visualizer/issues/18) has an
-RPC-authoritative DLMM discovery and initial-selection implementation ready for
-independent review. It reuses #17's shared quote-price adapter and public-request
-budget; all pool identity still comes from decoded RPC accounts. Keep later
-issues queued behind their documented dependencies. GitHub Pages activation and
+[#17](https://github.com/NimoDreams/met-visualizer/issues/17), and
+[#18](https://github.com/NimoDreams/met-visualizer/issues/18) are merged in
+`dev`. Issue #19 is the active PositionV2 decoding and progressive-valuation
+implementation. It reuses #17's shared quote-price adapter and #18's enabled-pool
+contract; all account identity remains RPC-authoritative. Keep later issues
+queued behind their documented dependencies. GitHub Pages activation and
 eventual `dev` to `main` promotion require separate user approval.
 
 ## Read Next
