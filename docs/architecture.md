@@ -75,4 +75,19 @@ origin behavior remains a pre-release smoke test.
 - LP liquidity is not necessarily all executable liquidity; limit orders are
   outside this MVP.
 
+## RPC Account-Model Research — 2026-09-06
+
+Official SDK review establishes a feasible lower-level read path for all-owner
+PositionV2 data: two mint-oriented filtered pool scans, one discriminator-plus-
+pool position-key scan per discovered pool, chunked full position reads, and
+deduplicated bin-array reads. Wallet-scoped SDK helpers do not satisfy the
+product query. Dynamic positions require their extension bytes, and each
+position's bin amounts come from its share of bin supply rather than the full
+bin balance.
+
+The result remains operationally unverified until a compatible user RPC is
+configured for response-size, latency, completeness, slot consistency, and
+large-pool measurements. See the
+[Phase 0 RPC feasibility report](reviews/phase-0-rpc-feasibility.md).
+
 See the [MVP spec](specs/mvp.md).
