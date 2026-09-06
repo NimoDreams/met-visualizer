@@ -132,8 +132,10 @@ contract and required in-app disclosure.
   loads, and unavailable values are outside that universe.
 - Start with all positions produced by progressive loading shown and selected.
   Provide a global minimum-USD input, `Largest contributors` for about 80% of a
-  complete known denominator, and clear/show-all controls. Do not impose a fixed
-  dollar dust threshold.
+  denominator containing every valued position discovered in every enabled pool,
+  and clear/show-all controls. Compact ranking values qualify without full display
+  hydration. Disable the action while any enabled-pool value is missing. Do not
+  impose a fixed dollar dust threshold; unopened pools remain visibly out of scope.
 - Treat filtering as a temporary inclusion mask over checkbox selection. It
   affects both the list and overlay without destroying prior selections.
 - Keep unavailable-value positions visible with reasons and outside numeric

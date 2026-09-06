@@ -177,5 +177,8 @@ Chart/Positions modes on narrow phones.
 
 Consequence: The UI must name the filter's observed universe and cannot imply
 token-wide coverage while pools or valuations remain incomplete. No universal
-dust cutoff is appropriate. Responsive tests must preserve selection, loading,
-and chart state while changing modes or orientation.
+dust cutoff is appropriate. The 80% contributor action requires a value for every
+discovered position in every enabled pool from the same refresh generation;
+compact ranking values qualify, while unopened pools remain visibly out of scope.
+Responsive tests must preserve selection, loading, and chart state while changing
+modes or orientation.
