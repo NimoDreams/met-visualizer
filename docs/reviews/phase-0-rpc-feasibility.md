@@ -4,7 +4,7 @@ Date: 2026-09-06
 
 Issue: [#4](https://github.com/NimoDreams/met-visualizer/issues/4)
 
-Status: live evidence complete; independent review follow-up pending
+Status: live evidence complete; independently reviewed on PR #8
 
 ## Result
 

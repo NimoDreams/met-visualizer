@@ -93,4 +93,27 @@ changing the portable on-demand contract. Use explicit RPC refresh because the
 large-pool sample returned approximately 20 MB of decoded position JSON. See
 the [Phase 0 RPC feasibility report](reviews/phase-0-rpc-feasibility.md).
 
+## Progressive Position Loading
+
+Standard RPC cannot order PositionV2 accounts by economic size. For an enabled
+pool, first retrieve position keys and count. Load small pools completely. For
+large pools, perform a compact all-position ranking pass, retrieve the shared
+bin arrays needed for valuation, and calculate each position's current
+normalized value from its per-bin share of token balances. Raw liquidity-share
+totals are not a valid ranking because their meaning depends on each bin.
+
+The implementation must verify any projected `dataSlice` offsets against its
+pinned Meteora SDK and reconcile sampled projected values with full account
+decodes. Extended PositionV2 accounts need their additional share data before
+ranking. If compact projection is incompatible with an RPC, use bounded ordinary
+batches and expose that the result is partial and not guaranteed largest-first.
+
+Render the largest positions first, initially targeting at least 25 positions,
+about 80% of decoded position value, and a cap near 100 positions. Treat these
+as measurable starting budgets rather than permanent protocol constants. Show
+both position-count and value coverage, and keep loading state independent from
+checkbox selection state. After a manual selection change, newly loaded
+positions remain unselected. Large-pool continuation is user initiated through
+load-next or load-all controls; explicit cancellation stops obsolete work.
+
 See the [MVP spec](specs/mvp.md).
