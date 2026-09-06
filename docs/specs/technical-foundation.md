@@ -1,7 +1,7 @@
 # Technical Foundation
 
-Status: approved Phase 0 direction. Implementation, dependency installation,
-`dev` creation, GitHub Pages activation, and deployment remain unauthorized.
+Status: approved for Phase 1 implementation on 2026-09-06. GitHub Pages
+activation, deployment, and `dev` to `main` promotion remain separately gated.
 
 ## Selected Stack
 
@@ -17,8 +17,8 @@ Status: approved Phase 0 direction. Implementation, dependency installation,
 | Tests | Vitest, React Testing Library, and focused Playwright browser tests |
 | Styling | Plain CSS or CSS Modules; no general UI framework initially |
 
-Pin exact dependency versions in `package-lock.json` when the scaffold issue is
-authorized. Use Vite's modern default production target and test current Chrome,
+Pin exact dependency versions in `package-lock.json` in scaffold issue #16. Use
+Vite's modern default production target and test current Chrome,
 Firefox, and Safari. Do not add legacy-browser polyfills without evidence.
 
 ## Application Shape
@@ -120,7 +120,7 @@ Use `npm ci`, upload only `dist/`, pin third-party actions to full commit SHAs,
 and do not provide the workflow with an RPC or market-data secret. Do not deploy
 `dev` or PR previews to the repository's sole Pages site.
 
-Create `dev` from the Phase 0-approved `main` immediately before implementation.
+Create `dev` from the accepted Phase 0 closeout commit immediately before implementation.
 Issue branches target `dev`; reviewed release promotions target `main` with a
 merge commit. A merge to `main` becomes the deployable source of truth. The
 first actual Pages activation/deployment remains a separate user-approved step.
