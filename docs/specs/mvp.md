@@ -47,8 +47,8 @@ mutation, transaction submission, and fund movement.
   unsupported conversion is visible.
 - Bound retries and visibly mark last-good stale data. Results for an old CA
   must not overwrite a newer search.
-- Reference-market changes are visible and reload the series. Exact fallback
-  behavior awaits feasibility findings.
+- Reference-market changes are visible and reload the series. No automatic
+  candle-provider fallback is approved for the MVP.
 
 ## Proposed Defaults — Awaiting Approval
 

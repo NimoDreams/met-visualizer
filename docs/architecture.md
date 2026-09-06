@@ -45,8 +45,8 @@ six months of free history, subject to available pool history.
 
 [Meteora OHLCV](https://docs.meteora.ag/api-reference/dlmm/pools/ohlcv) allowed
 cross-origin access in the sample, but returned ten recent, quote-denominated
-bars and rejected a 24-hour 5-minute range as too large. Keep it as a narrow
-diagnostic/recent fallback after unit validation, not a general historical source.
+bars and rejected a 24-hour 5-minute range as too large. It is an unapproved
+diagnostic comparison source until its units and usable range are validated.
 
 [DexPaprika](https://docs.dexpaprika.com/knowledge-base/response-headers)
 documents missing browser CORS headers. Birdeye and GMGN require additional API

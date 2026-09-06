@@ -1,8 +1,10 @@
 # Phase 0 Candle Feasibility — GeckoTerminal
 
-Date: 2026-09-06  
-Issue: [#3](https://github.com/NimoDreams/met-visualizer/issues/3)  
-Status: PM evidence draft; independent review pending
+Date: 2026-09-06
+
+Issue: [#3](https://github.com/NimoDreams/met-visualizer/issues/3)
+
+Status: PM evidence draft; independent review follow-up pending
 
 ## Result
 
@@ -18,45 +20,55 @@ cross-origin fetch architecture.
 
 ## Evidence
 
-Tests sent `Accept: application/json;version=20230203` and a GitHub Pages-style
-`Origin` header. Requests were deliberately kept below a conservative ten per
-minute; this was not a load test. Raw responses stayed in temporary storage and
-were not committed.
+Tests sent `Accept: application/json;version=20230203` and
+`Origin: https://nimodreams.github.io`. Requests stayed below ten per minute;
+this was not a load test. Times below come from the response `Date` header.
+Raw responses stayed in temporary storage and were not committed.
 
-| Case | Public identifiers | Observation (UTC) |
-| --- | --- | --- |
-| Browser/CORS | JUP; Meteora pool `C8Gr...NNwg` | Browser `fetch` from localhost returned CORS response type, HTTP 200, and two candles. Responses advertised `Access-Control-Allow-Origin: *`. |
-| Established and multi-market | JUP mint `JUPyi...DvCN` | Pool discovery returned 20 pools on page one across Meteora, Orca, Raydium CLMM, and other DEXes. |
-| Deep history | Meteora `C8Gr...NNwg`; Orca `C1Mg...W8Wz` | Each returned the maximum 1,000 fifteen-minute bars. The sampled oldest bars were 2026-08-23 08:15 and 2026-08-27 05:55 respectively; this proves pagination-sized history, not a universal retention floor. |
-| Backfill | Meteora `C8Gr...NNwg` | A request before the oldest timestamp returned 20 older bars. The boundary timestamp repeated, so clients must merge by timestamp. |
-| New pool | SLOWLANA mint `2BCG...PwpX`; pool `FA4x...xeai` | Within minutes of pool creation, one-minute OHLCV returned two bars with no CoinGecko coin ID required. |
-| Thin pool | STFU mint `3ioZ...6moon`; pool `Hdhj...cBp6` | Returned its single traded bar; absence of older bars is a valid sparse result. |
-| Empty intervals | JUP/USDC pool `AUgb...uDbL` | `include_empty_intervals=true` returned 100 one-minute bars; 94 were carry-forward OHLC with zero volume. |
-| Orientation and units | JUP/SOL pool `C8Gr...NNwg` | `currency=usd&token=base` produced JUP/USD near $0.26; `token=quote` produced SOL/USD near $105; `currency=token&token=base` produced JUP/SOL near 0.0025. Volume changed with denomination. |
-| Freshness/cache | JUP/SOL pool `C8Gr...NNwg` | 15:14:34–15:16:04 observations returned a latest 15:11 one-minute bar. The first repeat was a CDN hit at age 53 seconds; a later cache miss changed the ETag but not the candle. Do not infer a provider outage solely from an unchanged bar. |
+The common URL prefix was
+`https://api.geckoterminal.com/api/v2/networks/solana`. OHLCV paths used
+`/pools/{pool}/ohlcv/minute`. These are the exact samples and parameters:
+
+| Case | Request/sample | Observed UTC | Result |
+| --- | --- | --- | --- |
+| CORS | `GET /../networks?page=1`; browser fetched pool `C8Gr6AUuq9hEdSYJzoEpNcdjpojPZwqG5MtQbeouNNwg` with `aggregate=15&limit=2&currency=usd&token=base` | 15:09:54; browser 15:26:34 | HTTP 200 with `Access-Control-Allow-Origin: *` and GET allowed. The browser request from a localhost static page returned response type `cors`, HTTP 200, and two candles. Exact Pages-origin testing remains a release smoke test. |
+| Pool discovery | `GET /tokens/JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN/pools?page=1` | 15:10:21 | Twenty pools across Meteora, Orca, Raydium CLMM, and other DEXes. |
+| Meteora history | Pool `C8Gr6AUuq9hEdSYJzoEpNcdjpojPZwqG5MtQbeouNNwg`; `aggregate=15&limit=1000&currency=usd&token=base` | 15:10:53 | 1,000 bars; newest timestamp `1788706800`, oldest `1787472900` (2026-08-23 08:15). |
+| Orca history | Pool `C1MgLojNLWBKADvu9BHdtgzz1oZX4dZ5zGdGcgvvW8Wz`; `aggregate=15&limit=1000&currency=usd&token=base` | 15:10:53 | 1,000 bars; newest timestamp `1788706800`, oldest `1787807700` (2026-08-27 05:55). These samples show pagination-sized history, not a retention guarantee. |
+| Backfill | Meteora pool above; `aggregate=15&limit=20&currency=usd&token=base&before_timestamp=1787472900` | 15:11:24 | Twenty older bars. Timestamp `1787472900` repeated at the page boundary, requiring timestamp deduplication. |
+| New pool | SLOWLANA mint `2BCG9Jga3uxyhxZUq7KGRjZzxWtNdwfGU5B1KXUePwpX`; pool `FA4xkBarMqYQak86pF56zY4iWbrEYmCBHPu1G7qoxeai`; `aggregate=1&limit=100&currency=usd&token=base` | 15:10:53 | Two bars after pool creation at 15:09:09, without a CoinGecko coin ID. |
+| Thin pool | STFU mint `3ioZhB54Qm2rHprafT3w7BNuoBk9roAUvvL7gY56moon`; pool `HdhjkfbjpV313eE4Ns54C1gt3iHP8S6AGGKyGanfcBp6`; same one-minute parameters | 15:10:53 | One traded bar; no older history. |
+| Empty intervals | JUP/USDC pool `AUgbdzNob9S8MiVHm4Qruqz3VsZGoqtMZnSzv45juDbL`; `aggregate=1&limit=100&currency=usd&token=base&include_empty_intervals=true` | 15:14:34 | One hundred bars, including 94 carry-forward bars with zero volume. |
+| Orientation | JUP/SOL pool `C8Gr6AUuq9hEdSYJzoEpNcdjpojPZwqG5MtQbeouNNwg`; `aggregate=15&limit=2` | 15:11:25–15:14:33 | `currency=usd&token=base` was JUP/USD near $0.26; `token=quote` was SOL/USD near $105; `currency=token&token=base` was JUP/SOL near 0.0025. Volume denomination changed too. |
+| Active-pool freshness | Same JUP/SOL pool; pool details plus `aggregate=1&limit=5&currency=usd&token=base` | 15:23:34–15:27:06 | Pool details reported 23 trades and $19,706 volume in five minutes. The first OHLCV request returned a traded 15:23 candle; the next returned a newer traded candle at timestamp `1788708300`. This active sample advanced across requests. |
+| Cache behavior | Same JUP/SOL OHLCV request | 15:14:34, 15:15:28, 15:16:04 | All three returned a latest 15:11 bar. The middle response was a CDN hit at age 53; the last was a miss with a new ETag but unchanged data. The later active-pool sample shows that inactivity and indexing/cache delay must be treated separately. |
 
 The token-address form of the `token` parameter returned an empty result when
 requesting the quote token in one test, while the documented `token=quote`
 selector worked. Use `base`/`quote` after verifying pool membership rather than
 depending on the address form.
 
-## Meteora Fallback Finding
+## Meteora Comparison Finding
 
 The Meteora Data API allowed cross-origin unauthenticated reads for the sampled
 pool, but the default 5-minute response returned only ten quote-denominated
 JUP/SOL bars. A requested 24-hour 5-minute range returned HTTP 400 `time range
 too large`. The response does not document the price/volume units in-band.
 
-This is useful as a narrow diagnostic or recent-pool fallback after unit checks,
-but it is not a general historical-chart fallback for the MVP.
+Meteora OHLCV is not an approved fallback. Its undocumented units and narrow
+range response make it useful only as a diagnostic comparison until a separate
+validation establishes a safe contract.
 
 ## Recommended Contract
 
-- Discover pools by mint address. Consider only pools where the entered mint is
-  explicitly the base or quote token and a recent OHLCV request succeeds.
-- Rank eligible pools by USD liquidity first, then recent USD volume; keep the
-  chosen reference stable for the token session. Show DEX, pool, pair, currency,
-  and provider. A later change requires a visible series reload.
+- Discover pools by mint address and verify that the entered mint is explicitly
+  the base or quote token. Rank candidates by USD liquidity and then recent USD
+  volume, but select the first candidate that also returns non-empty candles,
+  enough completed history for the default viewport, and a newest traded bar
+  inside the documented freshness threshold. Define that history minimum and
+  threshold at the technical gate after the longer freshness observation.
+- Keep the chosen reference stable for the token session. Show DEX, pool, pair,
+  currency, and provider. A later change requires a visible series reload.
 - Request the entered token with `token=base` or `token=quote` and use USD
   candles for chart/profile alignment. Never select by symbol.
 - Default to 15-minute candles. Fetch up to 1,000 initial bars and backfill on
