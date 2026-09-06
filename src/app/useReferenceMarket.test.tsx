@@ -1,16 +1,21 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
+  candleResponse,
   candleFixture,
+  poolResponse,
   poolFixture,
   QUOTE_MINT,
   TOKEN_MINT,
   tokenFixture,
+  tokenResponse,
 } from "../test/fixtures/geckoTerminal";
 import {
   GeckoTerminalError,
+  PublicGeckoTerminalProvider,
   type GeckoTerminalProvider,
 } from "../providers/geckoTerminal";
+import { PublicRequestBudget } from "../providers/publicRequestBudget";
 import { useReferenceMarket } from "./useReferenceMarket";
 
 const NOW_SECONDS = Math.floor(Date.now() / 1_000);
@@ -105,6 +110,51 @@ describe("useReferenceMarket", () => {
     expect(result.current.state.session.token.symbol).toBe("NEW");
   });
 
+  it("keeps a newer same-CA session alive when the replaced session aborts", async () => {
+    const gate = deferred<void>();
+    const transportSignals: AbortSignal[] = [];
+    const fetchMock = vi
+      .spyOn(window, "fetch")
+      .mockImplementation(async (input, init) => {
+        if (init?.signal) transportSignals.push(init.signal);
+        await gate.promise;
+        if (init?.signal?.aborted) {
+          throw new DOMException("cancelled", "AbortError");
+        }
+        const url = requestUrl(input);
+        const body = url.includes("/ohlcv/")
+          ? candleResponse(candleFixture(NOW_SECONDS - 24 * 3_600, 96))
+          : url.includes("/pools?")
+            ? poolResponse("same-ca-pool")
+            : tokenResponse();
+        return Response.json(body);
+      });
+    const provider = new PublicGeckoTerminalProvider(new PublicRequestBudget());
+    const oldSession = renderHook(() =>
+      useReferenceMarket(TOKEN_MINT, undefined, provider),
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    const newSession = renderHook(() =>
+      useReferenceMarket(TOKEN_MINT, undefined, provider),
+    );
+    oldSession.unmount();
+    expect(transportSignals.every((signal) => !signal.aborted)).toBe(true);
+
+    gate.resolve();
+    await waitFor(() =>
+      expect(newSession.result.current.state.status).toBe("ready"),
+    );
+    if (newSession.result.current.state.status !== "ready") {
+      throw new Error("replacement session did not become ready");
+    }
+    expect(newSession.result.current.state.session.mint).toBe(TOKEN_MINT);
+    expect(newSession.result.current.state.session.market.address).toBe(
+      "same-ca-pool",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("keeps last-good candles visible and marks them stale after refresh fails", async () => {
     const market = poolFixture("stale-pool");
     const getCandles = vi
@@ -140,3 +190,26 @@ describe("useReferenceMarket", () => {
     expect(result.current.state.actionError).toContain("could not be reached");
   });
 });
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve: ((value: T) => void) | undefined;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return {
+    promise,
+    resolve: (value) => {
+      if (!resolve) throw new Error("deferred promise was not initialized");
+      resolve(value);
+    },
+  };
+}
+
+function requestUrl(input: string | URL | Request): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+}

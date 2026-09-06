@@ -46,6 +46,104 @@ describe("PublicRequestBudget", () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
+  it("lets an old consumer abort without cancelling a newer same-key consumer", async () => {
+    const budget = new PublicRequestBudget();
+    const oldController = new AbortController();
+    const newController = new AbortController();
+    const pending = deferred<string>();
+    let sharedSignal: AbortSignal | undefined;
+    const run = vi.fn((signal: AbortSignal) => {
+      sharedSignal = signal;
+      return pending.promise;
+    });
+
+    const oldRequest = budget.schedule(run, {
+      key: "token:same-ca",
+      signal: oldController.signal,
+    });
+    const newRequest = budget.schedule(run, {
+      key: "token:same-ca",
+      signal: newController.signal,
+    });
+    await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+
+    oldController.abort();
+    await expect(oldRequest).rejects.toMatchObject({ name: "AbortError" });
+    expect(sharedSignal?.aborted).toBe(false);
+
+    pending.resolve("new session result");
+    await expect(newRequest).resolves.toBe("new session result");
+  });
+
+  it("lets a newer consumer abort without cancelling the older live consumer", async () => {
+    const budget = new PublicRequestBudget();
+    const oldController = new AbortController();
+    const newController = new AbortController();
+    const pending = deferred<string>();
+    let sharedSignal: AbortSignal | undefined;
+    const run = vi.fn((signal: AbortSignal) => {
+      sharedSignal = signal;
+      return pending.promise;
+    });
+
+    const oldRequest = budget.schedule(run, {
+      key: "pools:same-ca",
+      signal: oldController.signal,
+    });
+    const newRequest = budget.schedule(run, {
+      key: "pools:same-ca",
+      signal: newController.signal,
+    });
+    await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+
+    newController.abort();
+    await expect(newRequest).rejects.toMatchObject({ name: "AbortError" });
+    expect(sharedSignal?.aborted).toBe(false);
+
+    pending.resolve("old session result");
+    await expect(oldRequest).resolves.toBe("old session result");
+  });
+
+  it("cancels orphaned shared work and permits a clean same-key retry", async () => {
+    const budget = new PublicRequestBudget();
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    let sharedSignal: AbortSignal | undefined;
+    const orphanedRun = vi.fn(
+      (signal: AbortSignal) =>
+        new Promise<string>((_resolve, reject) => {
+          sharedSignal = signal;
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("cancelled", "AbortError")),
+            { once: true },
+          );
+        }),
+    );
+
+    const first = budget.schedule(orphanedRun, {
+      key: "candles:same-ca",
+      signal: firstController.signal,
+    });
+    const second = budget.schedule(orphanedRun, {
+      key: "candles:same-ca",
+      signal: secondController.signal,
+    });
+    await vi.waitFor(() => expect(orphanedRun).toHaveBeenCalledTimes(1));
+
+    firstController.abort();
+    secondController.abort();
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+    await expect(second).rejects.toMatchObject({ name: "AbortError" });
+    expect(sharedSignal?.aborted).toBe(true);
+
+    const retryRun = vi.fn(() => Promise.resolve("fresh result"));
+    await expect(
+      budget.schedule(retryRun, { key: "candles:same-ca" }),
+    ).resolves.toBe("fresh result");
+    expect(retryRun).toHaveBeenCalledTimes(1);
+  });
+
   it("holds excess requests until the rolling window is available", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(10_000);
@@ -80,3 +178,20 @@ describe("PublicRequestBudget", () => {
     expect(run).not.toHaveBeenCalled();
   });
 });
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve: ((value: T) => void) | undefined;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return {
+    promise,
+    resolve: (value) => {
+      if (!resolve) throw new Error("deferred promise was not initialized");
+      resolve(value);
+    },
+  };
+}

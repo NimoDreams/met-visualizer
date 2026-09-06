@@ -52,8 +52,10 @@ the chart.
 Token metadata, pool discovery, OHLCV probes, and the shared quote-price boundary
 use one rolling ten-request-per-minute scheduler. Direct actions and selected-
 market refreshes precede speculative probes, concurrent keys deduplicate, queued
-aborts reject without dispatch, and HTTP 429 honors `Retry-After`. Live provider
-availability remains outside deterministic CI.
+aborts reject without dispatch, and HTTP 429 honors `Retry-After`. Each caller
+can cancel its own deduplicated consumer without aborting another live consumer;
+the shared transport cancels and releases its key when all consumers leave. Live
+provider availability remains outside deterministic CI.
 
 ## Remaining Gates
 

@@ -237,10 +237,10 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
 
     try {
       const value = await this.budget.schedule(
-        () =>
+        (sharedSignal) =>
           requestJson<unknown>(url, {
             provider: "GeckoTerminal",
-            signal,
+            signal: sharedSignal,
             init: {
               headers: { Accept: "application/json;version=20230203" },
             },

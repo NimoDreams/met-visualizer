@@ -90,9 +90,11 @@ numeric values encoded as strings, pool identity in base/quote relationship IDs,
 and OHLCV as newest-first six-value tuples; the adapter validates and normalizes
 these at its boundary. All calls share a priority-aware rolling budget of ten
 dispatches per minute, concurrent reads are deduplicated, and `Retry-After` is
-honored after HTTP 429. Deterministic browser routing proved that the user RPC
-marker never entered GeckoTerminal request URLs, page content, or browser
-storage. See the
+honored after HTTP 429. Deduplicated work owns its transport cancellation signal;
+each consumer can cancel independently, and the transport is aborted only when
+no consumers remain. Deterministic browser routing proved that the user RPC
+marker never entered GeckoTerminal request URLs, page content, or browser storage.
+See the
 [reference-market browser proof](reviews/phase-1-reference-market-browser-proof.md).
 
 ## Data Semantics

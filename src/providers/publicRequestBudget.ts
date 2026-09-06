@@ -7,15 +7,21 @@ type BudgetOptions = {
   signal?: AbortSignal;
 };
 
+type Consumer = {
+  settled: boolean;
+  resolve: (value: unknown) => void;
+  reject: (reason: unknown) => void;
+  detachAbort?: () => void;
+};
+
 type QueueItem = {
   key?: string;
   priority: number;
   sequence: number;
-  signal?: AbortSignal;
-  run: () => Promise<unknown>;
-  resolve: (value: unknown) => void;
-  reject: (reason: unknown) => void;
-  detachAbort?: () => void;
+  controller: AbortController;
+  consumers: Set<Consumer>;
+  run: (signal: AbortSignal) => Promise<unknown>;
+  started: boolean;
 };
 
 const priorityOrder: Record<PublicRequestPriority, number> = {
@@ -34,7 +40,7 @@ export class PublicRequestBudget {
   readonly windowMs: number;
 
   #dispatches: number[] = [];
-  #inflight = new Map<string, Promise<unknown>>();
+  #inflight = new Map<string, QueueItem>();
   #queue: QueueItem[] = [];
   #sequence = 0;
   #timer?: ReturnType<typeof setTimeout>;
@@ -45,57 +51,93 @@ export class PublicRequestBudget {
     this.windowMs = windowMs;
   }
 
-  schedule<T>(run: () => Promise<T>, options: BudgetOptions = {}): Promise<T> {
+  schedule<T>(
+    run: (signal: AbortSignal) => Promise<T>,
+    options: BudgetOptions = {},
+  ): Promise<T> {
     if (options.signal?.aborted) {
       return Promise.reject(abortError());
     }
 
-    if (options.key) {
-      const existing = this.#inflight.get(options.key);
-      if (existing) return existing as Promise<T>;
-    }
-
-    const promise = new Promise<T>((resolve, reject) => {
-      const item: QueueItem = {
+    let item = options.key ? this.#inflight.get(options.key) : undefined;
+    if (!item) {
+      item = {
         key: options.key,
         priority: priorityOrder[options.priority ?? "standard"],
         sequence: this.#sequence++,
-        signal: options.signal,
+        controller: new AbortController(),
+        consumers: new Set(),
         run,
-        resolve: (value) => resolve(value as T),
-        reject,
+        started: false,
       };
-      if (options.signal) {
-        const onAbort = () => {
-          const index = this.#queue.indexOf(item);
-          if (index === -1) return;
-          this.#queue.splice(index, 1);
-          reject(abortError());
-          this.#drain();
-        };
-        options.signal.addEventListener("abort", onAbort, { once: true });
-        item.detachAbort = () =>
-          options.signal?.removeEventListener("abort", onAbort);
-      }
+      if (options.key) this.#inflight.set(options.key, item);
       this.#queue.push(item);
       queueMicrotask(() => this.#drain());
-    });
-
-    const key = options.key;
-    if (key) {
-      this.#inflight.set(key, promise);
-      void promise.then(
-        () => this.#inflight.delete(key),
-        () => this.#inflight.delete(key),
-      );
     }
 
-    return promise;
+    return this.#attachConsumer<T>(item, options.signal);
   }
 
   defer(durationMs: number): void {
     this.#blockedUntil = Math.max(this.#blockedUntil, Date.now() + durationMs);
     this.#armTimer();
+  }
+
+  #attachConsumer<T>(
+    item: QueueItem,
+    signal: AbortSignal | undefined,
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const consumer: Consumer = {
+        settled: false,
+        resolve: (value) => resolve(value as T),
+        reject,
+      };
+      item.consumers.add(consumer);
+
+      if (signal) {
+        const onAbort = () => {
+          if (consumer.settled) return;
+          consumer.settled = true;
+          consumer.detachAbort?.();
+          item.consumers.delete(consumer);
+          reject(abortError());
+          if (item.consumers.size === 0) this.#cancel(item);
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+        consumer.detachAbort = () =>
+          signal.removeEventListener("abort", onAbort);
+        if (signal.aborted) onAbort();
+      }
+    });
+  }
+
+  #cancel(item: QueueItem): void {
+    if (!item.started) {
+      const index = this.#queue.indexOf(item);
+      if (index !== -1) this.#queue.splice(index, 1);
+    }
+    item.controller.abort();
+    this.#forget(item);
+    this.#drain();
+  }
+
+  #settle(item: QueueItem, succeeded: boolean, value: unknown): void {
+    this.#forget(item);
+    for (const consumer of item.consumers) {
+      if (consumer.settled) continue;
+      consumer.settled = true;
+      consumer.detachAbort?.();
+      if (succeeded) consumer.resolve(value);
+      else consumer.reject(value);
+    }
+    item.consumers.clear();
+  }
+
+  #forget(item: QueueItem): void {
+    if (item.key && this.#inflight.get(item.key) === item) {
+      this.#inflight.delete(item.key);
+    }
   }
 
   #drain(): void {
@@ -122,14 +164,21 @@ export class PublicRequestBudget {
     while (this.#queue.length > 0 && this.#dispatches.length < this.limit) {
       const item = this.#queue.shift();
       if (!item) break;
-      item.detachAbort?.();
-      if (item.signal?.aborted) {
-        item.reject(abortError());
+      if (item.consumers.size === 0) {
+        this.#forget(item);
         continue;
       }
 
+      item.started = true;
       this.#dispatches.push(now);
-      void item.run().then(item.resolve, item.reject);
+      try {
+        void item.run(item.controller.signal).then(
+          (value) => this.#settle(item, true, value),
+          (error: unknown) => this.#settle(item, false, error),
+        );
+      } catch (error) {
+        this.#settle(item, false, error);
+      }
     }
 
     if (this.#queue.length > 0) this.#armTimer();
