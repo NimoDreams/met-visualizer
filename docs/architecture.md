@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Phase 0 direction and proposals; no application stack is implemented.
+Status: Phase 0 technical direction selected; no application stack is implemented.
 
 ## Agreed Boundaries
 
@@ -19,15 +19,23 @@ Keep the RPC endpoint only in memory, out of storage, URLs, logs, analytics,
 source control, and builds. Do not forward it to market-data services. Developer
 environment variables must not become published browser credentials.
 
-## Proposals Awaiting Approval
+## Selected Technical Foundation
 
-- TypeScript, React, Vite, Lightweight Charts.
-- In-memory application state with no persistent user configuration.
-- Separate read-provider boundaries for RPC and candles.
-- A static local development workflow; explicitly resolve whether to depart
-  from the template's Docker Compose preference at the technical gate.
-- Periodic candle refresh and a separate RPC snapshot cadence; no promise of
-  tick-by-tick streaming before validation.
+- Single root package using Node.js 24 LTS, npm, strict TypeScript, React 19.2,
+  Vite 8, and Lightweight Charts 5.2.
+- Native Node/Vite local workflow without Docker Compose because the MVP has no
+  server, database, validator, or supporting service.
+- In-memory application state with no persistent user configuration and Vite
+  environment-file loading disabled.
+- Separate read-provider boundaries for Solana RPC and GeckoTerminal. Use
+  narrow Solana RPC modules initially; keep the full Meteora SDK out of the
+  production bundle and use it as a pinned decoding oracle.
+- Hash navigation and a `/met-visualizer/` Vite base for GitHub Pages.
+- CI for `dev` and `main`; Pages deployment only from reviewed `main` builds.
+- Periodic candle refresh and explicit RPC snapshot refresh; no tick stream.
+
+See the [technical foundation spec](specs/technical-foundation.md) for runtime,
+source, security, testing, branching, and deployment details.
 
 ## Provider Research — 2026-09-06
 
