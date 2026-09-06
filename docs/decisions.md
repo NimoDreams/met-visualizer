@@ -159,3 +159,23 @@ pool without a supported USD quote conversion remains browsable but cannot join
 the common-axis overlay. All GeckoTerminal reads share one conservative public
 request budget; missing activity metadata produces unknown freshness rather than
 a false fresh-data claim.
+
+## 2026-09-06: Filter Current Position Value Across Enabled Pools
+
+Context: The user primarily wants to remove insignificant positions and isolate
+the largest liquidity contributors. One filter across pools better represents
+their relative contribution than separate pool-specific thresholds. Mobile use
+does not require simultaneous chart and position panes.
+
+Decision: Define position size as current estimated USD principal value across
+its bins, excluding fees and rewards. Apply one minimum-value or largest-
+contributors filter to the known valued positions in all enabled pools. Preserve
+checkbox state beneath the filter, show unavailable positions separately, and
+exclude unknown values from numeric filters and coverage denominators. Use a
+70/30 desktop split, a stacked constrained-width layout, and state-preserving
+Chart/Positions modes on narrow phones.
+
+Consequence: The UI must name the filter's observed universe and cannot imply
+token-wide coverage while pools or valuations remain incomplete. No universal
+dust cutoff is appropriate. Responsive tests must preserve selection, loading,
+and chart state while changing modes or orientation.
