@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Phase 0 technical direction selected; no application stack is implemented.
+Status: Phase 1 foundation implemented on `dev`; feature data flows remain queued.
 
 ## Agreed Boundaries
 
@@ -28,8 +28,9 @@ environment variables must not become published browser credentials.
   server, database, validator, or supporting service.
 - In-memory application state with no persistent user configuration and Vite
   environment-file loading disabled.
-- Separate read-provider boundaries for Solana RPC and GeckoTerminal. Use
-  narrow Solana RPC modules initially; keep the full Meteora SDK out of the
+- Separate read-provider boundaries for Solana RPC, GeckoTerminal, and Meteora
+  metadata. The initial RPC transport is a project-owned native `fetch` client
+  with an explicit read-method allowlist; keep the full Meteora SDK out of the
   production bundle and use it as a pinned decoding oracle.
 - Hash navigation and a `/met-visualizer/` Vite base for GitHub Pages.
 - CI for `dev` and `main`; Pages deployment only from reviewed `main` builds.
@@ -75,6 +76,12 @@ documented public historical candle endpoint. None is required for the MVP.
 Direct HTTP and localhost browser-origin checks succeeded after using the
 documented version header and normal browser request shape. Exact GitHub Pages
 origin behavior remains a pre-release smoke test.
+
+Issue #16 repeated the two keyless provider checks from the production-shaped
+local SPA in Playwright Chromium. GeckoTerminal token-pool discovery and Meteora
+TVL-sorted pool metadata both returned CORS-visible HTTP 200 JSON. This resolves
+the earlier Meteora non-browser request-shape uncertainty for local browser use.
+See the [scaffold browser proof](reviews/phase-1-scaffold-browser-proof.md).
 
 ## Data Semantics
 

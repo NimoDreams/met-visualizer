@@ -12,7 +12,7 @@ activation, deployment, and `dev` to `main` promotion remain separately gated.
 | UI | React 19.2 client-rendered SPA |
 | Build | Vite 8 |
 | Chart | Lightweight Charts 5.2 |
-| RPC | Narrow read-only Solana RPC modules, initially `@solana/rpc` |
+| RPC | Narrow project interface over native JSON-RPC `fetch` |
 | Exact arithmetic | Native `bigint`; decimal conversion only at presentation boundaries |
 | Tests | Vitest, React Testing Library, and focused Playwright browser tests |
 | Styling | Plain CSS or CSS Modules; no general UI framework initially |
@@ -55,8 +55,8 @@ rewrite rule or a routing framework dependency.
 
 ## Read-Only Data Boundary
 
-The session RPC URL creates a typed browser HTTP client. Initially use the
-modular Solana RPC packages for:
+The session RPC URL creates a typed browser HTTP client. The issue #16 scaffold
+uses native JSON-RPC `fetch` behind the project interface for:
 
 - `getProgramAccounts` pool and position discovery;
 - `getMultipleAccounts` bounded hydration;
@@ -66,9 +66,11 @@ modular Solana RPC packages for:
 
 Constrain the application-facing interface to approved read methods. Do not add
 wallet, signer, transaction, instruction, subscription, or send packages. Keep
-the provider wrapper transport-independent; the first implementation slice may
-replace the library transport with native JSON-RPC `fetch` if a measured bundle
-comparison shows the library adds material weight without enough value.
+the provider wrapper transport-independent. Native `fetch` meets the scaffold's
+method, timeout, cancellation, and error-normalization needs with no RPC runtime
+package in the roughly 116 kB gzip production JavaScript. Revisit a modular
+Solana RPC package only if later type or transport requirements justify its
+bundle cost.
 
 Do not include the complete `@meteora-ag/dlmm` runtime in the published app. Its
 public surface includes transaction construction that this product does not

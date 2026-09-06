@@ -120,6 +120,23 @@ Consequence: Production imports exclude wallet, signer, transaction,
 instruction, subscription, and send modules. SDK/layout changes fail visibly
 until decoding compatibility is re-established.
 
+## 2026-09-06: Start The RPC Boundary With Native Fetch
+
+Context: The first SPA scaffold needs three account-read shapes, request
+cancellation, timeouts, and separated errors. Adding a Solana RPC runtime package
+would increase the initial public bundle before the application needs its wider
+surface.
+
+Decision: Implement a transport-independent read-provider interface backed by
+native JSON-RPC `fetch`. Allow only `getProgramAccounts`, `getMultipleAccounts`,
+and separately typed `getProgramAccountsV2`. Keep the endpoint private to the
+session client and accept HTTPS only.
+
+Consequence: The first production JavaScript is roughly 116 kB gzip including
+React and Lightweight Charts, with no Solana RPC runtime package. Replacement
+remains possible behind the interface if later type or transport evidence
+justifies it. Replacing or disconnecting the RPC aborts the prior session.
+
 ## 2026-09-06: Use Main-Only GitHub Pages Deployment
 
 Context: GitHub Pages provides one static project site at a repository path and
