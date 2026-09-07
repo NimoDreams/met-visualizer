@@ -69,9 +69,14 @@ candidate, review, verification, and branch evidence. Promotion PR #35 used a
 regular merge commit, and exact stable SHA
 `19046d1f0dfae069a5847b2fb57bd662aa89aacd` passed the post-merge checks.
 
-GitHub Pages activation remains separate and is not yet authorized. No later
-product phase, scope, or branch plan has been accepted; future work should begin
-with PM planning and GitHub Issues.
+Public launch readiness is tracked by
+[epic #37](https://github.com/NimoDreams/met-visualizer/issues/37). Its first
+change is a passive Docs Tip Jar with intentionally public SNS identity
+`nimodreams.sol` and canonical Solana address
+`DxYUGfMtgHmuo1VGRAEUjzcpuCwWCA5xggbgJUZuaFwF`. The address is static and
+copy-only; it does not add resolution, wallet, payment, transaction, analytics,
+or persistence behavior. GitHub Pages activation remains separate and is not
+yet authorized. No later product phase or scope has been accepted.
 
 ## Read Next
 
