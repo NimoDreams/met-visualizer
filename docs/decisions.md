@@ -413,3 +413,24 @@ Consequence: Supported provider ordering and normal fixtures remain unchanged,
 while values outside the documented ceilings cannot enter ranking, exact quote
 arithmetic, or the chart. These ceilings are security compatibility bounds; a
 future provider expansion requires an explicit reviewed adjustment.
+
+## 2026-09-07: Bound RPC Account Ingress Before Decoding
+
+Context: A user-provided RPC is an untrusted network boundary. Transport byte
+limits alone do not prevent a syntactically valid response from supplying too
+many accounts, oversized base64 fields, malformed account tuples, unsafe slots,
+or bin indexes that overflow the application's numeric model.
+
+Decision: Reject token discovery above 2,000 unique DLMM pools, pool discovery
+above 5,000 PositionV2 accounts, and pool scans above 512 BinArrays. Validate
+and deduplicate canonical 32-byte Solana keys before batching. Require exact
+base64 account tuples, the DLMM owner, and a nonexecutable account. Precompute
+decoded size from canonical base64 before `atob`, enforce the reviewed LB-pair,
+PositionV2, and BinArray encoded/decoded envelopes, retain the exact PositionV2
+width formula, accept only safe nonnegative context slots, and keep derived bin
+identifiers within signed int32.
+
+Consequence: Oversized or malformed RPC data fails before hydration or decoder
+work can amplify it. The existing retry and last-good-data behavior remains the
+recovery path, and the 626-pool and 1,800-position representative stress cases
+remain supported within the public-launch limits.

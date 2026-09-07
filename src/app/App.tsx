@@ -200,7 +200,10 @@ function DocsView({ hidden }: { hidden: boolean }) {
           <p>
             Public APIs can throttle, omit new or inactive tokens, change
             response shapes, or return delayed cached data. RPC servers vary in
-            indexing, CORS support, limits, and slot freshness. Results are
+            indexing, CORS support, limits, and slot freshness. For safety, one
+            token load supports up to 2,000 unique DLMM pools; each enabled pool
+            supports up to 5,000 positions and 512 bin arrays. Exceeding a limit
+            stops that affected load so it can be retried. Results are
             observational research, not execution prices, historical liquidity,
             financial advice, or a guarantee that every account was returned.
           </p>

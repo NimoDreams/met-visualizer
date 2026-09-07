@@ -80,6 +80,9 @@ describe("App", () => {
     expect(
       screen.getByText(/one coherent, complete valuation generation/i),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/up to 2,000 unique DLMM pools/i),
+    ).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Tip Jar" })).toBeVisible();
 
     act(() => {

@@ -124,7 +124,7 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
         context: { slot },
         value: binArrayScan
           ? positionOracle.binArrayData.map((data, index) => ({
-              pubkey: `bin-${index}`,
+              pubkey: numberedAddress(2_000 + index),
               account: rpcAccount(data),
             }))
           : positionProbe
