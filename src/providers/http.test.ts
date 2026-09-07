@@ -115,6 +115,55 @@ describe("requestJson", () => {
       message: "Public returned invalid JSON.",
     });
   });
+
+  it("preserves a redacted caller abort after response headers arrive", async () => {
+    const controller = new AbortController();
+    vi.spyOn(window, "fetch").mockImplementation((_input, init) =>
+      Promise.resolve(pendingBodyResponse(init?.signal)),
+    );
+    const parse = vi.spyOn(JSON, "parse");
+    const request = requestJson(
+      "https://provider.example.invalid/private?key=secret",
+      {
+        provider: "Public",
+        signal: controller.signal,
+      },
+    );
+
+    await Promise.resolve();
+    controller.abort();
+
+    await expect(request).rejects.toMatchObject({
+      name: "AbortError",
+      message: "Request was cancelled.",
+    });
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  it("classifies a post-header body timeout without exposing request data", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "fetch").mockImplementation((_input, init) =>
+      Promise.resolve(pendingBodyResponse(init?.signal)),
+    );
+    const parse = vi.spyOn(JSON, "parse");
+    const request = requestJson(
+      "https://provider.example.invalid/private?key=secret",
+      {
+        provider: "Public",
+        timeoutMs: 10,
+      },
+    );
+    const result = expect(request).rejects.toMatchObject({
+      kind: "timeout",
+      message: "Public request timed out.",
+    } satisfies Partial<ProviderRequestError>);
+
+    await vi.advanceTimersByTimeAsync(10);
+
+    await result;
+    expect(parse).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
 });
 
 describe("transport timer limits", () => {
@@ -136,3 +185,20 @@ describe("transport timer limits", () => {
     expect(safeTimerDelay(Number.POSITIVE_INFINITY)).toBe(0);
   });
 });
+
+function pendingBodyResponse(signal: AbortSignal | null | undefined): Response {
+  return new Response(
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        signal?.addEventListener(
+          "abort",
+          () =>
+            controller.error(
+              new DOMException("Transport-specific details", "AbortError"),
+            ),
+          { once: true },
+        );
+      },
+    }),
+  );
+}

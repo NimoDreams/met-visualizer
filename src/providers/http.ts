@@ -65,9 +65,7 @@ export async function requestJson<T>(
 
     return await readBoundedJson<T>(response, provider, maxResponseBytes);
   } catch (error) {
-    if (error instanceof ProviderRequestError || signal?.aborted) {
-      throw error;
-    }
+    if (signal?.aborted) throw requestAbortError();
 
     if (timeoutController.signal.aborted) {
       throw new ProviderRequestError(
@@ -78,6 +76,8 @@ export async function requestJson<T>(
         "timeout",
       );
     }
+
+    if (error instanceof ProviderRequestError) throw error;
 
     throw new ProviderRequestError(
       provider,
@@ -139,7 +139,9 @@ async function readBoundedJson<T>(
     }
     text += decoder.decode();
   } catch (error) {
-    if (error instanceof ProviderRequestError) throw error;
+    if (error instanceof ProviderRequestError || isAbortError(error)) {
+      throw error;
+    }
     throw new ProviderRequestError(
       provider,
       undefined,
@@ -187,6 +189,19 @@ function invalidJsonError(provider: string): ProviderRequestError {
     undefined,
     "invalid-json",
   );
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError"
+  );
+}
+
+function requestAbortError(): DOMException {
+  return new DOMException("Request was cancelled.", "AbortError");
 }
 
 export function parseRetryAfter(
