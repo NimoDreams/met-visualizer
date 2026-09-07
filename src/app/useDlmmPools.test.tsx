@@ -28,6 +28,22 @@ const JUP = oracle.expected.tokenXMint;
 const SOL = oracle.expected.tokenYMint;
 
 describe("useDlmmPools", () => {
+  it("retries an initial RPC failure for the same token", async () => {
+    const rpc = new OnePoolRpc();
+    const metadata = new ToggleMetadataProvider();
+    const gecko = new OneQuoteProvider();
+    rpc.fail = true;
+    const { result } = renderHook(() =>
+      useDlmmPools(JUP, rpc, metadata, gecko),
+    );
+    await waitFor(() => expect(result.current.state.status).toBe("error"));
+
+    rpc.fail = false;
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+    expect(readySession(result.current.state).mint).toBe(JUP);
+  });
+
   it("preserves the enabled pool and last-good metadata on provider refresh failure", async () => {
     const rpc = new OnePoolRpc();
     const metadata = new ToggleMetadataProvider();

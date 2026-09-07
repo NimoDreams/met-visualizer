@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
@@ -51,5 +51,56 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /disconnect/i }));
     expect(screen.getByText("Required")).toBeInTheDocument();
+  });
+
+  it("preserves session inputs and workspace mode across Docs navigation", () => {
+    render(<App />);
+    const rpcInput = screen.getByLabelText(/solana rpc endpoint/i);
+    const tokenInput = screen.getByLabelText(/token contract address/i);
+
+    fireEvent.change(rpcInput, {
+      target: { value: "https://rpc.example.invalid/?key=route-test" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /connect rpc/i }));
+    fireEvent.change(tokenInput, { target: { value: "draft-token-ca" } });
+    fireEvent.click(screen.getByRole("button", { name: "Positions" }));
+    expect(screen.getByRole("button", { name: "Positions" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    act(() => {
+      window.location.hash = "#/docs";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(screen.getByRole("heading", { name: "Docs" })).toHaveFocus();
+    expect(
+      screen.getByText(/one coherent, complete valuation generation/i),
+    ).toBeInTheDocument();
+
+    act(() => {
+      window.location.hash = "#/";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(screen.getByText("Connected")).toBeInTheDocument();
+    expect(screen.getByLabelText(/token contract address/i)).toHaveValue(
+      "draft-token-ca",
+    );
+    expect(screen.getByRole("button", { name: "Positions" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("moves keyboard focus past navigation without changing the hash route", () => {
+    render(<App />);
+    const skip = screen.getByRole("link", { name: /skip to main content/i });
+    fireEvent.click(skip);
+    expect(
+      screen.getByRole("heading", {
+        name: /see where meteora liquidity sits/i,
+      }),
+    ).toHaveFocus();
+    expect(window.location.hash).toBe("#/");
   });
 });

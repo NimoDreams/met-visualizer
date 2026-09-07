@@ -225,7 +225,11 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
 
   const firstPosition = page.locator(".position-row input").first();
   await firstPosition.uncheck();
-  await expect(page.getByText(/99 selected and included/)).toBeVisible();
+  await expect(
+    page
+      .locator(".global-filter-summary")
+      .getByText(/99 selected and included/),
+  ).toBeVisible();
   await expect(chart).toHaveAttribute(
     "data-visible-logical-range",
     pannedRange!,
@@ -255,9 +259,11 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   await expect(
     page.getByRole("button", { name: "Refresh positions" }),
   ).toBeEnabled({ timeout: 30_000 });
-  await expect(page.getByText(/99 selected and included/)).toBeVisible({
-    timeout: 30_000,
-  });
+  await expect(
+    page
+      .locator(".global-filter-summary")
+      .getByText(/99 selected and included/),
+  ).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Complete scope")).toBeVisible({
     timeout: 30_000,
   });
@@ -266,7 +272,58 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   await expect(
     page.getByText("1,440 shown of 1,800 valued positions"),
   ).toBeVisible();
-  await expect(page.getByText(/80\.0% of known value/)).toBeVisible();
+  await expect(
+    page.locator(".global-filter-summary").getByText(/80\.0% of known value/),
+  ).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(100);
+  const mobileChartRange = await chart.getAttribute(
+    "data-visible-logical-range",
+  );
+  expect(mobileChartRange).toBeTruthy();
+  const paneSwitch = page.getByLabel("Visible workspace pane");
+  await expect(paneSwitch).toBeVisible();
+  await expect(page.getByRole("button", { name: "Chart" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.getByRole("button", { name: "Positions" }).click();
+  await expect(page.locator(".workspace-positions")).toBeVisible();
+  await expect(page.locator(".workspace-chart")).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Largest contributors" }),
+  ).toHaveClass(/active/);
+  await expect(page.getByLabel("Minimum position value (USD)")).toHaveValue("");
+  await expect(page.locator(".compact-workspace-status")).toContainText(
+    /selected and included.*known value/i,
+  );
+
+  await page.getByRole("link", { name: "Docs" }).click();
+  await expect(page.getByRole("heading", { name: "Docs" })).toBeFocused();
+  await expect(
+    page.getByText(/one coherent, complete valuation generation/i),
+  ).toBeVisible();
+  expect(page.url()).not.toContain(rpcMarker);
+  await page.getByRole("link", { name: "Visualizer", exact: true }).click();
+  await expect(page.locator(".workspace-positions")).toBeVisible();
+  await expect(page.locator(".workspace-chart")).toBeHidden();
+
+  await page.getByRole("button", { name: "Chart" }).click();
+  await expect(chart).toBeVisible();
+  await expect(chart).toHaveAttribute(
+    "data-visible-logical-range",
+    mobileChartRange!,
+  );
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(paneSwitch).toBeVisible();
+  await page.getByRole("button", { name: "Positions" }).click();
+  await expect(page.locator(".workspace-positions")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
 
   expect(externalRequests.every((url) => !url.includes(rpcMarker))).toBe(true);
   expect(page.url()).not.toContain(rpcMarker);

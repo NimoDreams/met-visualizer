@@ -27,6 +27,22 @@ type DlmmPoolsPanelProps = {
   reference?: ReferenceMarketSession;
   hoveredPositionKeys?: readonly string[];
   onOverlayChange?: (model?: LiquidityOverlayModel) => void;
+  onStatusChange?: (status: PositionsPanelStatus) => void;
+};
+
+export type PositionsPanelStatus = {
+  state:
+    | "idle"
+    | "loading"
+    | "current"
+    | "incomplete"
+    | "stale"
+    | "cancelled"
+    | "error";
+  label: string;
+  selectedIncluded: number;
+  valued: number;
+  coverage?: number;
 };
 
 export function DlmmPoolsPanel({
@@ -35,8 +51,9 @@ export function DlmmPoolsPanel({
   reference,
   hoveredPositionKeys = [],
   onOverlayChange,
+  onStatusChange,
 }: DlmmPoolsPanelProps) {
-  const { state, refresh, toggle } = useDlmmPools(mint, rpc);
+  const { state, retry, refresh, toggle } = useDlmmPools(mint, rpc);
   const [positionStates, setPositionStates] = useState<
     Record<string, PoolPositionsState>
   >({});
@@ -79,6 +96,10 @@ export function DlmmPoolsPanel({
   useEffect(() => {
     onOverlayChange?.(mint && readySession ? overlay : undefined);
   }, [mint, onOverlayChange, overlay, readySession]);
+
+  useEffect(() => {
+    onStatusChange?.(describePanelStatus(state, overlay, positionStates));
+  }, [onStatusChange, overlay, positionStates, state]);
 
   const largestSignature = overlay.largestTargetKeys.join("|");
   useEffect(() => {
@@ -154,11 +175,14 @@ export function DlmmPoolsPanel({
   }
 
   return (
-    <aside className="positions-panel surface">
+    <aside
+      className="positions-panel surface"
+      aria-labelledby="positions-heading"
+    >
       <div className="pool-panel-heading">
         <div>
           <p className="eyebrow">Meteora DLMM</p>
-          <h2>Pools &amp; positions</h2>
+          <h2 id="positions-heading">Pools &amp; positions</h2>
         </div>
         {state.status === "ready" ? (
           <button
@@ -184,6 +208,13 @@ export function DlmmPoolsPanel({
         <div className="market-error" role="alert">
           <strong>RPC pool discovery failed</strong>
           <p>{state.message}</p>
+          <p>
+            The chart can remain available independently. See the{" "}
+            <a href="#/docs">Docs</a> for provider limits and recovery.
+          </p>
+          <button className="button-secondary" type="button" onClick={retry}>
+            Retry pools
+          </button>
         </div>
       ) : null}
       {state.status === "ready" && rpc ? (
@@ -283,7 +314,8 @@ function PoolResults({
       ) : null}
       {session.rpcStale && actionError ? (
         <div className="market-action-error" role="alert">
-          RPC refresh failed. Last-good pool data remains visible. {actionError}
+          RPC refresh failed. Last-good pool data remains visible. {actionError}{" "}
+          <a href="#/docs">Read refresh details.</a>
         </div>
       ) : null}
       <GlobalPositionControls
@@ -920,4 +952,43 @@ function formatAxisRange(minimum?: number, maximum?: number): string {
 
 function overlayAxisLabel(model: LiquidityOverlayModel): string {
   return model.axisLabel ?? "the unavailable reference axis";
+}
+
+function describePanelStatus(
+  state: ReturnType<typeof useDlmmPools>["state"],
+  overlay: LiquidityOverlayModel,
+  positions: Record<string, PoolPositionsState>,
+): PositionsPanelStatus {
+  const shared = {
+    selectedIncluded: overlay.selectedIncludedCount,
+    valued: overlay.valuedCount,
+    coverage: overlay.filteredValuePercent,
+  };
+  if (state.status === "idle")
+    return { state: "idle", label: "Positions waiting", ...shared };
+  if (state.status === "loading")
+    return { state: "loading", label: "Pools loading", ...shared };
+  if (state.status === "error")
+    return { state: "error", label: "Pools unavailable", ...shared };
+  const positionStates = Object.values(positions);
+  const sessionStale = positionStates.some(
+    (positionState) =>
+      positionState.status === "ready" && positionState.session.stale,
+  );
+  if (
+    state.session.rpcStale ||
+    state.session.metadataStale ||
+    state.session.quoteStale ||
+    sessionStale
+  )
+    return { state: "stale", label: "Positions stale", ...shared };
+  if (state.refreshing || overlay.refreshingPoolCount > 0)
+    return { state: "loading", label: "Positions loading", ...shared };
+  if (positionStates.some(({ status }) => status === "error"))
+    return { state: "error", label: "Positions unavailable", ...shared };
+  if (positionStates.some(({ status }) => status === "cancelled"))
+    return { state: "cancelled", label: "Positions cancelled", ...shared };
+  return overlay.completeDenominator
+    ? { state: "current", label: "Positions current", ...shared }
+    : { state: "incomplete", label: "Positions incomplete", ...shared };
 }

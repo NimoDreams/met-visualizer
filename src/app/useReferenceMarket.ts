@@ -40,6 +40,7 @@ export function useReferenceMarket(
   provider: GeckoTerminalProvider = publicGeckoTerminalProvider,
 ) {
   const [state, setState] = useState<ReferenceMarketState>({ status: "idle" });
+  const [reloadKey, setReloadKey] = useState(0);
   const sessionController = useRef<AbortController | undefined>(undefined);
   const actionController = useRef<AbortController | undefined>(undefined);
   const generation = useRef(0);
@@ -88,7 +89,9 @@ export function useReferenceMarket(
     );
 
     return () => controller.abort();
-  }, [mint, provider, rpc]);
+  }, [mint, provider, reloadKey, rpc]);
+
+  const retry = useCallback(() => setReloadKey((value) => value + 1), []);
 
   const update = useCallback(
     async (
@@ -217,8 +220,8 @@ export function useReferenceMarket(
   }, [refresh, state.status]);
 
   return useMemo(
-    () => ({ state, refresh, changeInterval, changeMarket, loadOlder }),
-    [changeInterval, changeMarket, loadOlder, refresh, state],
+    () => ({ state, retry, refresh, changeInterval, changeMarket, loadOlder }),
+    [changeInterval, changeMarket, loadOlder, refresh, retry, state],
   );
 }
 

@@ -32,6 +32,7 @@ export function useDlmmPools(
   geckoProvider: GeckoTerminalProvider = publicGeckoTerminalProvider,
 ) {
   const [state, setState] = useState<DlmmPoolsState>({ status: "idle" });
+  const [reloadKey, setReloadKey] = useState(0);
   const current = useRef<DlmmPoolSession | undefined>(undefined);
   const controller = useRef<AbortController | undefined>(undefined);
   const generation = useRef(0);
@@ -77,7 +78,9 @@ export function useDlmmPools(
     );
 
     return () => controller.current?.abort();
-  }, [geckoProvider, metadataProvider, mint, rpc]);
+  }, [geckoProvider, metadataProvider, mint, reloadKey, rpc]);
+
+  const retry = useCallback(() => setReloadKey((value) => value + 1), []);
 
   const refresh = useCallback(async () => {
     const previous = current.current;
@@ -149,7 +152,10 @@ export function useDlmmPools(
     }));
   }, []);
 
-  return useMemo(() => ({ state, refresh, toggle }), [refresh, state, toggle]);
+  return useMemo(
+    () => ({ state, retry, refresh, toggle }),
+    [refresh, retry, state, toggle],
+  );
 }
 
 function preserveStableSelection(
