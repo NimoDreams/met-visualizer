@@ -282,3 +282,18 @@ dependencies and remains independently reviewed.
 Consequence: `main` remains the accepted stable baseline while Phase 1 issue PRs
 target `dev`. GitHub Pages activation and `dev` to `main` promotion remain
 separate explicit user decisions.
+
+## 2026-09-07: Publish A Passive Docs Tip Jar Identity
+
+Context: The maintainer wants an unobtrusive way for users who value the project
+to copy a public Solana support address without changing the research workflow.
+
+Decision: Publish SNS identity `nimodreams.sol` and canonical Solana address
+`DxYUGfMtgHmuo1VGRAEUjzcpuCwWCA5xggbgJUZuaFwF` as intentional public source
+values in Docs. Treat the full address as authoritative. Provide static display
+and an explicit copy control with accessible success or failure feedback.
+
+Consequence: Security and privacy scans should recognize these two identifiers
+as approved public data rather than credentials. Do not resolve SNS at runtime
+or add a wallet, payment URI, QR flow, transaction construction, external
+provider, analytics, persistence, backend, or navigation behavior.

@@ -68,6 +68,9 @@ describe("App", () => {
       "aria-pressed",
       "true",
     );
+    expect(
+      screen.queryByRole("region", { name: "Tip Jar" }),
+    ).not.toBeInTheDocument();
 
     act(() => {
       window.location.hash = "#/docs";
@@ -77,6 +80,7 @@ describe("App", () => {
     expect(
       screen.getByText(/one coherent, complete valuation generation/i),
     ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tip Jar" })).toBeVisible();
 
     act(() => {
       window.location.hash = "#/";

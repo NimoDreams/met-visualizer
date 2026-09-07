@@ -10,6 +10,7 @@ import type { ReferenceMarketSession } from "../domain/referenceMarket";
 import type { LiquidityOverlayModel } from "../domain/liquidityOverlay";
 import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
 import { RpcSessionManager, type RpcSession } from "./session";
+import { TipJar } from "./TipJar";
 import { useHashRoute } from "./useHashRoute";
 
 function validateRpc(value: string): string | undefined {
@@ -195,6 +196,7 @@ function DocsView({ hidden }: { hidden: boolean }) {
             financial advice, or a guarantee that every account was returned.
           </p>
         </section>
+        <TipJar />
       </div>
     </main>
   );
