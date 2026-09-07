@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { decodeBase58, encodeBase58 } from "../domain/base58";
 import {
   DLMM_PROGRAM_ID,
@@ -12,10 +12,16 @@ import type {
   ReadOnlySolanaRpc,
 } from "./solanaRpc";
 import { countPoolPositions, discoverDlmmPools } from "./meteoraRpc";
+import {
+  MAX_DLMM_POOLS_PER_TOKEN,
+  MAX_POSITIONS_PER_POOL,
+} from "./rpcAccountEnvelope";
 
 const JUP = oracle.expected.tokenXMint;
 const SOL = oracle.expected.tokenYMint;
 const SECOND_POOL = encodeBase58(new Uint8Array(32).fill(7));
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("Meteora RPC discovery", () => {
   it("scans both mint orientations and hydrates decoded pools at a shared context", async () => {
@@ -141,6 +147,144 @@ describe("Meteora RPC discovery", () => {
       true,
     );
   });
+
+  it("accepts 2,000 discovered pools and rejects 2,001 before hydration", async () => {
+    const accepted = new StressRpc(MAX_DLMM_POOLS_PER_TOKEN);
+    const acceptedResult = await discoverDlmmPools(
+      accepted,
+      JUP,
+      new AbortController().signal,
+    );
+    expect(acceptedResult.pools).toHaveLength(MAX_DLMM_POOLS_PER_TOKEN);
+    expect(
+      acceptedResult.pools.every(({ decodeState }) => decodeState === "ready"),
+    ).toBe(true);
+    expect(accepted.batchSizes).toHaveLength(20);
+
+    const rejected = new StressRpc(MAX_DLMM_POOLS_PER_TOKEN + 1);
+    await expect(
+      discoverDlmmPools(rejected, JUP, new AbortController().signal),
+    ).rejects.toThrow(/supported account limit/i);
+    expect(rejected.batchSizes).toEqual([]);
+  });
+
+  it("deduplicates canonical pool addresses before batching", async () => {
+    const rpc = new StressRpc(2);
+    rpc.addresses.push(rpc.addresses[0]!);
+    const result = await discoverDlmmPools(
+      rpc,
+      JUP,
+      new AbortController().signal,
+    );
+    expect(result.pools).toHaveLength(2);
+    expect(rpc.batchSizes).toEqual([2]);
+  });
+
+  it("rejects 2,001 unique pools split across both mint orientations", async () => {
+    const rpc = new StressRpc(1_000, 1_001);
+    await expect(
+      discoverDlmmPools(rpc, JUP, new AbortController().signal),
+    ).rejects.toThrow(/supported pool limit/i);
+    expect(rpc.batchSizes).toEqual([]);
+  });
+
+  it("rejects noncanonical discovery addresses and unsafe slots before hydration", async () => {
+    const invalidAddress = new StressRpc(1);
+    invalidAddress.addresses[0] = "not-a-solana-address";
+    await expect(
+      discoverDlmmPools(invalidAddress, JUP, new AbortController().signal),
+    ).rejects.toThrow(/canonical 32-byte/i);
+    expect(invalidAddress.batchSizes).toEqual([]);
+
+    const unsafeSlot = new FixtureRpc([]);
+    unsafeSlot.xSlot = Number.MAX_SAFE_INTEGER + 1;
+    await expect(
+      discoverDlmmPools(unsafeSlot, JUP, new AbortController().signal),
+    ).rejects.toThrow(/missing context or values/i);
+    expect(unsafeSlot.multipleCalls).toEqual([]);
+  });
+
+  it("accepts 5,000 position keys and rejects 5,001 with no downstream decode", async () => {
+    const rpc = new FixtureRpc([]);
+    rpc.positionCount = MAX_POSITIONS_PER_POOL;
+    await expect(
+      countPoolPositions(
+        rpc,
+        oracle.address,
+        400,
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual({ count: MAX_POSITIONS_PER_POOL, slot: 450 });
+
+    rpc.positionCount = MAX_POSITIONS_PER_POOL + 1;
+    const atobSpy = vi.spyOn(globalThis, "atob");
+    await expect(
+      countPoolPositions(
+        rpc,
+        oracle.address,
+        400,
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow(/supported account limit/i);
+    expect(atobSpy).not.toHaveBeenCalled();
+    expect(rpc.multipleCalls).toEqual([]);
+  });
+
+  it("requires an exact base64 tuple, owner, and nonexecutable account", async () => {
+    const malformed = account(oracle.data) as unknown as {
+      data: [string, "base64", string];
+      executable: boolean;
+      lamports: number;
+      owner: string;
+    };
+    malformed.data = [oracle.data, "base64", "extra"];
+    const rpc = new FixtureRpc([
+      malformed as unknown as FixtureAccount,
+      { ...account(reorientedAccount()), executable: true },
+    ]);
+    const result = await discoverDlmmPools(
+      rpc,
+      JUP,
+      new AbortController().signal,
+    );
+    const malformedPool = result.pools.find(
+      ({ address }) => address === oracle.address,
+    );
+    const executablePool = result.pools.find(
+      ({ address }) => address === SECOND_POOL,
+    );
+    expect(malformedPool?.decodeState).toBe("unavailable");
+    expect(
+      malformedPool?.decodeState === "unavailable" ? malformedPool.reason : "",
+    ).toMatch(/encoding is malformed/i);
+    expect(executablePool?.decodeState).toBe("unavailable");
+    expect(
+      executablePool?.decodeState === "unavailable"
+        ? executablePool.reason
+        : "",
+    ).toMatch(/owner or executable/i);
+  });
+
+  it("rejects oversized LB pair data before atob", async () => {
+    const rpc = new FixtureRpc([
+      account(Buffer.alloc(4_097).toString("base64")),
+      null,
+    ]);
+    const atobSpy = vi.spyOn(globalThis, "atob");
+    const result = await discoverDlmmPools(
+      rpc,
+      JUP,
+      new AbortController().signal,
+    );
+    const oversizedPool = result.pools.find(
+      ({ address }) => address === oracle.address,
+    );
+    expect(oversizedPool?.decodeState).toBe("unavailable");
+    expect(
+      oversizedPool?.decodeState === "unavailable" ? oversizedPool.reason : "",
+    ).toMatch(/size limit|unsupported decoded size/i);
+    expect(atobSpy).not.toHaveBeenCalled();
+  });
 });
 
 type FixtureAccount = {
@@ -161,6 +305,8 @@ class FixtureRpc implements ReadOnlySolanaRpc {
   }> = [];
   positionCount = 0;
   positionSlot = 450;
+  xSlot = 100;
+  ySlot = 110;
 
   constructor(private readonly hydrated: Array<FixtureAccount | null>) {}
 
@@ -180,7 +326,7 @@ class FixtureRpc implements ReadOnlySolanaRpc {
       return Promise.resolve({
         context: { slot: this.positionSlot },
         value: Array.from({ length: this.positionCount }, (_, index) => ({
-          pubkey: encodeBase58(new Uint8Array(32).fill(index + 10)),
+          pubkey: numberedAddress(index + 10),
           account: account(""),
         })),
       } as T);
@@ -190,7 +336,7 @@ class FixtureRpc implements ReadOnlySolanaRpc {
     )[1];
     const isX = mintFilter?.memcmp.offset === 88;
     return Promise.resolve({
-      context: { slot: isX ? 100 : 110 },
+      context: { slot: isX ? this.xSlot : this.ySlot },
       value: [
         {
           pubkey: isX ? oracle.address : SECOND_POOL,
@@ -219,10 +365,14 @@ class FixtureRpc implements ReadOnlySolanaRpc {
 class StressRpc implements ReadOnlySolanaRpc {
   readonly batchSizes: number[] = [];
   readonly addresses: string[];
+  readonly yAddresses: string[];
 
-  constructor(count: number) {
+  constructor(count: number, yCount = 0) {
     this.addresses = Array.from({ length: count }, (_, index) =>
       numberedAddress(index + 1),
+    );
+    this.yAddresses = Array.from({ length: yCount }, (_, index) =>
+      numberedAddress(count + index + 1),
     );
   }
 
@@ -242,7 +392,10 @@ class StressRpc implements ReadOnlySolanaRpc {
       value:
         filters[1]?.memcmp.offset === 88
           ? this.addresses.map((pubkey) => ({ pubkey, account: account("") }))
-          : [],
+          : this.yAddresses.map((pubkey) => ({
+              pubkey,
+              account: account(""),
+            })),
     } as T);
   }
 

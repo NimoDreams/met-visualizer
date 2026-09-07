@@ -6,20 +6,18 @@ import {
   POSITION_V2_DISCRIMINATOR,
   type DecodedLbPair,
 } from "../domain/meteoraAccounts";
+import { assertCanonicalSolanaAddress } from "../domain/solanaAddress";
+import {
+  MAX_DLMM_POOLS_PER_TOKEN,
+  MAX_POSITIONS_PER_POOL,
+  validateDlmmAccountEnvelope,
+  validateProgramAccounts,
+} from "./rpcAccountEnvelope";
 
 const TOKEN_X_OFFSET = 88;
 const TOKEN_Y_OFFSET = 120;
 const POSITION_POOL_OFFSET = 8;
 const ACCOUNT_BATCH_SIZE = 100;
-
-type RpcAccount = {
-  data: [string, "base64"];
-  executable: boolean;
-  lamports: number;
-  owner: string;
-};
-
-type ProgramAccount = { pubkey: string; account: RpcAccount };
 type ContextResult<T> = { context: { slot: number }; value: T };
 
 export type DiscoveredDlmmPool = DecodedLbPair & {
@@ -54,6 +52,7 @@ export async function discoverDlmmPools(
   mint: string,
   signal: AbortSignal,
 ): Promise<DlmmPoolDiscovery> {
+  assertCanonicalSolanaAddress(mint, "Token mint");
   const [asX, asY] = await Promise.all([
     scanPools(rpc, mint, "x", signal),
     scanPools(rpc, mint, "y", signal),
@@ -66,6 +65,12 @@ export async function discoverDlmmPools(
     orientations.set(address, values);
   }
 
+  if (orientations.size > MAX_DLMM_POOLS_PER_TOKEN) {
+    throw new DlmmRpcDiscoveryError(
+      "RPC token pool discovery exceeds the supported pool limit.",
+    );
+  }
+
   const addresses = [...orientations.keys()].sort();
   const pools: Array<DiscoveredDlmmPool | UnavailableDlmmPool> = [];
   let minimumSlot = Math.min(asX.slot, asY.slot);
@@ -74,9 +79,7 @@ export async function discoverDlmmPools(
 
   for (let index = 0; index < addresses.length; index += ACCOUNT_BATCH_SIZE) {
     const batch = addresses.slice(index, index + ACCOUNT_BATCH_SIZE);
-    const response = await rpc.getMultipleAccounts<
-      ContextResult<Array<RpcAccount | null>>
-    >(
+    const response = await rpc.getMultipleAccounts<ContextResult<unknown[]>>(
       batch,
       {
         commitment: "confirmed",
@@ -98,7 +101,7 @@ export async function discoverDlmmPools(
       const address = batch[accountIndex];
       if (!address) return;
       const discoveredAs = [...(orientations.get(address) ?? [])].sort();
-      if (!account) {
+      if (account === null) {
         missingAccounts += 1;
         pools.push({
           address,
@@ -108,18 +111,13 @@ export async function discoverDlmmPools(
         });
         return;
       }
-      if (account.owner !== DLMM_PROGRAM_ID || account.executable) {
-        pools.push({
-          address,
-          discoveredAs,
-          decodeState: "unavailable",
-          reason: "Account owner or executable state does not match DLMM.",
-        });
-        return;
-      }
-
       try {
-        const decoded = decodeLbPairAccount(account.data[0]);
+        const { account: validated } = validateDlmmAccountEnvelope(
+          account,
+          "LB pair",
+          "LB pair",
+        );
+        const decoded = decodeLbPairAccount(validated.data[0]);
         if (
           (discoveredAs.includes("x") && decoded.tokenXMint !== mint) ||
           (discoveredAs.includes("y") && decoded.tokenYMint !== mint)
@@ -157,9 +155,9 @@ export async function countPoolPositions(
   minContextSlot: number,
   signal: AbortSignal,
 ): Promise<{ count: number; slot: number }> {
-  const response = await rpc.getProgramAccounts<
-    ContextResult<ProgramAccount[]>
-  >(
+  assertCanonicalSolanaAddress(poolAddress, "Pool address");
+  validateSlot(minContextSlot, "requested minimum context");
+  const response = await rpc.getProgramAccounts<ContextResult<unknown[]>>(
     DLMM_PROGRAM_ID,
     {
       commitment: "confirmed",
@@ -180,7 +178,13 @@ export async function countPoolPositions(
       "RPC position probe returned below its requested minimum context slot.",
     );
   }
-  return { count: response.value.length, slot: response.context.slot };
+  const accounts = validateProgramAccounts(
+    response.value,
+    "RPC position probe",
+    "empty",
+    MAX_POSITIONS_PER_POOL,
+  );
+  return { count: accounts.length, slot: response.context.slot };
 }
 
 async function scanPools(
@@ -192,9 +196,7 @@ async function scanPools(
   slot: number;
   keys: Array<{ address: string; orientation: "x" | "y" }>;
 }> {
-  const response = await rpc.getProgramAccounts<
-    ContextResult<ProgramAccount[]>
-  >(
+  const response = await rpc.getProgramAccounts<ContextResult<unknown[]>>(
     DLMM_PROGRAM_ID,
     {
       commitment: "confirmed",
@@ -214,9 +216,15 @@ async function scanPools(
     signal,
   );
   validateContext(response, `token-${orientation} pool scan`);
+  const accounts = validateProgramAccounts(
+    response.value,
+    `RPC token-${orientation} pool scan`,
+    "empty",
+    MAX_DLMM_POOLS_PER_TOKEN,
+  );
   return {
     slot: response.context.slot,
-    keys: response.value.map(({ pubkey }) => ({
+    keys: accounts.map(({ pubkey }) => ({
       address: pubkey,
       orientation,
     })),
@@ -230,11 +238,21 @@ function validateContext(
   if (
     !value ||
     !value.context ||
-    !Number.isInteger(value.context.slot) ||
+    !isSafeSlot(value.context.slot) ||
     !Array.isArray(value.value)
   ) {
     throw new DlmmRpcDiscoveryError(
       `RPC ${operation} response is missing context or values.`,
     );
   }
+}
+
+function validateSlot(slot: number, operation: string): void {
+  if (!isSafeSlot(slot)) {
+    throw new DlmmRpcDiscoveryError(`RPC ${operation} slot is malformed.`);
+  }
+}
+
+function isSafeSlot(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0;
 }

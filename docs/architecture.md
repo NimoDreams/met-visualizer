@@ -255,6 +255,20 @@ supply response joins the published RPC context-slot range and must meet the
 latest requested minimum slot. The quote-token supply request sends that
 `minContextSlot` as well as validating the returned slot.
 
+RPC account ingress is bounded before hydration, base64 allocation, or Worker
+decoding. One token may discover at most 2,000 unique DLMM pools; one enabled
+pool may discover at most 5,000 PositionV2 accounts and 512 BinArrays. Returned
+keys must be canonical 32-byte Solana addresses and are deduplicated before
+batching. Every account must use the exact `[string, "base64"]` tuple, the DLMM
+program owner, and `executable=false`. Base64 syntax, padding, encoded length,
+and decoded length are checked before `atob`: LB pairs allow 216–4,096 bytes,
+PositionV2 allows 8,120–157,080 bytes and at most 209,440 encoded characters,
+and BinArrays require exactly 10,136 bytes and at most 13,516 encoded
+characters. PositionV2 still must match the exact width formula for 1–1,400
+bins. Context slots are safe nonnegative integers, and BinArray-derived bin IDs
+must fit signed int32. A limit failure stops the affected load with a redacted,
+retryable error instead of forwarding partial data to downstream decoders.
+
 ## Liquidity Overlay
 
 Issue #20 adds a project-owned Lightweight Charts series primitive. It places
