@@ -1,7 +1,8 @@
 # Architecture
 
-Status: the Phase 1 read-only visualization candidate is implemented, verified,
-independently reviewed, and accepted on `dev`; promotion to `main` is pending.
+Status: the Phase 1 read-only visualization MVP is implemented, verified,
+independently reviewed, accepted, and promoted to `main` at
+`19046d1f0dfae069a5847b2fb57bd662aa89aacd`.
 
 ## Agreed Boundaries
 

@@ -22,14 +22,14 @@ of the work.
 
 ## Current Project State
 
-Phase 0 direction is accepted and recorded in `docs/specs/mvp.md`. The user
-authorized Phase 1 implementation, creation of `dev`, and issue-scoped Developer
-handoffs on 2026-09-06. GitHub Pages activation and promotion from `dev` to
-`main` remain separate approval gates. The selected foundation is a single
-Node.js 24/npm package using strict TypeScript, React, Vite, and Lightweight
-Charts. The intended product is a static GitHub Pages SPA using a session-only
-user RPC and free public market data, starting with GeckoTerminal. See
-`docs/specs/technical-foundation.md`. Active work is tracked by Phase 1 epic #15.
+Phase 1 is complete and promoted to `main` at
+`19046d1f0dfae069a5847b2fb57bd662aa89aacd`; `main` and `dev` share that stable
+baseline. The selected foundation is a single Node.js 24/npm package using
+strict TypeScript, React, Vite, and Lightweight Charts. The product is a static
+SPA using a session-only user RPC and free public market data, starting with
+GeckoTerminal. See `docs/specs/technical-foundation.md`. GitHub Pages activation
+remains a separate unapproved gate. Future phases are not yet planned and
+should begin with PM planning and GitHub Issues.
 
 Expected operating model:
 
