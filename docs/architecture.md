@@ -1,6 +1,7 @@
 # Architecture
 
-Status: Phase 0 technical direction selected; no application stack is implemented.
+Status: the Phase 1 read-only visualization candidate is implemented, verified,
+independently reviewed, and accepted on `dev`; promotion to `main` is pending.
 
 ## Agreed Boundaries
 
@@ -28,8 +29,9 @@ environment variables must not become published browser credentials.
   server, database, validator, or supporting service.
 - In-memory application state with no persistent user configuration and Vite
   environment-file loading disabled.
-- Separate read-provider boundaries for Solana RPC and GeckoTerminal. Use
-  narrow Solana RPC modules initially; keep the full Meteora SDK out of the
+- Separate read-provider boundaries for Solana RPC, GeckoTerminal, and Meteora
+  metadata. The initial RPC transport is a project-owned native `fetch` client
+  with an explicit read-method allowlist; keep the full Meteora SDK out of the
   production bundle and use it as a pinned decoding oracle.
 - Hash navigation and a `/met-visualizer/` Vite base for GitHub Pages.
 - CI for `dev` and `main`; Pages deployment only from reviewed `main` builds.
@@ -75,6 +77,47 @@ documented public historical candle endpoint. None is required for the MVP.
 Direct HTTP and localhost browser-origin checks succeeded after using the
 documented version header and normal browser request shape. Exact GitHub Pages
 origin behavior remains a pre-release smoke test.
+
+Issue #16 repeated the two keyless provider checks from the production-shaped
+local SPA in Playwright Chromium. GeckoTerminal token-pool discovery and Meteora
+TVL-sorted pool metadata both returned CORS-visible HTTP 200 JSON. This resolves
+the earlier Meteora non-browser request-shape uncertainty for local browser use.
+See the [scaffold browser proof](reviews/phase-1-scaffold-browser-proof.md).
+
+Issue #17 establishes one GeckoTerminal adapter for token metadata, ranked pool
+discovery, USD OHLCV, and cached USD quote prices. Live response validation found
+numeric values encoded as strings, pool identity in base/quote relationship IDs,
+and OHLCV as newest-first six-value tuples; the adapter validates and normalizes
+these at its boundary. All calls share a priority-aware rolling budget of ten
+dispatches per minute, concurrent reads are deduplicated, and `Retry-After` is
+honored after HTTP 429. Deduplicated work owns its transport cancellation signal;
+each consumer can cancel independently, and the transport is aborted only when
+no consumers remain. Deterministic browser routing proved that the user RPC
+marker never entered GeckoTerminal request URLs, page content, or browser storage.
+See the
+[reference-market browser proof](reviews/phase-1-reference-market-browser-proof.md).
+
+Issue #18 adds RPC-authoritative DLMM discovery with two discriminator-and-mint
+key scans, context-slot-aware account hydration, and a minimum project-owned LB
+pair decoder. The decoder reads only the identity and pool-state fields needed by
+the current UI and is checked against `@meteora-ag/dlmm` 1.9.14 at commit
+`576919e3e4368e542c402f000b4264724f7f23ec`; the SDK is not a production
+dependency. Position qualification uses only a zero-byte PositionV2 key/count
+scan. Full position accounts and bins remain issue #19 scope.
+
+The Meteora metadata boundary accepts the live browser response envelope
+`current_page`, `pages`, `page_size`, `total`, and `data`, then validates address,
+mint orientation, pagination, and descending TVL order before ranking. A live
+Chromium request with the production page size returned CORS-visible HTTP 200 and
+the expected shape. Metadata never supplies pool identity: each result must
+reconcile with the decoded RPC pool before it can rank or qualify. See the
+[DLMM pool-selection browser proof](reviews/phase-1-dlmm-pool-selection-proof.md).
+
+Pagination proof checks final-page row counts against `total`, `pages`, and
+`page_size`, and requires TVL to remain descending across page boundaries. Any
+inconsistency leaves selection manual. PositionV2 qualification responses must
+meet their requested minimum context slot, and successful probe slots extend the
+session's reported RPC slot range.
 
 ## Data Semantics
 
@@ -151,3 +194,56 @@ identify its denominator and cannot stand in for pool-wide coverage.
 See the [MVP spec](specs/mvp.md), the
 [reference-market contract](specs/reference-market.md), and
 [position-control contract](specs/position-controls.md).
+
+Issue #19 implements the portable PositionV2 path with a zero-byte key scan,
+full account hydration in batches of 100, one pool-filtered BinArray scan, and a
+quote-token supply read. A contiguous standard-RPC `dataSlice` cannot contain
+both the fixed share vector, trailing bin bounds, and variable extension shares,
+so the portable implementation uses the approved ordinary bounded fallback. It
+immediately discards account bytes after producing compact decoded inputs, then
+performs exact share/bin valuation and sorting in an abortable Web Worker.
+
+Use each bin's price only to place its liquidity in the distribution. Compute a
+position's token-X and token-Y principal from all of its shares, then value the
+combined principal once at the pool's current active-bin conversion price. Keep
+the public USD quote as an exact decimal rational through multiplication,
+ranking, denominator coverage, and the 80% initial-view rule; round only a
+derived display amount. An explicit position refresh must bypass the cached
+public quote and retain that quote's own observation time.
+
+Project-owned PositionV2, `positionBinData`, and BinArray layouts are checked
+against `@meteora-ag/dlmm` 1.9.14 and its IDL at commit
+`576919e3e4368e542c402f000b4264724f7f23ec`. Position accounts must have the
+exact base-plus-extension length implied by their bin range; a mismatch fails
+closed rather than understating liquidity. Every position, bin-array, and token
+supply response joins the published RPC context-slot range and must meet the
+latest requested minimum slot. The quote-token supply request sends that
+`minContextSlot` as well as validating the returned slot.
+
+## Liquidity Overlay
+
+Issue #20 adds a project-owned Lightweight Charts series primitive. It places
+each selected bin contribution on the reference chart's current Market Cap, FDV,
+or Price axis after normalizing pool orientation, token decimals, the enabled
+pool's exact quote-token USD price, and the reference session's fixed display
+supply. The bin's own price controls vertical placement only. Horizontal weight
+comes from current principal valued at the pool's active-bin conversion price.
+Each reviewed per-position value is apportioned exactly across its bins so the
+rendered contributions reconcile to the filter denominator.
+
+The overlay model sorts positions globally across enabled pools with stable
+pool/address ties and applies one exact minimum-USD or complete-denominator 80%
+mask. Filters do not mutate checkbox selection. While a refresh makes the
+denominator incomplete, an existing largest-contributor mask remains visible
+and cannot be recomputed. An explicit coordinator generation advances whenever
+an enabled pool is added or positions are refreshed; every enabled pool must
+publish that same generation before the denominator becomes complete. Unopened
+pools, in-progress enabled pools, unknown values, stale snapshots, and
+unsupported common-axis conversions remain explicit in the control scope.
+
+The chart and candle series lifecycle is keyed to reference-market identity,
+interval, and valuation basis. Overlay, filter, and checkbox changes update the
+attached primitive without recreating the chart or fitting its content, so the
+visible trader-selected time range stays stable. Dense exact price levels are
+grouped in the domain and then bucketed to visible pixels by the primitive;
+mouse hit testing and keyboard traversal use the same ordered on-screen rows.

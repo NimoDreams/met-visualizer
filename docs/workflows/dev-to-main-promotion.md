@@ -22,9 +22,10 @@ promotion issue open until the later promotion PR merges into `main`.
 Run these gates against the exact latest `dev` commit that the promotion PR
 will use:
 
-- Confirm the current phase or stabilization milestone is closed and every
-  intended issue is closed or explicitly deferred with no remaining promotion
-  blocker.
+- Confirm every intended implementation and verification issue is closed or
+  explicitly deferred with no remaining promotion blocker. Keep the milestone
+  open for the active promotion issue (and phase epic, when present) until the
+  post-promotion checks in Stage 6 are complete.
 - Confirm no open PR is pending against `dev` or `main`. The checklist PR must
   already be merged.
 - Confirm the user has completed any requested manual review and explicitly

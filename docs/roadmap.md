@@ -32,6 +32,13 @@ and GitHub Pages deployment from `main`. See the
 
 ## Phase 1 — Read-Only Visualization MVP (Active)
 
+Implementation and release-candidate verification are complete. The user
+accepted exact `dev` candidate
+`8471b0367e34ee02c47a6b9148201a8e32067dbb` for promotion on 2026-09-07. Issue
+#23 is now following the staged promotion runbook; the milestone remains open
+until `main` is promoted, `dev` is synchronized, and stable-state verification
+passes. GitHub Pages activation remains a separate approval gate.
+
 The [Phase 1 milestone](https://github.com/NimoDreams/met-visualizer/milestone/2)
 and [epic #15](https://github.com/NimoDreams/met-visualizer/issues/15) are the
 source of truth. The ordered work is:
