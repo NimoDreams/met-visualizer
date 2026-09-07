@@ -339,6 +339,46 @@ PR and verification workflow without making a second GitHub approver mandatory.
 GitHub Pages remains disabled until its separate reviewed and user-approved
 activation.
 
+## 2026-09-07: Launch Before Aggregate Browser Availability Hardening
+
+Context: The accepted Phase 1 application already provides the complete MVP
+workflow. The independent audit found no critical issue, secret exposure, wallet
+or transaction surface, analytics, persistence, backend, or fund risk. The
+remaining resource-control plan mixed individual untrusted-input validation with
+additional aggregate per-pool, cross-pool, and Worker limits, extending the time
+before real users could evaluate the product.
+
+Decision: Keep individual HTTP response limits, public-provider schema and
+numeric validation, RPC account/base64 envelopes, RPC request privacy and DLMM
+slot consistency, a targeted final audit, and the reviewed Pages workflow as
+pre-launch gates. Move issues #51 and #52 to milestone 4 as the first public
+update. Use that update to verify repeat deployment and turn concrete early-user
+feedback into focused issues under #55 and epic #56.
+
+Consequence: A pathological aggregate workload can temporarily slow, freeze, or
+crash one visitor's browser tab. This accepted availability risk does not expose
+funds, signing capability, keys, persisted user data, or a backend because those
+surfaces do not exist. The final launch audit must verify this disposition on the
+exact candidate, and #51/#52 remain committed post-launch work rather than an
+indefinite backlog.
+
+## 2026-09-07: Rewrite Published Branch History To Remove Personal Metadata
+
+Context: The user preferred removing the former personal commit email from
+published history in addition to removing workstation-specific paths from the
+current tree.
+
+Decision: Rewrite and force-update the published `main`, `dev`, and Phase 0
+branch histories with the approved GitHub noreply identity and portable path
+replacement while verifying that the reviewed branch trees remain unchanged.
+Do not contact GitHub Support about GitHub-owned protected pull-request refs.
+
+Consequence: Published branch histories and the local repository no longer
+contain the former email or workstation path. Protected pull-request refs and
+platform caches may retain old commit metadata; the user explicitly accepted
+that GitHub-controlled residual. All future commits must use the approved
+noreply identity.
+
 ## 2026-09-07: Bound Network Transport Before Domain Parsing
 
 Context: Public providers and a user-selected RPC are untrusted browser inputs.
