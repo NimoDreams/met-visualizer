@@ -1,7 +1,7 @@
 # Architecture
 
-Status: Phase 1 foundation, reference-market, DLMM discovery, and position
-loading are implemented on `dev`; the common-axis liquidity overlay is in review.
+Status: the Phase 1 read-only visualization candidate is implemented, verified,
+independently reviewed, and accepted on `dev`; promotion to `main` is pending.
 
 ## Agreed Boundaries
 
