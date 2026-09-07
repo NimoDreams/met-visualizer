@@ -9,6 +9,11 @@ const forbidden = [
   "@solana/wallet-adapter",
   "@solana/signers",
   "@solana/transactions",
+  "/Users/",
+  "/home/runner/work/",
+  "/private/tmp/",
+  "/private/var/",
+  "C:\\Users\\",
 ];
 
 async function filesIn(directory) {
@@ -61,5 +66,5 @@ for (const policy of requiredDocumentPolicies) {
 }
 
 console.log(
-  `Verified ${files.length} production files: project base, document policies, no source maps, no credential or prohibited-package markers.`,
+  `Verified ${files.length} production files: project base, document policies, no source maps, no credential, local-path, or prohibited-package markers.`,
 );
