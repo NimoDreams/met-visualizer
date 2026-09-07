@@ -397,3 +397,19 @@ provider-specific error, and response streams are cancelled at the boundary.
 Paths and query keys remain usable for bring-your-own RPC providers. Higher-level
 provider schemas, account data, and session/Worker limits remain tracked by the
 dependent security-remediation issues.
+
+## 2026-09-07: Bound Public-Provider Schema And Numeric Inputs
+
+Context: A transport-sized response can still contain excessive rows, labels,
+numeric text, exponents, unsafe timestamps, or values that overflow chart/FDV
+normalization.
+
+Decision: Validate public candidate, candle, quote-mint, text, decimal, SPL
+supply, timestamp, pagination, and normalized-value ceilings at provider/domain
+boundaries before selection, `BigInt` conversion, or chart publication. Reject
+the whole affected provider result with a redacted shape or limit error.
+
+Consequence: Supported provider ordering and normal fixtures remain unchanged,
+while values outside the documented ceilings cannot enter ranking, exact quote
+arithmetic, or the chart. These ceilings are security compatibility bounds; a
+future provider expansion requires an explicit reviewed adjustment.

@@ -7,6 +7,7 @@ import {
 } from "./meteoraAccounts";
 import {
   initialPositionCount,
+  parsePositiveDecimal,
   prepareAndRankPositionAccounts,
   valueAndRankPositions,
   type Rational,
@@ -213,6 +214,40 @@ describe("exact PositionV2 valuation", () => {
         ),
       ),
     ).toBe(100);
+  });
+
+  it("bounds exact quote parsing before BigInt or exponent work", () => {
+    const coefficient = "9".repeat(96);
+    expect(
+      parsePositiveDecimal(`${coefficient}e-100`).numerator,
+    ).toBeGreaterThan(0n);
+    for (const value of [
+      "9".repeat(97),
+      "1e101",
+      "1e-101",
+      `1.${"0".repeat(128)}`,
+    ]) {
+      expect(() => parsePositiveDecimal(value)).toThrow(
+        /supported decimal range/i,
+      );
+    }
+  });
+
+  it("bounds SPL decimal exponents before constructing atomic units", () => {
+    const input = {
+      positions: [] as ReturnType<typeof position>[],
+      bins: [] as DecodedBin[],
+      currentPriceQ64,
+      quoteSide: "y" as const,
+      quotePriceUsdExact: "1",
+      completePositionSet: true,
+    };
+    expect(
+      valueAndRankPositions({ ...input, quoteDecimals: 255 }).valueCoverage,
+    ).toBe("complete");
+    expect(() =>
+      valueAndRankPositions({ ...input, quoteDecimals: 256 }),
+    ).toThrow(/decimals.*supported range/i);
   });
 });
 

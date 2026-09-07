@@ -5,6 +5,7 @@ import {
 } from "../domain/meteoraAccounts";
 import type { EncodedPositionForValuation } from "../domain/positionValuation";
 import type { ReadOnlySolanaRpc } from "./solanaRpc";
+import { MAX_SPL_DECIMALS } from "../domain/providerLimits";
 
 const POSITION_POOL_OFFSET = 8;
 const BIN_ARRAY_POOL_OFFSET = 24;
@@ -195,7 +196,7 @@ function validateTokenSupply(
     result.context.slot < minContextSlot ||
     !Number.isInteger(result.value?.decimals) ||
     result.value.decimals < 0 ||
-    result.value.decimals > 30
+    result.value.decimals > MAX_SPL_DECIMALS
   )
     throw new Error("RPC token-supply response is stale or malformed.");
 }

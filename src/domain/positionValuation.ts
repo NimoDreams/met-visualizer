@@ -4,6 +4,11 @@ import {
   type DecodedBin,
   type DecodedPositionV2,
 } from "./meteoraAccounts";
+import {
+  MAX_SPL_DECIMALS,
+  boundedDecimalParts,
+  isSafeIntegerInRange,
+} from "./providerLimits";
 
 const Q64 = 1n << 64n;
 const USD_SCALE = 1_000_000n;
@@ -86,6 +91,8 @@ export function valueAndRankPositions(input: {
   quoteDecimals: number;
   completePositionSet: boolean;
 }): PositionValueResult {
+  if (!isSafeIntegerInRange(input.quoteDecimals, 0, MAX_SPL_DECIMALS))
+    throw new Error("Quote-token decimals are outside the supported range.");
   const bins = new Map(input.bins.map((bin) => [bin.binId, bin]));
   const quoteUsd =
     input.quotePriceUsdExact === undefined
@@ -218,15 +225,12 @@ export function initialPositionCount(result: PositionValueResult): number {
 }
 
 export function parsePositiveDecimal(value: string): Rational {
-  const match = /^(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(value.trim());
-  if (!match) throw new Error("USD quote must be a positive decimal.");
-  const fractional = match[2] ?? "";
-  const exponent = Number(match[3] ?? 0);
-  if (!Number.isSafeInteger(exponent) || Math.abs(exponent) > 100)
-    throw new Error("USD quote exponent is outside the supported range.");
-  const digits = BigInt(`${match[1]}${fractional}`);
+  const parts = boundedDecimalParts(value);
+  if (!parts)
+    throw new Error("USD quote is outside the supported decimal range.");
+  const digits = BigInt(parts.digits);
   if (digits <= 0n) throw new Error("USD quote must be positive.");
-  const scale = fractional.length - exponent;
+  const scale = parts.fractionalDigits - parts.exponent;
   return normalizeRational(
     scale >= 0
       ? { numerator: digits, denominator: 10n ** BigInt(scale) }
