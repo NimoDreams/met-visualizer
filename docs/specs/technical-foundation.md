@@ -114,13 +114,22 @@ Use two GitHub Actions concerns:
 
 1. CI runs install, formatting, linting, type checking, tests, and production
    build for PRs into `dev` or `main` and pushes to those branches.
-2. Pages deployment runs only for `main` after CI succeeds, with a manual
-   dispatch option, the `github-pages` environment, and the minimum
-   `contents: read`, `pages: write`, and `id-token: write` permissions.
+2. Pages deployment runs only for `main` after it repeats the release CI gates,
+   with a manual dispatch option, the `github-pages` environment, and the
+   minimum `contents: read`, `pages: write`, and `id-token: write` permissions.
 
 Use `npm ci`, upload only `dist/`, pin third-party actions to full commit SHAs,
 and do not provide the workflow with an RPC or market-data secret. Do not deploy
 `dev` or PR previews to the repository's sole Pages site.
+
+The prepared workflow repeats the full formatting, lint, type, unit, production
+artifact, and supported-browser gates before it uploads `dist/`. Its build job
+can only read repository contents; only the dependent deploy job can write Pages
+and request an identity token, and that job uses the protected `github-pages`
+environment. Both jobs reject a manual dispatch from any ref other than `main`.
+The configuration action has automatic enablement explicitly disabled, so the
+workflow cannot turn Pages on. Selecting GitHub Actions as the Pages source and
+the first deployment remain explicit user-approved release actions.
 
 Create `dev` from the accepted Phase 0 closeout commit immediately before implementation.
 Issue branches target `dev`; reviewed release promotions target `main` with a
