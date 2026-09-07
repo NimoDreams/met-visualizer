@@ -134,6 +134,11 @@ describe("App", () => {
     expect(
       screen.getByText(/before any manual position change/i),
     ).toHaveTextContent(/remain unselected until you select them/i);
+    expect(
+      screen.getByText(/geckoterminal receives the public token mint/i),
+    ).toHaveTextContent(
+      /ordinary network metadata.*never forwards your rpc endpoint/i,
+    );
     const referenceCopy = screen
       .getByRole("heading", { name: "Reference-market selection" })
       .closest("section");

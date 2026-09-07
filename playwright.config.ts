@@ -1,5 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const configuredPreviewPort = process.env.PLAYWRIGHT_PORT;
+const previewPort = configuredPreviewPort ?? "4173";
+if (
+  !/^\d{1,5}$/.test(previewPort) ||
+  Number(previewPort) < 1_024 ||
+  Number(previewPort) > 65_535
+) {
+  throw new Error(
+    "PLAYWRIGHT_PORT must be an integer from 1024 through 65535.",
+  );
+}
+const previewUrl = `http://127.0.0.1:${previewPort}/met-visualizer/`;
 const chromium = {
   name: "chromium",
   use: { ...devices["Desktop Chrome"] },
@@ -23,7 +35,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: "http://127.0.0.1:4173/met-visualizer/",
+    baseURL: previewUrl,
     trace: "on-first-retry",
   },
   projects:
@@ -31,9 +43,9 @@ export default defineConfig({
       ? crossEngineProjects
       : [chromium],
   webServer: {
-    command: "npm run build && npm run preview -- --host 127.0.0.1",
-    url: "http://127.0.0.1:4173/met-visualizer/",
-    reuseExistingServer: !process.env.CI,
+    command: `npm run build && npm run preview -- --host 127.0.0.1 --port ${previewPort}`,
+    url: previewUrl,
+    reuseExistingServer: !process.env.CI && configuredPreviewPort === undefined,
     timeout: 120_000,
   },
 });

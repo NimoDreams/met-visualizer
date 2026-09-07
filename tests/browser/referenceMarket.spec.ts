@@ -11,6 +11,15 @@ import { expectMinimumTouchTargets } from "./touchTargets";
 test("loads an identified keyless reference chart without disclosing the RPC", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    const target = window as Window & { cspViolations?: string[] };
+    target.cspViolations = [];
+    window.addEventListener("securitypolicyviolation", (event) => {
+      target.cspViolations?.push(
+        `${event.effectiveDirective}: ${event.blockedURI}`,
+      );
+    });
+  });
   const rpcMarker = "rpc-browser-proof-secret";
   const marketRequests: string[] = [];
   const now = Math.floor(Date.now() / 1_000);
@@ -86,6 +95,12 @@ test("loads an identified keyless reference chart without disclosing the RPC", a
   expect(
     await page.evaluate(() => ({ ...localStorage, ...sessionStorage })),
   ).toEqual({});
+  expect(
+    await page.evaluate(
+      () =>
+        (window as Window & { cspViolations?: string[] }).cspViolations ?? [],
+    ),
+  ).toEqual([]);
 });
 
 test("keeps last-good chart data visible when a manual refresh fails", async ({

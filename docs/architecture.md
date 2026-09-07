@@ -22,6 +22,17 @@ Keep the RPC endpoint only in memory, out of storage, URLs, logs, analytics,
 source control, and builds. Do not forward it to market-data services. Developer
 environment variables must not become published browser credentials.
 
+The production document enforces a restrictive CSP: application scripts,
+styles, charts, and Workers load from the project origin, with one pinned style
+hash for Lightweight Charts attribution and inline style attributes needed for
+chart layout; images may also use embedded data. Outbound reads may use HTTPS so
+arbitrary user-provided RPCs remain compatible. A no-referrer policy keeps this
+site's URL out of outbound request metadata. GitHub repository controls require
+pull requests, current CI, and resolved review conversations on `main` and
+`dev`, reject branch force-push and deletion, require full-SHA Action references,
+and enable GitHub's available security scanning and private vulnerability
+reporting. Pages activation and its workflow remain a separate release gate.
+
 ## Selected Technical Foundation
 
 - Single root package using Node.js 24 LTS, npm, strict TypeScript, React 19.2,

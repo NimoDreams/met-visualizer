@@ -58,6 +58,14 @@ function DocsView({ hidden }: { hidden: boolean }) {
             requests. Your browser sends read-only JSON-RPC calls directly to
             that endpoint, so its operator can observe those calls.
           </p>
+          <p>
+            GeckoTerminal receives the public token mint and public market or
+            pool addresses needed for charts and quote prices. The Meteora Data
+            API receives public token-mint filters used to rank pools. Like any
+            HTTPS service, each provider can receive ordinary network metadata,
+            such as your IP address and browser request headers. Met Visualizer
+            never forwards your RPC endpoint to either public provider.
+          </p>
         </section>
         <section className="surface">
           <h2>Read-only scope</h2>
