@@ -6,6 +6,7 @@ import {
   TOKEN_MINT,
   tokenResponse,
 } from "../../src/test/fixtures/geckoTerminal";
+import { expectMinimumTouchTargets } from "./touchTargets";
 
 test("loads an identified keyless reference chart without disclosing the RPC", async ({
   page,
@@ -53,6 +54,23 @@ test("loads an identified keyless reference chart without disclosing the RPC", a
   ).toBeVisible();
   await expect(page.getByText(/Historical Market Cap/)).toBeVisible();
   await expect(page.locator("canvas").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Retry pools" })).toBeVisible();
+  await expect(page.getByRole("img", { name: /FIX Market Cap/ })).toBeVisible();
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expectMinimumTouchTargets([
+      page.getByLabel("Reference market"),
+      page.getByRole("button", { name: "Refresh", exact: true }),
+    ]);
+    await page.getByRole("button", { name: "Positions", exact: true }).click();
+    await expectMinimumTouchTargets([
+      page.getByRole("button", { name: "Retry pools" }),
+    ]);
+    await page.getByRole("button", { name: "Chart" }).click();
+  }
 
   expect(marketRequests.length).toBe(3);
   expect(marketRequests.every((url) => !url.includes(rpcMarker))).toBe(true);
@@ -105,4 +123,69 @@ test("keeps last-good chart data visible when a manual refresh fails", async ({
   ).toBeVisible();
   await expect(page.getByRole("img", { name: /FIX Market Cap/ })).toBeVisible();
   expect(candleUrls.at(-1)).toContain("limit=10");
+});
+
+test("recovers the chart independently while an empty RPC pool result remains usable", async ({
+  page,
+}) => {
+  let chartAvailable = false;
+  const now = Math.floor(Date.now() / 1_000);
+  await page.route("https://api.geckoterminal.com/**", async (route) => {
+    if (!chartAvailable) {
+      await route.abort("failed");
+      return;
+    }
+    const url = route.request().url();
+    await route.fulfill({
+      json: url.includes("/ohlcv/")
+        ? candleResponse(candleFixture(now - 24 * 3_600, 96))
+        : url.includes("/pools?")
+          ? poolResponse("recovered-pool")
+          : tokenResponse(),
+    });
+  });
+  await page.route("https://dlmm.datapi.meteora.ag/**", async (route) => {
+    await route.fulfill({
+      json: { current_page: 1, pages: 1, page_size: 20, total: 0, data: [] },
+    });
+  });
+  await page.route("https://rpc.example.invalid/**", async (route) => {
+    const body = route.request().postDataJSON() as { id: number };
+    await route.fulfill({
+      json: {
+        jsonrpc: "2.0",
+        id: body.id,
+        result: { context: { slot: 100 }, value: [] },
+      },
+    });
+  });
+
+  await page.goto("./#/");
+  await page
+    .getByLabel("Your Solana RPC endpoint")
+    .fill("https://rpc.example.invalid/");
+  await page.getByRole("button", { name: "Connect RPC" }).click();
+  await page.getByLabel("Token contract address (CA)").fill(TOKEN_MINT);
+  await page.getByRole("button", { name: "Load token" }).click();
+
+  await expect(page.getByRole("button", { name: "Retry chart" })).toBeVisible();
+  await expect(page.getByText("0 of 0 pools enabled")).toBeVisible();
+  await expect(
+    page.getByText(/No Meteora DLMM pools were discovered/),
+  ).toBeVisible();
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expectMinimumTouchTargets([
+      page.getByRole("button", { name: "Retry chart" }),
+    ]);
+  }
+
+  chartAvailable = true;
+  await page.getByRole("button", { name: "Retry chart" }).click();
+  await expect(page.getByRole("img", { name: /FIX Market Cap/ })).toBeVisible();
+  await page.getByRole("button", { name: "Positions", exact: true }).click();
+  await expect(page.getByText("0 of 0 pools enabled")).toBeVisible();
 });

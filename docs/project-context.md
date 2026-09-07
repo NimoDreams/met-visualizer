@@ -64,13 +64,13 @@ Docker Compose. See the [technical foundation](specs/technical-foundation.md).
 
 ## Active Delivery Gate
 
-[Issues #16–#19](https://github.com/NimoDreams/met-visualizer/issues/15) are
-merged in `dev`. Issue #20 is the active common-axis liquidity-overlay and
-global-position-control implementation. It consumes #17's fixed reference basis
-and #19's exact current-principal values without changing either data contract.
-Keep later issues queued behind their documented dependencies. GitHub Pages
-activation and eventual `dev` to `main` promotion require separate user
-approval.
+[Issues #16–#20](https://github.com/NimoDreams/met-visualizer/issues/15) are
+merged in `dev`. Issue #21 is the active refresh, failure, Docs, responsive, and
+accessibility completion work. It preserves the reviewed data and interaction
+contracts while adding independent recovery and a state-preserving narrow-phone
+mode. Issue #22 remains the integrated release-candidate verification gate.
+GitHub Pages activation and eventual `dev` to `main` promotion require separate
+user approval.
 
 ## Read Next
 

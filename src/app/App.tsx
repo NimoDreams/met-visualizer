@@ -1,6 +1,10 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { ReferenceMarketPanel } from "../chart/ReferenceMarketPanel";
+import {
+  ReferenceMarketPanel,
+  type ReferencePanelStatus,
+} from "../chart/ReferenceMarketPanel";
 import { DlmmPoolsPanel } from "../components/DlmmPoolsPanel";
+import type { PositionsPanelStatus } from "../components/positionsPanelStatus";
 import { isSolanaAddress } from "../domain/solanaAddress";
 import type { ReferenceMarketSession } from "../domain/referenceMarket";
 import type { LiquidityOverlayModel } from "../domain/liquidityOverlay";
@@ -19,19 +23,39 @@ function validateRpc(value: string): string | undefined {
   }
 }
 
-function DocsView() {
+function shortAddress(address: string): string {
+  return `${address.slice(0, 5)}…${address.slice(-5)}`;
+}
+
+function DocsView({ hidden }: { hidden: boolean }) {
   return (
-    <main className="docs-view">
+    <main className="docs-view" hidden={hidden} id="docs-content">
       <p className="eyebrow">How this app treats your data</p>
-      <h1>Docs</h1>
+      <h1 data-route-heading="docs" tabIndex={-1}>
+        Docs
+      </h1>
+      <p className="docs-intro">
+        Met Visualizer compares a public market chart with a current, read-only
+        snapshot of Meteora DLMM liquidity. These notes explain the display, its
+        sources, and when a result may be partial or stale.
+      </p>
       <div className="docs-grid">
         <section className="surface">
-          <h2>Session-only RPC</h2>
+          <h2>Start with a token CA</h2>
+          <p>
+            Connect an HTTPS Solana RPC, then paste a token’s Solana contract
+            address (CA). Symbols never select a token or market. This research
+            view does not connect a wallet or prepare trades.
+          </p>
+        </section>
+        <section className="surface">
+          <h2>Session-only RPC and privacy</h2>
           <p>
             Your RPC endpoint stays in this page’s memory. It is cleared when
             you disconnect, replace it, reload, or close the page. It is never
             placed in browser storage, the URL, analytics, or market-data
-            requests.
+            requests. Your browser sends read-only JSON-RPC calls directly to
+            that endpoint, so its operator can observe those calls.
           </p>
         </section>
         <section className="surface">
@@ -43,40 +67,132 @@ function DocsView() {
           </p>
         </section>
         <section className="surface">
-          <h2>Reference market and units</h2>
+          <h2>Reference-market selection</h2>
           <p>
-            GeckoTerminal ranks markets by liquidity and recent volume. The app
-            checks up to three and keeps one identified market stable until you
-            explicitly change it. A refresh never switches pools silently.
+            The app preserves GeckoTerminal’s returned top-pool order and checks
+            up to three candidates in that order. It rejects candidates whose
+            completed USD candles are unusable or incorrectly oriented, then
+            selects the first usable candidate with adequate history. If none
+            has adequate history, it uses the first candidate with usable
+            completed USD candles and labels the history limited. It keeps that
+            market stable across refreshes. Only your Reference market selection
+            changes it.
           </p>
         </section>
         <section className="surface">
           <h2>Market Cap, FDV, and Price</h2>
           <p>
-            Verified provider market cap is preferred. Otherwise the chart uses
-            current on-chain mint supply and says FDV. If supply is unavailable,
-            it stays useful as Price (USD). Historical valuation candles reuse
-            that current session supply; they are not historical supply records.
+            A non-null provider Market Cap follows GeckoTerminal and its
+            upstream CoinGecko asset-level supply methodology; it is not a
+            circulating supply calculation verified by this project and can
+            include supply outside this Solana mint for a multichain asset.
+            Otherwise the chart uses current on-chain mint supply and says FDV.
+            If supply is unavailable, it uses Price (USD). Historical valuation
+            candles reuse that current session supply, so they are price history
+            scaled by one present supply observation rather than historical
+            supply records.
           </p>
         </section>
         <section className="surface">
-          <h2>Sources and refresh</h2>
+          <h2>Sources, cadence, and attribution</h2>
           <p>
-            Candles and quote prices use GeckoTerminal’s keyless public API and
-            a shared conservative request budget. Meteora’s keyless Data API
-            ranks pools, while your RPC determines which pools exist and reads
-            their accounts. The selected chart polls no faster than every 60
-            seconds while visible; DLMM data refreshes only when requested.
+            Candles and quote prices use the keyless public{" "}
+            <a href="https://www.geckoterminal.com/" rel="noreferrer">
+              GeckoTerminal API
+            </a>{" "}
+            under a shared limit of 10 dispatched calls per rolling minute. Its
+            public API is beta, cached for about one minute, and its effective
+            public allowance can fluctuate. The keyless{" "}
+            <a href="https://docs.meteora.ag/" rel="noreferrer">
+              Meteora Data API
+            </a>{" "}
+            provides ranking metadata, while your{" "}
+            <a href="https://solana.com/docs/rpc" rel="noreferrer">
+              Solana RPC
+            </a>{" "}
+            determines pool identity and account state. Candles poll no faster
+            than every 60 seconds while the page is visible. Pool and position
+            snapshots refresh only when requested. Charts use{" "}
+            <a
+              href="https://www.tradingview.com/lightweight-charts/"
+              rel="noreferrer"
+            >
+              TradingView Lightweight Charts™
+            </a>
+            ; TradingView does not provide this app’s market data.
+          </p>
+          <p className="docs-attribution">
+            TradingView Lightweight Charts™ Copyright © 2025 TradingView, Inc.
           </p>
         </section>
         <section className="surface">
-          <h2>Current liquidity snapshot</h2>
+          <h2>DLMM pool selection</h2>
           <p>
-            Enabled pools load all owners’ PositionV2 accounts in bounded RPC
-            batches and value their current principal from each position’s bin
-            shares. Large pools show the largest positions first, with separate
-            count and value coverage. Unsupported or incomplete conversions stay
-            visible as unknown instead of claiming a complete denominator.
+            RPC discovery is authoritative and ranking metadata is advisory. The
+            app initially enables one eligible pool with the highest trustworthy
+            TVL rank; uncertain ranking requires manual choice. You may enable
+            or disable every discovered, decodable pool. Refresh preserves
+            manual choices and never replaces the reference market.
+          </p>
+        </section>
+        <section className="surface">
+          <h2>Progressive position loading</h2>
+          <p>
+            Portable RPC first discovers every PositionV2 key and fetches every
+            complete PositionV2 account in bounded batches, plus the pool’s bin
+            arrays. A Worker then decodes, values, and ranks compact results.
+            The initial view reveals at least 25 ranked positions and, when a
+            complete value denominator exists, about 80% of known value. Load
+            next and Load all reveal more already-ranked results and their
+            retained full details; they do not avoid the initial
+            complete-account reads. Cancel stops active work. Count and value
+            coverage answer different questions and are shown separately.
+          </p>
+        </section>
+        <section className="surface">
+          <h2>Valuation and unavailable values</h2>
+          <p>
+            Current principal uses one current conversion price per pool
+            snapshot. Bin prices locate liquidity ranges; they are not future
+            prices used to value principal. Missing USD quotes, unsupported
+            layouts, absent bins, and incomplete RPC snapshots stay visible as
+            unavailable or unknown and are excluded from complete-value claims.
+          </p>
+        </section>
+        <section className="surface">
+          <h2>Overlay, selection, and filters</h2>
+          <p>
+            Enabled pools share the chart’s Market Cap, FDV, or Price axis. Pool
+            and position checkboxes control the overlay. The global minimum uses
+            current USD position value across every enabled pool. Largest
+            contributors becomes available only when every enabled pool shares
+            one coherent, complete valuation generation; it covers about 80% of
+            known value. Filters are temporary inclusion masks: clearing one
+            restores each position’s prior manual checkbox selection. Before any
+            manual position change, later revealed eligible positions join the
+            selection automatically. After a manual change, positions revealed
+            or valued later remain unselected until you select them.
+          </p>
+        </section>
+        <section className="surface">
+          <h2>Snapshots, stale data, and recovery</h2>
+          <p>
+            Candles, supply, quotes, pools, and positions have separate observed
+            times and can fail independently. During refresh, last-good data
+            remains visible. A failed refresh is labeled stale; incomplete data
+            is never estimated into a complete denominator. Retry the affected
+            chart, pool discovery, or position load. Phone pane switches keep
+            selections, filters, loaded extent, and the chart range in memory.
+          </p>
+        </section>
+        <section className="surface">
+          <h2>Limits</h2>
+          <p>
+            Public APIs can throttle, omit new or inactive tokens, change
+            response shapes, or return delayed cached data. RPC servers vary in
+            indexing, CORS support, limits, and slot freshness. Results are
+            observational research, not execution prices, historical liquidity,
+            financial advice, or a guarantee that every account was returned.
           </p>
         </section>
       </div>
@@ -91,8 +207,19 @@ function VisualizationWorkspace({
   mint?: string;
   rpc?: ReadOnlySolanaRpc;
 }) {
+  const [activePane, setActivePane] = useState<"chart" | "positions">("chart");
   const [reference, setReference] = useState<ReferenceMarketSession>();
   const [overlay, setOverlay] = useState<LiquidityOverlayModel>();
+  const [referenceStatus, setReferenceStatus] = useState<ReferencePanelStatus>({
+    state: "idle",
+    label: "Chart waiting",
+  });
+  const [positionsStatus, setPositionsStatus] = useState<PositionsPanelStatus>({
+    state: "idle",
+    label: "Positions waiting",
+    selectedIncluded: 0,
+    valued: 0,
+  });
   const [hoveredPositionKeys, setHoveredPositionKeys] = useState<
     readonly string[]
   >([]);
@@ -110,28 +237,81 @@ function VisualizationWorkspace({
   );
 
   return (
-    <section className="workspace" aria-label="Visualization workspace">
-      <ReferenceMarketPanel
-        mint={mint}
-        rpc={rpc}
-        overlay={overlay}
-        onSessionChange={reportReference}
-        onHoverPositionKeys={reportHover}
-      />
+    <section aria-label="Visualization workspace">
+      <div className="mobile-workspace-header">
+        <div className="mobile-pane-switch" aria-label="Visible workspace pane">
+          <button
+            aria-pressed={activePane === "chart"}
+            onClick={() => setActivePane("chart")}
+            type="button"
+          >
+            Chart
+          </button>
+          <button
+            aria-pressed={activePane === "positions"}
+            onClick={() => setActivePane("positions")}
+            type="button"
+          >
+            Positions
+          </button>
+        </div>
+        <div
+          className="compact-workspace-status"
+          role="status"
+          aria-live="polite"
+        >
+          <strong>{mint ? shortAddress(mint) : "No token loaded"}</strong>
+          <span>
+            {referenceStatus.market ?? "Reference pending"} ·{" "}
+            {referenceStatus.basis ?? "Axis pending"}
+          </span>
+          <span>
+            {positionsStatus.selectedIncluded.toLocaleString()} selected and
+            included ·{" "}
+            {positionsStatus.coverage === undefined
+              ? "known value coverage unavailable"
+              : `${positionsStatus.coverage.toFixed(1)}% of known value`}
+          </span>
+          <span>
+            {referenceStatus.label} · {positionsStatus.label}
+          </span>
+        </div>
+      </div>
 
-      <DlmmPoolsPanel
-        mint={mint}
-        rpc={rpc}
-        reference={reference}
-        hoveredPositionKeys={hoveredPositionKeys}
-        onOverlayChange={reportOverlay}
-      />
+      <div className="workspace">
+        <div
+          className={`workspace-pane workspace-chart ${activePane !== "chart" ? "mobile-pane-inactive" : ""}`}
+        >
+          <ReferenceMarketPanel
+            mint={mint}
+            rpc={rpc}
+            overlay={overlay}
+            onSessionChange={reportReference}
+            onStatusChange={setReferenceStatus}
+            onHoverPositionKeys={reportHover}
+          />
+        </div>
+
+        <div
+          className={`workspace-pane workspace-positions ${activePane !== "positions" ? "mobile-pane-inactive" : ""}`}
+        >
+          <DlmmPoolsPanel
+            mint={mint}
+            rpc={rpc}
+            reference={reference}
+            hoveredPositionKeys={hoveredPositionKeys}
+            onOverlayChange={reportOverlay}
+            onStatusChange={setPositionsStatus}
+          />
+        </div>
+      </div>
     </section>
   );
 }
 
 export function App() {
   const route = useHashRoute();
+  const previousRoute = useRef(route);
   const sessionManager = useRef(new RpcSessionManager());
   const tokenSequence = useRef(0);
   const [rpcInput, setRpcInput] = useState("");
@@ -149,6 +329,14 @@ export function App() {
     const manager = sessionManager.current;
     return () => manager.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (previousRoute.current === route) return;
+    previousRoute.current = route;
+    document
+      .querySelector<HTMLElement>(`[data-route-heading="${route}"]`)
+      ?.focus();
+  }, [route]);
 
   function connectRpc(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -194,6 +382,18 @@ export function App() {
 
   return (
     <div className="app-shell">
+      <a
+        className="skip-link"
+        href={route === "docs" ? "#/docs" : "#/"}
+        onClick={(event) => {
+          event.preventDefault();
+          document
+            .querySelector<HTMLElement>(`[data-route-heading="${route}"]`)
+            ?.focus();
+        }}
+      >
+        Skip to main content
+      </a>
       <header className="topbar">
         <a className="brand" href="#/" aria-label="Met Visualizer home">
           <span className="brand-mark">M</span>
@@ -212,99 +412,97 @@ export function App() {
         </nav>
       </header>
 
-      {route === "docs" ? (
-        <DocsView />
-      ) : (
-        <main>
-          <section className="hero">
-            <div>
-              <p className="eyebrow">Read-only Solana liquidity research</p>
-              <h1>See where Meteora liquidity sits around a token.</h1>
-              <p className="hero-copy">
-                Enter a Solana token contract address (CA) to view its reference
-                chart, DLMM pools, and current position distribution.
-              </p>
+      <DocsView hidden={route !== "docs"} />
+      <main hidden={route !== "visualization"} id="visualizer-content">
+        <section className="hero">
+          <div>
+            <p className="eyebrow">Read-only Solana liquidity research</p>
+            <h1 data-route-heading="visualization" tabIndex={-1}>
+              See where Meteora liquidity sits around a token.
+            </h1>
+            <p className="hero-copy">
+              Enter a Solana token contract address (CA) to view its reference
+              chart, DLMM pools, and current position distribution.
+            </p>
+          </div>
+
+          <form className="rpc-form surface" onSubmit={connectRpc}>
+            <div className="field-heading">
+              <label htmlFor="rpc-endpoint">Your Solana RPC endpoint</label>
+              <span className={rpcConnected ? "status connected" : "status"}>
+                {rpcConnected ? "Connected" : "Required"}
+              </span>
             </div>
-
-            <form className="rpc-form surface" onSubmit={connectRpc}>
-              <div className="field-heading">
-                <label htmlFor="rpc-endpoint">Your Solana RPC endpoint</label>
-                <span className={rpcConnected ? "status connected" : "status"}>
-                  {rpcConnected ? "Connected" : "Required"}
-                </span>
-              </div>
-              <p className="field-help" id="rpc-help">
-                HTTPS only. Held in memory for this page session and never
-                saved.
-              </p>
-              <div className="field-row">
-                <input
-                  id="rpc-endpoint"
-                  name="rpc-endpoint"
-                  type="password"
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-describedby={`rpc-help${rpcError ? " rpc-error" : ""}`}
-                  aria-invalid={Boolean(rpcError)}
-                  placeholder="https://your-solana-rpc.example/…"
-                  value={rpcInput}
-                  onChange={(event) => setRpcInput(event.target.value)}
-                />
-                <button type="submit">
-                  {rpcConnected ? "Replace RPC" : "Connect RPC"}
-                </button>
-                {rpcConnected ? (
-                  <button
-                    className="button-secondary"
-                    type="button"
-                    onClick={disconnectRpc}
-                  >
-                    Disconnect
-                  </button>
-                ) : null}
-              </div>
-              {rpcError ? (
-                <p className="field-error" id="rpc-error" role="alert">
-                  {rpcError}
-                </p>
-              ) : null}
-            </form>
-          </section>
-
-          <form className="token-form surface" onSubmit={loadToken}>
-            <label htmlFor="token-address">Token contract address (CA)</label>
-            <p className="field-help" id="token-help">
-              Paste the token’s Solana address. Symbols are not used to choose a
-              market.
+            <p className="field-help" id="rpc-help">
+              HTTPS only. Held in memory for this page session and never saved.
             </p>
             <div className="field-row">
               <input
-                id="token-address"
-                name="token-address"
+                id="rpc-endpoint"
+                name="rpc-endpoint"
+                type="password"
                 autoComplete="off"
                 spellCheck={false}
-                aria-describedby={`token-help${tokenError ? " token-error" : ""}`}
-                aria-invalid={Boolean(tokenError)}
-                placeholder="Enter token CA"
-                value={tokenInput}
-                onChange={(event) => setTokenInput(event.target.value)}
+                aria-describedby={`rpc-help${rpcError ? " rpc-error" : ""}`}
+                aria-invalid={Boolean(rpcError)}
+                placeholder="https://your-solana-rpc.example/…"
+                value={rpcInput}
+                onChange={(event) => setRpcInput(event.target.value)}
               />
-              <button type="submit">Load token</button>
+              <button type="submit">
+                {rpcConnected ? "Replace RPC" : "Connect RPC"}
+              </button>
+              {rpcConnected ? (
+                <button
+                  className="button-secondary"
+                  type="button"
+                  onClick={disconnectRpc}
+                >
+                  Disconnect
+                </button>
+              ) : null}
             </div>
-            {tokenError ? (
-              <p className="field-error" id="token-error" role="alert">
-                {tokenError}
+            {rpcError ? (
+              <p className="field-error" id="rpc-error" role="alert">
+                {rpcError}
               </p>
             ) : null}
           </form>
+        </section>
 
-          <VisualizationWorkspace
-            key={activeToken?.sequence ?? "idle"}
-            mint={activeToken?.mint}
-            rpc={rpcSession?.client}
-          />
-        </main>
-      )}
+        <form className="token-form surface" onSubmit={loadToken}>
+          <label htmlFor="token-address">Token contract address (CA)</label>
+          <p className="field-help" id="token-help">
+            Paste the token’s Solana address. Symbols are not used to choose a
+            market.
+          </p>
+          <div className="field-row">
+            <input
+              id="token-address"
+              name="token-address"
+              autoComplete="off"
+              spellCheck={false}
+              aria-describedby={`token-help${tokenError ? " token-error" : ""}`}
+              aria-invalid={Boolean(tokenError)}
+              placeholder="Enter token CA"
+              value={tokenInput}
+              onChange={(event) => setTokenInput(event.target.value)}
+            />
+            <button type="submit">Load token</button>
+          </div>
+          {tokenError ? (
+            <p className="field-error" id="token-error" role="alert">
+              {tokenError}
+            </p>
+          ) : null}
+        </form>
+
+        <VisualizationWorkspace
+          key={activeToken?.sequence ?? "idle"}
+          mint={activeToken?.mint}
+          rpc={rpcSession?.client}
+        />
+      </main>
     </div>
   );
 }
