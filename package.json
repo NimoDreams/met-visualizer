@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:browser": "playwright test --grep-invert @provider",
+    "test:browser:touch": "PLAYWRIGHT_ALL_ENGINES=1 playwright test tests/browser/referenceMarket.spec.ts --grep-invert @provider",
     "test:browser:providers": "RUN_PROVIDER_PROOFS=1 playwright test --grep @provider",
     "build": "vite build",
     "verify:artifact": "node scripts/verify-build.mjs",

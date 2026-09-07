@@ -65,6 +65,14 @@ test("loads an identified keyless reference chart without disclosing the RPC", a
       page.getByLabel("Reference market"),
       page.getByRole("button", { name: "Refresh", exact: true }),
     ]);
+    await expect(page.getByLabel("Reference market")).toHaveValue(
+      "browser-pool",
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
     await page.getByRole("button", { name: "Positions", exact: true }).click();
     await expectMinimumTouchTargets([
       page.getByRole("button", { name: "Retry pools" }),
