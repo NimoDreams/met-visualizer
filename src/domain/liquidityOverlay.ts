@@ -278,6 +278,8 @@ export function parseMinimumUsd(value: string): Rational | undefined {
 }
 
 export function rationalToNumber(value: Rational): number {
+  const quotient = Number(value.numerator) / Number(value.denominator);
+  if (Number.isFinite(quotient) && quotient !== 0) return quotient;
   const integer = value.numerator / value.denominator;
   const remainder = value.numerator % value.denominator;
   return (
@@ -386,6 +388,10 @@ function normalizeBinPrice(
   )
     return undefined;
   const quoteUsd = parsePositiveDecimal(session.quotePriceUsdExact);
+  const displaySupply = finitePositiveNumberToRational(
+    reference.basis.displaySupply,
+  );
+  if (!displaySupply) return undefined;
   const decimalScale = powerOfTenRatio(
     reference.token.decimals - session.quoteDecimals,
   );
@@ -401,10 +407,7 @@ function normalizeBinPrice(
           decimalScale,
           normalizeRational({ numerator: Q64, denominator: binPriceQ64 }),
         );
-  return multiplyRational(
-    tokenPrice,
-    parsePositiveDecimal(reference.basis.displaySupply.toString()),
-  );
+  return multiplyRational(tokenPrice, displaySupply);
 }
 
 function currentContributionQuoteAtoms(
@@ -494,6 +497,26 @@ function powerOfTenRatio(exponent: number): Rational {
   return exponent >= 0
     ? { numerator: 10n ** BigInt(exponent), denominator: 1n }
     : { numerator: 1n, denominator: 10n ** BigInt(-exponent) };
+}
+
+// Supply is already validated before a reference-market basis is published.
+// Convert the finite JavaScript number without reapplying the narrower limits
+// reserved for untrusted provider decimal text. Number#toString emits a bounded
+// coefficient and exponent, including valid derived values outside ±100.
+function finitePositiveNumberToRational(value: number): Rational | undefined {
+  if (!Number.isFinite(value) || value <= 0) return undefined;
+  const match = /^(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/.exec(value.toString());
+  if (!match) return undefined;
+  const fractional = match[2] ?? "";
+  const exponent = Number(match[3] ?? 0);
+  if (!Number.isSafeInteger(exponent)) return undefined;
+  const digits = BigInt(`${match[1]}${fractional}`);
+  const scale = fractional.length - exponent;
+  return normalizeRational(
+    scale >= 0
+      ? { numerator: digits, denominator: 10n ** BigInt(scale) }
+      : { numerator: digits * 10n ** BigInt(-scale), denominator: 1n },
+  );
 }
 
 function rationalKey(value: Rational): string {
