@@ -28,6 +28,8 @@ Status: implementation evidence for issue #21; independent review pending.
   position checkboxes, and loading actions in both phone orientations. Text
   colors preserve at least a 4.5:1 representative rendered contrast ratio, and
   reduced-motion preferences suppress CSS animation and transition duration.
+  Native selects use an explicit phone height because WebKit does not honor
+  `min-height` alone for that control.
 - The in-app Docs disclose onboarding, session-only RPC privacy, read-only
   scope, reference selection, Market Cap/FDV/Price semantics, current-supply
   history, data sources and cadence, pool selection, progressive loading,
@@ -62,10 +64,13 @@ stale status from the compact summary and re-enabling restores that state.
 Role- and label-based browser interaction exercises the primary workflow through
 the rendered accessibility names.
 
-Current automated browser coverage uses the repository's installed Chromium
-project. No additional browser engine is installed in the project, so broader
-engine coverage remains a release-environment check rather than an unstated
-claim.
+The default deterministic suite continues to use Chromium. A focused
+reference-market suite also measures the affected controls, preserves selector
+value, and checks horizontal overflow in Chromium 153.0.8010.12, Firefox 155.0,
+and Playwright WebKit 26.6. It covers both 390×844 portrait and 844×390 rotated
+phone viewports. Measurements are rounded only to one hundredth of a CSS pixel
+to remove engine floating-point noise such as Firefox reporting 43.999998 for a
+computed 44px boundary; materially undersized controls still fail.
 
 ## Verification
 
@@ -77,6 +82,7 @@ npm run lint
 npm run typecheck
 npm run test
 npm run test:browser
+npm run test:browser:touch
 npm run test:browser:providers
 npm run build
 npm run verify:artifact
@@ -84,9 +90,10 @@ git diff --check
 ```
 
 The unit suite contains 21 files and 107 tests. The deterministic browser suite
-contains seven Chromium tests, and both live provider proofs pass. The
+contains seven Chromium tests; the focused cross-engine touch suite contains
+nine browser cases, three in each engine; and both live provider proofs pass. The
 production build contains 48 modules. Its JavaScript bundle is 454.74 kB
-(142.89 kB gzip), CSS is 14.30 kB (3.92 kB gzip), and the position worker is
+(142.89 kB gzip), CSS is 14.33 kB (3.93 kB gzip), and the position worker is
 5.28 kB. The artifact verifier checks four files for the project base, source
 maps, credentials, and prohibited package markers.
 
