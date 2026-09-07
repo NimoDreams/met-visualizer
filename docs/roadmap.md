@@ -30,14 +30,14 @@ SPA with Lightweight Charts, a narrow read-only RPC layer, no Docker Compose,
 and GitHub Pages deployment from `main`. See the
 [technical foundation](specs/technical-foundation.md).
 
-## Phase 1 — Read-Only Visualization MVP (Active)
+## Phase 1 — Read-Only Visualization MVP (Complete)
 
-Implementation and release-candidate verification are complete. The user
-accepted exact `dev` candidate
-`8471b0367e34ee02c47a6b9148201a8e32067dbb` for promotion on 2026-09-07. Issue
-#23 is now following the staged promotion runbook; the milestone remains open
-until `main` is promoted, `dev` is synchronized, and stable-state verification
-passes. GitHub Pages activation remains a separate approval gate.
+Implementation, release verification, review, user acceptance, and promotion
+are complete. PR #35 used a regular merge commit, and `main` and `dev` were
+synchronized to exact stable SHA
+`19046d1f0dfae069a5847b2fb57bd662aa89aacd`. Post-merge format, lint, typecheck,
+107-test, build, artifact, diff, and local HTTP checks passed. GitHub Pages
+activation remains a separate unapproved gate.
 
 The [Phase 1 milestone](https://github.com/NimoDreams/met-visualizer/milestone/2)
 and [epic #15](https://github.com/NimoDreams/met-visualizer/issues/15) are the
@@ -58,12 +58,12 @@ source of truth. The ordered work is:
    recovery, Docs, responsive, and accessibility completion.
 7. [#22](https://github.com/NimoDreams/met-visualizer/issues/22): exact integrated
    release-candidate verification.
-8. [#23](https://github.com/NimoDreams/met-visualizer/issues/23): separately
-   approved promotion from `dev` to `main`.
+8. [#23](https://github.com/NimoDreams/met-visualizer/issues/23): reviewed,
+   user-approved promotion from `dev` to `main`.
 
 Developers use issue-scoped branches/worktrees into `dev`; reviewers post
 readiness directly on GitHub. Promotion follows the
 [promotion workflow](workflows/dev-to-main-promotion.md) and requires user
 approval. First GitHub Pages activation remains a separate approval gate.
 
-No trading or fund-movement features are planned. Further phases remain open.
+No trading or fund-movement features are planned. Future phases are unplanned.

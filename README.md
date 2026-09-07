@@ -2,16 +2,17 @@
 
 A way to view Meteora LP positions on arbitrary Solana tokens.
 
-Phase 0 planning is complete and the first implementation phase is active. The
-agreed MVP is a static SPA: enter a token CA,
+Phase 1 is complete. The read-only MVP is a static SPA: enter a token CA,
 provide a session-only RPC, view reference candles and expandable DLMM
 pools/positions, and select current bin-liquidity contributions. GeckoTerminal
-is the validated starting free candle source. An in-app Docs tab
-will explain sources, refresh behavior, and limitations.
+is the starting free candle source. The in-app Docs tab explains sources,
+refresh behavior, and limitations.
 
 See the [MVP spec](docs/specs/mvp.md) and selected
-[technical foundation](docs/specs/technical-foundation.md). Active delivery is
-tracked in [Phase 1 epic #15](https://github.com/NimoDreams/met-visualizer/issues/15).
+[technical foundation](docs/specs/technical-foundation.md). The completed work
+is recorded in the
+[Phase 1 review](docs/reviews/phase-1-completion.md). Future phases are not yet
+planned.
 
 ## Current Setup
 
@@ -19,8 +20,9 @@ tracked in [Phase 1 epic #15](https://github.com/NimoDreams/met-visualizer/issue
 - Product seed: visualize Meteora LP positions for arbitrary Solana tokens.
 - Active work should be planned through GitHub Issues and milestones.
 - Durable project memory should live in `docs/`.
-- `main` holds the stable accepted baseline; `dev` integrates Phase 1 work.
-  Developers use issue branches into `dev` and reviewed promotions to `main`.
+- `main` and `dev` share promoted Phase 1 baseline
+  `19046d1f0dfae069a5847b2fb57bd662aa89aacd`. Future branch strategy should be
+  set when the next phase is planned.
 
 ## Local Development
 
