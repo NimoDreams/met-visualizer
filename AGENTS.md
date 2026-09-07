@@ -162,6 +162,11 @@ Never commit or expose:
 - logs containing secrets or private data,
 - user-authored scratch notes such as `docs/human-notes/`.
 
+Use repository-relative paths in tracked docs, examples, and logs; never publish
+absolute workstation paths. Before each commit, verify that both the author and
+committer use a GitHub noreply email or another email explicitly approved for
+public use.
+
 Add project-specific safety rules here as soon as the domain is understood.
 
 For the initial product direction, default to read-only Solana/Meteora research

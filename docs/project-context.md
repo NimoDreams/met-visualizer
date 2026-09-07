@@ -6,7 +6,8 @@ Phase 0 planning and Phase 1 MVP delivery are complete. Phase 1 was verified,
 independently reviewed, accepted by the user, and promoted through PR #35 on
 2026-09-07.
 
-- Local: met-visualizer repository root
+- Repository root: the current checkout; public references use portable,
+  repository-relative paths.
 - GitHub: NimoDreams/met-visualizer
 - `main` and `dev` share promoted Phase 1 baseline
   `19046d1f0dfae069a5847b2fb57bd662aa89aacd`.
@@ -77,6 +78,11 @@ change is a passive Docs Tip Jar with intentionally public SNS identity
 copy-only; it does not add resolution, wallet, payment, transaction, analytics,
 or persistence behavior. GitHub Pages activation remains separate and is not
 yet authorized. No later product phase or scope has been accepted.
+
+Current-tree privacy remediation removes workstation-specific paths and requires
+an approved public commit identity. Rewriting already published Git history is a
+separate decision that requires explicit user approval and is not part of this
+remediation.
 
 ## Read Next
 
