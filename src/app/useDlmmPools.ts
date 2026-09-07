@@ -137,6 +137,9 @@ export function useDlmmPools(
     const session: DlmmPoolSession = {
       ...previous,
       enabledAddresses: [...enabled],
+      quoteStale: previous.pools.some(
+        (pool) => enabled.has(pool.address) && pool.quoteStale,
+      ),
       selectionState: "manual",
       selectionDetail:
         enabled.size > 0
@@ -189,6 +192,7 @@ function preserveStableSelection(
       next = {
         ...next,
         quotePrice: prior.quotePrice,
+        quoteStale: true,
         qualification: prior.qualification,
         qualificationDetail: `${prior.qualificationDetail} Last-good conversion retained.`,
         positionCount: next.positionCount ?? prior.positionCount,

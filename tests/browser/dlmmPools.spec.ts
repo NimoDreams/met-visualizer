@@ -9,6 +9,7 @@ import {
 import oracle from "../../src/test/fixtures/lbPairOracle.json" with { type: "json" };
 import positionOracle from "../../src/test/fixtures/positionOracle.json" with { type: "json" };
 import { encodeBase58 } from "../../src/domain/base58";
+import { expectMinimumTouchTargets } from "./touchTargets";
 
 test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async ({
   page,
@@ -17,6 +18,7 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   const rpcMarker = "dlmm-browser-secret";
   const externalRequests: string[] = [];
   let positionSnapshotScans = 0;
+  let failQuote = false;
   const now = Math.floor(Date.now() / 1_000);
   const positionAddresses = Array.from({ length: 1_800 }, (_, index) =>
     numberedAddress(index),
@@ -26,6 +28,10 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
     const url = route.request().url();
     externalRequests.push(url);
     if (url.includes("/simple/")) {
+      if (failQuote) {
+        await route.abort("failed");
+        return;
+      }
       await route.fulfill({
         json: {
           data: {
@@ -298,6 +304,48 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   await expect(page.locator(".compact-workspace-status")).toContainText(
     /selected and included.*known value/i,
   );
+  const positionControls = () => [
+    page.getByRole("button", { name: "Chart" }),
+    page.getByRole("button", { name: "Positions", exact: true }),
+    page.getByRole("button", { name: "Refresh pools" }),
+    page.getByLabel("Minimum position value (USD)"),
+    page.getByRole("button", { name: "Apply" }),
+    page.getByRole("button", { name: "Largest contributors" }),
+    page.getByRole("button", { name: "Show all valued" }),
+    page.getByRole("button", { name: "Clear filter" }),
+    page.getByRole("button", { name: "Refresh positions" }),
+    page.getByRole("button", { name: "Load next 100" }),
+    page.getByRole("button", { name: "Load all" }),
+    page.locator(".pool-entry summary").first(),
+    poolToggle,
+    page.locator(".position-row").first(),
+    firstPosition,
+  ];
+  await expectMinimumTouchTargets(positionControls());
+
+  failQuote = true;
+  await page.getByRole("button", { name: "Refresh positions" }).click();
+  await expect(
+    page.getByText(/Position refresh failed.*Last-good snapshot remains/),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator(".compact-workspace-status")).toContainText(
+    "Positions stale",
+  );
+  await poolToggle.uncheck();
+  await expect(page.locator(".compact-workspace-status")).not.toContainText(
+    "Positions stale",
+  );
+  await poolToggle.check();
+  await expect(page.locator(".compact-workspace-status")).toContainText(
+    "Positions stale",
+    { timeout: 30_000 },
+  );
+  failQuote = false;
+  await page.getByRole("button", { name: "Refresh positions" }).click();
+  await expect(page.locator(".compact-workspace-status")).toContainText(
+    "Positions current",
+    { timeout: 30_000 },
+  );
 
   await page.getByRole("link", { name: "Docs" }).click();
   await expect(page.getByRole("heading", { name: "Docs" })).toBeFocused();
@@ -319,6 +367,7 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   await expect(paneSwitch).toBeVisible();
   await page.getByRole("button", { name: "Positions" }).click();
   await expect(page.locator(".workspace-positions")).toBeVisible();
+  await expectMinimumTouchTargets(positionControls());
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

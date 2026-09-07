@@ -9,6 +9,10 @@ Status: implementation evidence for issue #21; independent review pending.
   retry states. Initial chart and pool errors have local retries. A failed
   refresh keeps last-good data visible, and a failure in one pane does not
   prevent the other pane from completing.
+- Compact position health is derived only from currently enabled pools. A
+  disabled pool keeps its position selection and last-good state for re-enable,
+  but its stale quote, failed load, or cancelled work cannot contaminate the
+  active status or enabled-pool denominator.
 - Wide screens keep the accepted 70/30 chart and positions layout. Constrained
   screens stack the panes. Portrait and rotated narrow-phone viewports show one
   state-preserving Chart/Positions mode at a time with a compact reference,
@@ -19,15 +23,19 @@ Status: implementation evidence for issue #21; independent review pending.
 - Keyboard users receive a visible skip link, route focus, visible focus rings,
   native labeled controls, and the existing chart liquidity-row inspection.
   Live status and error regions name async progress without relying on color.
-  Touch controls meet a 44-pixel target in phone layouts, text colors preserve
-  at least a 4.5:1 representative rendered contrast ratio, and reduced-motion
-  preferences suppress CSS animation and transition duration.
+  Browser bounds confirm at least 44 by 44 pixels for primary navigation,
+  onboarding fields/actions, pane switches, retries, filters, pool controls,
+  position checkboxes, and loading actions in both phone orientations. Text
+  colors preserve at least a 4.5:1 representative rendered contrast ratio, and
+  reduced-motion preferences suppress CSS animation and transition duration.
 - The in-app Docs disclose onboarding, session-only RPC privacy, read-only
   scope, reference selection, Market Cap/FDV/Price semantics, current-supply
   history, data sources and cadence, pool selection, progressive loading,
   current-principal valuation, overlay/filter denominators, snapshot recovery,
   attribution, and provider/RPC limits. Navigation contains no token or RPC
-  value.
+  value. The text preserves GeckoTerminal's returned top-pool order, explains
+  that portable RPC fetches every full PositionV2 account before Worker ranking,
+  and identifies filters as temporary masks over persistent checkbox selection.
 
 ## Provider And Attribution Check
 
@@ -48,8 +56,11 @@ provider-independent recovery, last-good chart staleness, the complete
 case pans the chart, changes a filter and selection, switches at 390×844 and
 844×390, enters and exits Docs, and verifies that its active mode, contributor
 filter, selection, known-value summary, and viewport survive. It also asserts
-no horizontal page overflow. Role- and label-based browser interaction exercises
-the primary workflow through the rendered accessibility names.
+no horizontal page overflow. It measures the complete required touch-control
+set at both viewports, then proves that disabling a pool clears its retained
+stale status from the compact summary and re-enabling restores that state.
+Role- and label-based browser interaction exercises the primary workflow through
+the rendered accessibility names.
 
 Current automated browser coverage uses the repository's installed Chromium
 project. No additional browser engine is installed in the project, so broader
@@ -72,10 +83,10 @@ npm run verify:artifact
 git diff --check
 ```
 
-The unit suite contains 20 files and 102 tests. The deterministic browser suite
+The unit suite contains 21 files and 107 tests. The deterministic browser suite
 contains seven Chromium tests, and both live provider proofs pass. The
-production build contains 47 modules. Its JavaScript bundle is 453.73 kB
-(142.43 kB gzip), CSS is 14.04 kB (3.85 kB gzip), and the position worker is
+production build contains 48 modules. Its JavaScript bundle is 454.74 kB
+(142.89 kB gzip), CSS is 14.30 kB (3.92 kB gzip), and the position worker is
 5.28 kB. The artifact verifier checks four files for the project base, source
 maps, credentials, and prohibited package markers.
 

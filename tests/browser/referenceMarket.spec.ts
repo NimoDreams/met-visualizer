@@ -6,6 +6,7 @@ import {
   TOKEN_MINT,
   tokenResponse,
 } from "../../src/test/fixtures/geckoTerminal";
+import { expectMinimumTouchTargets } from "./touchTargets";
 
 test("loads an identified keyless reference chart without disclosing the RPC", async ({
   page,
@@ -55,6 +56,21 @@ test("loads an identified keyless reference chart without disclosing the RPC", a
   await expect(page.locator("canvas").first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Retry pools" })).toBeVisible();
   await expect(page.getByRole("img", { name: /FIX Market Cap/ })).toBeVisible();
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expectMinimumTouchTargets([
+      page.getByLabel("Reference market"),
+      page.getByRole("button", { name: "Refresh", exact: true }),
+    ]);
+    await page.getByRole("button", { name: "Positions", exact: true }).click();
+    await expectMinimumTouchTargets([
+      page.getByRole("button", { name: "Retry pools" }),
+    ]);
+    await page.getByRole("button", { name: "Chart" }).click();
+  }
 
   expect(marketRequests.length).toBe(3);
   expect(marketRequests.every((url) => !url.includes(rpcMarker))).toBe(true);
@@ -157,9 +173,19 @@ test("recovers the chart independently while an empty RPC pool result remains us
   await expect(
     page.getByText(/No Meteora DLMM pools were discovered/),
   ).toBeVisible();
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expectMinimumTouchTargets([
+      page.getByRole("button", { name: "Retry chart" }),
+    ]);
+  }
 
   chartAvailable = true;
   await page.getByRole("button", { name: "Retry chart" }).click();
   await expect(page.getByRole("img", { name: /FIX Market Cap/ })).toBeVisible();
+  await page.getByRole("button", { name: "Positions", exact: true }).click();
   await expect(page.getByText("0 of 0 pools enabled")).toBeVisible();
 });

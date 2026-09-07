@@ -103,4 +103,38 @@ describe("App", () => {
     ).toHaveFocus();
     expect(window.location.hash).toBe("#/");
   });
+
+  it("documents the reviewed market, loading, and selection boundaries", () => {
+    window.location.hash = "#/docs";
+    render(<App />);
+
+    expect(
+      screen.getByText(/preserves geckoterminal’s returned top-pool order/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/completed usd candles are unusable or incorrectly/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/provider market cap follows geckoterminal/i),
+    ).toHaveTextContent(
+      /not a circulating supply calculation verified by this project/i,
+    );
+    expect(
+      screen.getByText(/fetches every complete positionv2 account/i),
+    ).toHaveTextContent(/do not avoid the initial complete-account reads/i);
+    expect(
+      screen.getByText(/filters are temporary inclusion masks/i),
+    ).toHaveTextContent(
+      /restores each position’s prior manual checkbox selection/i,
+    );
+    expect(
+      screen.getByText(/before any manual position change/i),
+    ).toHaveTextContent(/remain unselected until you select them/i);
+    const referenceCopy = screen
+      .getByRole("heading", { name: "Reference-market selection" })
+      .closest("section");
+    expect(referenceCopy).not.toHaveTextContent(
+      /ranked by usd reserve|24-hour volume|blacklisted|inactive|non-usd/i,
+    );
+  });
 });

@@ -20,6 +20,10 @@ import {
   type PoolOverlayInput,
 } from "../domain/liquidityOverlay";
 import type { ReferenceMarketSession } from "../domain/referenceMarket";
+import {
+  describePanelStatus,
+  type PositionsPanelStatus,
+} from "./positionsPanelStatus";
 
 type DlmmPoolsPanelProps = {
   mint?: string;
@@ -28,21 +32,6 @@ type DlmmPoolsPanelProps = {
   hoveredPositionKeys?: readonly string[];
   onOverlayChange?: (model?: LiquidityOverlayModel) => void;
   onStatusChange?: (status: PositionsPanelStatus) => void;
-};
-
-export type PositionsPanelStatus = {
-  state:
-    | "idle"
-    | "loading"
-    | "current"
-    | "incomplete"
-    | "stale"
-    | "cancelled"
-    | "error";
-  label: string;
-  selectedIncluded: number;
-  valued: number;
-  coverage?: number;
 };
 
 export function DlmmPoolsPanel({
@@ -98,7 +87,14 @@ export function DlmmPoolsPanel({
   }, [mint, onOverlayChange, overlay, readySession]);
 
   useEffect(() => {
-    onStatusChange?.(describePanelStatus(state, overlay, positionStates));
+    onStatusChange?.(
+      describePanelStatus(
+        state,
+        overlay,
+        positionStates,
+        state.status === "ready" ? state.session.enabledAddresses : [],
+      ),
+    );
   }, [onStatusChange, overlay, positionStates, state]);
 
   const largestSignature = overlay.largestTargetKeys.join("|");
@@ -952,43 +948,4 @@ function formatAxisRange(minimum?: number, maximum?: number): string {
 
 function overlayAxisLabel(model: LiquidityOverlayModel): string {
   return model.axisLabel ?? "the unavailable reference axis";
-}
-
-function describePanelStatus(
-  state: ReturnType<typeof useDlmmPools>["state"],
-  overlay: LiquidityOverlayModel,
-  positions: Record<string, PoolPositionsState>,
-): PositionsPanelStatus {
-  const shared = {
-    selectedIncluded: overlay.selectedIncludedCount,
-    valued: overlay.valuedCount,
-    coverage: overlay.filteredValuePercent,
-  };
-  if (state.status === "idle")
-    return { state: "idle", label: "Positions waiting", ...shared };
-  if (state.status === "loading")
-    return { state: "loading", label: "Pools loading", ...shared };
-  if (state.status === "error")
-    return { state: "error", label: "Pools unavailable", ...shared };
-  const positionStates = Object.values(positions);
-  const sessionStale = positionStates.some(
-    (positionState) =>
-      positionState.status === "ready" && positionState.session.stale,
-  );
-  if (
-    state.session.rpcStale ||
-    state.session.metadataStale ||
-    state.session.quoteStale ||
-    sessionStale
-  )
-    return { state: "stale", label: "Positions stale", ...shared };
-  if (state.refreshing || overlay.refreshingPoolCount > 0)
-    return { state: "loading", label: "Positions loading", ...shared };
-  if (positionStates.some(({ status }) => status === "error"))
-    return { state: "error", label: "Positions unavailable", ...shared };
-  if (positionStates.some(({ status }) => status === "cancelled"))
-    return { state: "cancelled", label: "Positions cancelled", ...shared };
-  return overlay.completeDenominator
-    ? { state: "current", label: "Positions current", ...shared }
-    : { state: "incomplete", label: "Positions incomplete", ...shared };
 }

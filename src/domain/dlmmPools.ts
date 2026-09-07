@@ -38,6 +38,7 @@ export type DlmmPoolItem = {
   qualificationDetail: string;
   positionCount?: number;
   quotePrice?: QuotePrice;
+  quoteStale?: boolean;
 };
 
 export type DlmmPoolSession = {

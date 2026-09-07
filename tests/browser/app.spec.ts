@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectMinimumTouchTargets } from "./touchTargets";
 
 test("serves the project base and preserves hash navigation across reload", async ({
   page,
@@ -79,6 +80,21 @@ test("supports keyboard navigation, responsive pane switching, and reduced motio
   await expect(page.locator(".compact-workspace-status")).toContainText(
     "Chart waiting · Positions waiting",
   );
+  const primaryControls = () => [
+    page.getByRole("link", { name: "Met Visualizer home" }),
+    page.getByRole("link", { name: "Visualizer", exact: true }),
+    page.getByRole("link", { name: "Docs" }),
+    page.getByLabel("Your Solana RPC endpoint"),
+    page.getByRole("button", { name: "Connect RPC" }),
+    page.getByLabel("Token contract address (CA)"),
+    page.getByRole("button", { name: "Load token" }),
+    page.getByRole("button", { name: "Chart" }),
+    page.getByRole("button", { name: "Positions" }),
+  ];
+  await expectMinimumTouchTargets(primaryControls());
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expectMinimumTouchTargets(primaryControls());
+  await page.setViewportSize({ width: 390, height: 844 });
   const reducedAnimationDuration = await page
     .locator(".mobile-pane-switch")
     .evaluate((element) => getComputedStyle(element).animationDuration);

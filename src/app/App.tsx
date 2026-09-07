@@ -3,10 +3,8 @@ import {
   ReferenceMarketPanel,
   type ReferencePanelStatus,
 } from "../chart/ReferenceMarketPanel";
-import {
-  DlmmPoolsPanel,
-  type PositionsPanelStatus,
-} from "../components/DlmmPoolsPanel";
+import { DlmmPoolsPanel } from "../components/DlmmPoolsPanel";
+import type { PositionsPanelStatus } from "../components/positionsPanelStatus";
 import { isSolanaAddress } from "../domain/solanaAddress";
 import type { ReferenceMarketSession } from "../domain/referenceMarket";
 import type { LiquidityOverlayModel } from "../domain/liquidityOverlay";
@@ -71,21 +69,28 @@ function DocsView({ hidden }: { hidden: boolean }) {
         <section className="surface">
           <h2>Reference-market selection</h2>
           <p>
-            GeckoTerminal candidates are ranked by USD reserve, then 24-hour
-            volume and address. The app validates completed candles from up to
-            three candidates, excluding blacklisted, inactive, non-USD, and
-            structurally invalid markets. It keeps the identified market stable
-            across refreshes. Only your Reference market selection changes it.
+            The app preserves GeckoTerminal’s returned top-pool order and checks
+            up to three candidates in that order. It rejects candidates whose
+            completed USD candles are unusable or incorrectly oriented, then
+            selects the first usable candidate with adequate history. If none
+            has adequate history, it uses the first candidate with usable
+            completed USD candles and labels the history limited. It keeps that
+            market stable across refreshes. Only your Reference market selection
+            changes it.
           </p>
         </section>
         <section className="surface">
           <h2>Market Cap, FDV, and Price</h2>
           <p>
-            Verified provider market cap is preferred. Otherwise the chart uses
-            current on-chain mint supply and says FDV. If supply is unavailable,
-            it uses Price (USD). Historical valuation candles reuse that current
-            session supply, so they are price history scaled by one present
-            supply observation rather than historical supply records.
+            A non-null provider Market Cap follows GeckoTerminal and its
+            upstream CoinGecko asset-level supply methodology; it is not a
+            circulating supply calculation verified by this project and can
+            include supply outside this Solana mint for a multichain asset.
+            Otherwise the chart uses current on-chain mint supply and says FDV.
+            If supply is unavailable, it uses Price (USD). Historical valuation
+            candles reuse that current session supply, so they are price history
+            scaled by one present supply observation rather than historical
+            supply records.
           </p>
         </section>
         <section className="surface">
@@ -133,13 +138,15 @@ function DocsView({ hidden }: { hidden: boolean }) {
         <section className="surface">
           <h2>Progressive position loading</h2>
           <p>
-            Enabled pools load all owners’ PositionV2 accounts in bounded RPC
-            batches, rank a compact snapshot, then hydrate the largest positions
-            first. The initial view targets at least 25 positions and, when a
+            Portable RPC first discovers every PositionV2 key and fetches every
+            complete PositionV2 account in bounded batches, plus the pool’s bin
+            arrays. A Worker then decodes, values, and ranks compact results.
+            The initial view reveals at least 25 ranked positions and, when a
             complete value denominator exists, about 80% of known value. Load
-            next adds a bounded batch; Load all continues progressively. Cancel
-            stops active work. Count and value coverage answer different
-            questions and are shown separately.
+            next and Load all reveal more already-ranked results and their
+            retained full details; they do not avoid the initial
+            complete-account reads. Cancel stops active work. Count and value
+            coverage answer different questions and are shown separately.
           </p>
         </section>
         <section className="surface">
@@ -160,7 +167,11 @@ function DocsView({ hidden }: { hidden: boolean }) {
             current USD position value across every enabled pool. Largest
             contributors becomes available only when every enabled pool shares
             one coherent, complete valuation generation; it covers about 80% of
-            known value.
+            known value. Filters are temporary inclusion masks: clearing one
+            restores each position’s prior manual checkbox selection. Before any
+            manual position change, later revealed eligible positions join the
+            selection automatically. After a manual change, positions revealed
+            or valued later remain unselected until you select them.
           </p>
         </section>
         <section className="surface">

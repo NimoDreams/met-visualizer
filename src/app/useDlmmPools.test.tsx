@@ -74,6 +74,11 @@ describe("useDlmmPools", () => {
     expect(quoteFailure.enabledAddresses).toEqual([oracle.address]);
     expect(quoteFailure.quoteStale).toBe(true);
     expect(quoteFailure.pools[0]?.quotePrice?.priceUsd).toBe(150);
+
+    act(() => result.current.toggle(oracle.address));
+    expect(readySession(result.current.state).quoteStale).toBe(false);
+    act(() => result.current.toggle(oracle.address));
+    expect(readySession(result.current.state).quoteStale).toBe(true);
   });
 
   it("keeps last-good pool data visibly stale when RPC refresh fails", async () => {
