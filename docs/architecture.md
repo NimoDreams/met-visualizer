@@ -47,6 +47,13 @@ caps provider deferrals at five minutes, and keeps timer delays within the
 signed 32-bit browser range. GeckoTerminal's response cache is a 256-entry LRU
 that removes expired entries.
 
+RPC `fetch` calls explicitly use `cache: no-store`, `credentials: omit`, and
+`referrerPolicy: no-referrer`. Redirects fail closed, so users must provide the
+RPC operator's final HTTPS endpoint; paths and query credentials remain usable
+only in session memory. DLMM account hydration requests carry the newest
+required `minContextSlot`, reject older or unsafe response slots, and advance
+that minimum across batches before decoding validated account entries.
+
 Public-provider parsing fails closed before selection or numeric work. A
 response may expose at most 100 reference-market candidates, 1,000 candles, or
 100 quote mints. Names are limited to 256 Unicode code points and symbols/DEX

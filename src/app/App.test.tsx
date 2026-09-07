@@ -142,6 +142,9 @@ describe("App", () => {
     ).toHaveTextContent(
       /ordinary network metadata.*never forwards your rpc endpoint/i,
     );
+    expect(
+      screen.getByText(/caching disabled, ambient credentials omitted/i),
+    ).toHaveTextContent(/no referrer.*redirects fail closed/i);
     const referenceCopy = screen
       .getByRole("heading", { name: "Reference-market selection" })
       .closest("section");

@@ -44,6 +44,24 @@ describe("useDlmmPools", () => {
     expect(readySession(result.current.state).mint).toBe(JUP);
   });
 
+  it("shows a stale hydration error and recovers through the existing retry", async () => {
+    const rpc = new OnePoolRpc();
+    const metadata = new ToggleMetadataProvider();
+    const gecko = new OneQuoteProvider();
+    rpc.hydrationSlot = 0;
+    const { result } = renderHook(() =>
+      useDlmmPools(JUP, rpc, metadata, gecko),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe("error"));
+    if (result.current.state.status !== "error")
+      throw new Error("expected the stale hydration error state");
+    expect(result.current.state.message).toMatch(/minimum context slot/i);
+    rpc.hydrationSlot = 2;
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+  });
+
   it("preserves the enabled pool and last-good metadata on provider refresh failure", async () => {
     const rpc = new OnePoolRpc();
     const metadata = new ToggleMetadataProvider();
@@ -140,6 +158,7 @@ describe("useDlmmPools", () => {
 
 class OnePoolRpc implements ReadOnlySolanaRpc {
   fail = false;
+  hydrationSlot = 2;
 
   getTokenSupply<T>(): Promise<T> {
     throw new Error("not used");
@@ -171,7 +190,7 @@ class OnePoolRpc implements ReadOnlySolanaRpc {
   getMultipleAccounts<T>(): Promise<T> {
     if (this.fail) return Promise.reject(new Error("fixture RPC unavailable"));
     return Promise.resolve({
-      context: { slot: 2 },
+      context: { slot: this.hydrationSlot },
       value: [account(poolAccount(JUP))],
     } as T);
   }

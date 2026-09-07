@@ -117,6 +117,10 @@ export class NativeReadOnlySolanaRpc implements ReadOnlySolanaRpc {
         init: {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          credentials: "omit",
+          referrerPolicy: "no-referrer",
+          redirect: "error",
           body: JSON.stringify({
             jsonrpc: "2.0",
             id: this.#nextId++,
@@ -128,7 +132,12 @@ export class NativeReadOnlySolanaRpc implements ReadOnlySolanaRpc {
     );
 
     if ("error" in response) {
-      throw new Error(`Solana RPC read failed (${response.error.code}).`);
+      const code = response.error.code;
+      throw new Error(
+        Number.isSafeInteger(code)
+          ? `Solana RPC read failed (${code}).`
+          : "Solana RPC read failed.",
+      );
     }
 
     return response.result;
