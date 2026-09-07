@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Check formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Run unit tests
+        run: npm run test
+      - name: Build and inspect production artifact
+        run: npm run build && npm run verify:artifact
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run browser tests
+        run: npm run test:browser
+      - name: Run cross-engine touch tests
+        run: npm run test:browser:touch

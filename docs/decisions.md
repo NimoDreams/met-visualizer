@@ -120,6 +120,23 @@ Consequence: Production imports exclude wallet, signer, transaction,
 instruction, subscription, and send modules. SDK/layout changes fail visibly
 until decoding compatibility is re-established.
 
+## 2026-09-06: Start The RPC Boundary With Native Fetch
+
+Context: The first SPA scaffold needs three account-read shapes, request
+cancellation, timeouts, and separated errors. Adding a Solana RPC runtime package
+would increase the initial public bundle before the application needs its wider
+surface.
+
+Decision: Implement a transport-independent read-provider interface backed by
+native JSON-RPC `fetch`. Allow only `getProgramAccounts`, `getMultipleAccounts`,
+and separately typed `getProgramAccountsV2`. Keep the endpoint private to the
+session client and accept HTTPS only.
+
+Consequence: The first production JavaScript is roughly 116 kB gzip including
+React and Lightweight Charts, with no Solana RPC runtime package. Replacement
+remains possible behind the interface if later type or transport evidence
+justifies it. Replacing or disconnecting the RPC aborts the prior session.
+
 ## 2026-09-06: Use Main-Only GitHub Pages Deployment
 
 Context: GitHub Pages provides one static project site at a repository path and
@@ -183,6 +200,31 @@ compact ranking values qualify, while unopened pools remain visibly out of scope
 Responsive tests must preserve selection, loading, and chart state while changing
 modes or orientation.
 
+## 2026-09-06: Use Exact Project-Owned Position Decoders And Bounded RPC Batches
+
+Context: PositionV2 stores 70 shares in its fixed body and appends one 112-byte
+`positionBinData` record for every additional bin, up to a width of 1,400. A
+single standard-RPC `dataSlice` cannot include the fixed shares, trailing range
+bounds, and variable extension together. Omitting an extension would understate
+the largest-position ranking.
+
+Decision: Discover every PositionV2 key for each enabled pool, hydrate full
+accounts in batches of 100, scan that pool's BinArrays once, and move exact
+bigint share/bin valuation plus sorting into an abortable Web Worker. Validate
+the minimal decoders against the pinned official SDK/IDL oracle and reject any
+account whose exact extension length, discriminator, owner, or pool relationship
+does not match. Keep the full transaction-capable SDK outside production.
+Aggregate the position's token-X and token-Y principal from those bin shares,
+then value it with one current active-bin conversion price. Preserve the public
+USD quote as an exact decimal rational until display rounding. Refreshing
+positions obtains a fresh quote with its own observation timestamp and preserves
+same-pool selection and continuation state.
+
+Consequence: Large portable sessions pay the measured full-account bandwidth
+cost before largest-first presentation, but remain compatible with ordinary
+RPCs and never claim an incomplete value denominator. Provider-specific compact
+indexes can be evaluated later behind the same boundary.
+
 ## 2026-09-06: Enable The Largest Eligible Meteora Pool First
 
 Context: Pool discovery can return hundreds of DLMM pools, many without
@@ -201,6 +243,30 @@ immediately meaningful overlay without eagerly hydrating every pool or trusting
 provider metadata over on-chain identity. Representative implementation evidence
 must include newer memecoin cases with short history and FDV fallback as well as
 the JUP stress case.
+
+## 2026-09-06: Render Exact Current Liquidity On The Reference Axis
+
+Context: Positions from different DLMM pools may put the entered token on either
+side, use different quote-token decimals, and distribute principal across many
+bins. Traders need one comparable view without treating future bin prices as
+current position value.
+
+Decision: Normalize each selected bin to the reference session's Market Cap,
+FDV, or Price axis using its pool orientation, decimal scale, current public
+quote-token USD price, and the reference session's fixed display supply. Use bin
+prices only for vertical placement. Apportion each position's reviewed current
+principal value exactly across its bins according to current active-bin value.
+Apply minimum-USD and complete-denominator 80% masks globally across enabled
+pools while preserving underlying checkbox selection.
+
+Consequence: Contributions reconcile with the position-value denominator, and
+different pools share one visible scale. Unsupported conversions remain in the
+position list with their overlay disabled. Existing contributor masks remain
+stable while refresh makes the denominator incomplete; users cannot recompute
+the 80% set until every enabled pool is complete again. Adding an enabled pool
+or requesting a position refresh advances one coordinator generation and
+refreshes every enabled pool into it; independently observed generations cannot
+claim one complete denominator.
 
 ## 2026-09-06: Complete Phase 0 And Begin Phase 1
 

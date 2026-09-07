@@ -1,6 +1,6 @@
 # Project Context
 
-## Current State — 2026-09-06
+## Current State — 2026-09-07
 
 Phase 0 is complete. Its product, feasibility, loading, provider, UX, technical,
 branch, privacy, and safety direction was independently reviewed and accepted by
@@ -10,8 +10,9 @@ the user on 2026-09-06. Phase 1 implementation is authorized and tracked in
 
 - Local: /Users/nimo/Documents/Development/met-visualizer
 - GitHub: NimoDreams/met-visualizer
-- `main` holds the accepted Phase 0 baseline. `dev` is the Phase 1 integration
-  branch; issue branches start from and target `dev`.
+- `main` holds the accepted Phase 0 baseline. `dev` holds accepted Phase 1
+  candidate `8471b0367e34ee02c47a6b9148201a8e32067dbb`; issue branches start
+  from and target `dev`.
 - Phase 0 [epic #1](https://github.com/NimoDreams/met-visualizer/issues/1) and
   milestone are closed; the [roadmap](roadmap.md) links active Phase 1 work.
 - PM, Developer, and Code Reviewer remain separate roles. Reviewers must post
@@ -64,9 +65,12 @@ Docker Compose. See the [technical foundation](specs/technical-foundation.md).
 
 ## Active Delivery Gate
 
-Start with [issue #16](https://github.com/NimoDreams/met-visualizer/issues/16).
-Keep later issues queued behind their documented dependencies. GitHub Pages
-activation and eventual `dev` to `main` promotion require separate user approval.
+[Issues #16–#22 and #31](https://github.com/NimoDreams/met-visualizer/issues/15)
+are merged in `dev`. The [Phase 1 completion review](reviews/phase-1-completion.md)
+was independently reviewed, and the user accepted exact `dev` candidate
+`8471b0367e34ee02c47a6b9148201a8e32067dbb` for promotion on 2026-09-07. Issue
+#23 is the active checklist and `dev` to `main` promotion gate. GitHub Pages
+activation remains separate and is not yet authorized.
 
 ## Read Next
 
