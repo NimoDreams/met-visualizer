@@ -1104,6 +1104,10 @@ button:disabled {
     height: 44px;
   }
 
+  .workspace select {
+    height: 44px;
+  }
+
   .mobile-workspace-header {
     display: grid;
     gap: 9px;

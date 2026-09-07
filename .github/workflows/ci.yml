@@ -32,7 +32,9 @@ jobs:
         run: npm run test
       - name: Build and inspect production artifact
         run: npm run build && npm run verify:artifact
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium firefox webkit
       - name: Run browser tests
         run: npm run test:browser
+      - name: Run cross-engine touch tests
+        run: npm run test:browser:touch
