@@ -58,12 +58,13 @@ test("clears the RPC on reload and never puts it in storage or the URL", async (
 
 test("supports keyboard navigation, responsive pane switching, and reduced motion", async ({
   page,
+  browserName,
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("./#/");
 
-  await page.keyboard.press("Tab");
+  await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
   const skip = page.getByRole("link", { name: "Skip to main content" });
   await expect(skip).toBeFocused();
   await page.keyboard.press("Enter");
