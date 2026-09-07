@@ -64,13 +64,13 @@ Docker Compose. See the [technical foundation](specs/technical-foundation.md).
 
 ## Active Delivery Gate
 
-[Issues #16–#20](https://github.com/NimoDreams/met-visualizer/issues/15) are
-merged in `dev`. Issue #21 is the active refresh, failure, Docs, responsive, and
-accessibility completion work. It preserves the reviewed data and interaction
-contracts while adding independent recovery and a state-preserving narrow-phone
-mode. Issue #22 remains the integrated release-candidate verification gate.
-GitHub Pages activation and eventual `dev` to `main` promotion require separate
-user approval.
+[Issues #16–#21 and #31](https://github.com/NimoDreams/met-visualizer/issues/15)
+are merged in `dev`. Issue #22 is verifying exact application candidate
+`cf56630713155fa966536bb103cc2763bd35d089` across the integrated product,
+provider, browser, accessibility, artifact, privacy, and safety gates. Its
+[completion review](reviews/phase-1-completion.md) remains subject to independent
+review. Issue #23, GitHub Pages activation, and eventual `dev` to `main`
+promotion remain separate user-approved gates.
 
 ## Read Next
 

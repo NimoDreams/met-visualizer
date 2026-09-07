@@ -1,6 +1,8 @@
 # Phase 1 Experience Completion Proof
 
-Status: implementation evidence for issue #21; independent review pending.
+Status: implementation evidence for issue #21, independently reviewed and
+merged through PR #30. The focused WebKit touch-target correction in issue #31
+was independently reviewed and merged through PR #32.
 
 ## Contract Exercised
 
