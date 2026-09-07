@@ -297,3 +297,20 @@ Consequence: Security and privacy scans should recognize these two identifiers
 as approved public data rather than credentials. Do not resolve SNS at runtime
 or add a wallet, payment URI, QR flow, transaction construction, external
 provider, analytics, persistence, backend, or navigation behavior.
+
+## 2026-09-07: Remove Current-Tree PII Without Rewriting Published History
+
+Context: The public-launch audit found workstation-specific paths in the current
+tracked documentation and identified commit identity as public metadata that
+must be intentionally approved. The Tip Jar SNS name and canonical Solana
+address remain explicitly authorized public identifiers.
+
+Decision: Use portable repository-relative references in public docs and logs,
+and require a GitHub noreply email or another explicitly approved public email
+for commit authors and committers. Remove the current-tree path findings in
+issue #42. Do not rewrite published Git history as part of this remediation.
+
+Consequence: The current tracked tree and production artifact can be verified
+without workstation paths or unapproved identity metadata. A history rewrite
+remains a separate explicit user decision because it would replace published
+commit identities and SHAs.
