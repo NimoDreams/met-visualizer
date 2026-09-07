@@ -314,3 +314,27 @@ Consequence: The current tracked tree and production artifact can be verified
 without workstation paths or unapproved identity metadata. A history rewrite
 remains a separate explicit user decision because it would replace published
 commit identities and SHAs.
+
+## 2026-09-07: Apply Public-Launch Defense-In-Depth Before Pages
+
+Context: The browser must call fixed public providers and an arbitrary
+user-provided HTTPS RPC, while a static GitHub Pages site cannot add response
+headers. The repository also needs enforceable review and CI gates before public
+deployment.
+
+Decision: Enforce CSP and no-referrer policy in the production HTML document.
+Allow self-hosted scripts, styles, images, and Workers, one pinned Lightweight
+Charts attribution style, inline chart-layout attributes, embedded data images,
+and HTTPS connections; deny other resource types and navigation bases. Require pull
+requests, current CI, and resolved review conversations on `main` and `dev`,
+protect both branches from force-push and deletion, require Action references at
+full commit SHAs, and enable GitHub's available dependency, code, secret, and
+private-reporting controls. Keep required approvals at zero because this public
+repository currently has one GitHub owner; independent reviewers still leave the
+project's required GitHub-visible readiness signal.
+
+Consequence: Browser policy preserves arbitrary HTTPS RPC compatibility but does
+not act as an RPC hostname allowlist. Repository controls enforce the existing
+PR and verification workflow without making a second GitHub approver mandatory.
+GitHub Pages remains disabled until its separate reviewed and user-approved
+activation.

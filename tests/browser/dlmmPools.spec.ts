@@ -15,6 +15,15 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   page,
 }) => {
   test.setTimeout(60_000);
+  await page.addInitScript(() => {
+    const target = window as Window & { cspViolations?: string[] };
+    target.cspViolations = [];
+    window.addEventListener("securitypolicyviolation", (event) => {
+      target.cspViolations?.push(
+        `${event.effectiveDirective}: ${event.blockedURI}`,
+      );
+    });
+  });
   const rpcMarker = "dlmm-browser-secret";
   const externalRequests: string[] = [];
   let positionSnapshotScans = 0;
@@ -380,6 +389,12 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   expect(
     await page.evaluate(() => ({ ...localStorage, ...sessionStorage })),
   ).toEqual({});
+  expect(
+    await page.evaluate(
+      () =>
+        (window as Window & { cspViolations?: string[] }).cspViolations ?? [],
+    ),
+  ).toEqual([]);
 });
 
 function rpcAccount(data: string) {
