@@ -1,7 +1,7 @@
-# Phase 1 Promotion Preparation
+# Phase 1 Promotion Record
 
-Status: Stage 1 checklist for issue #23. This record must merge into `dev`
-before the actual `dev` to `main` promotion PR is opened.
+Status: issue #23 promotion completed on 2026-09-07. GitHub Pages activation was
+not part of the promotion and remains unapproved.
 
 ## Accepted Baseline
 
@@ -15,15 +15,14 @@ before the actual `dev` to `main` promotion PR is opened.
   `7371054409ea6a6ddadb595a54ebde775213b15d`. No promotion or Pages activation
   occurs in this checklist PR.
 
-Merging this documentation will create a later `dev` SHA. Before opening the
-promotion PR, record that exact SHA and confirm its change from the accepted
-baseline is limited to the reviewed promotion-preparation documentation.
+Stage 1 PR #34 added only the reviewed promotion documentation and produced
+final `dev` candidate `487801c8b8d36ffec4d2b4d076e34b030dc9b8e7`.
 
-## Readiness At Preparation
+## Reviewed Readiness
 
-- Issues #16–#22 and focused blocker #31 are closed. Only Phase 1 epic #15 and
-  promotion issue #23 remain open in the milestone.
-- No open PR targets `dev` or `main` before this checklist PR.
+- Issues #16–#22 and focused blocker #31 were closed before promotion. Only
+  Phase 1 epic #15 and promotion issue #23 remained open in the milestone.
+- No competing PR targeted `dev` or `main`.
 - PR #33 has an independent `ready to merge` signal covering correctness,
   providers, privacy, safety, accessibility, scope, evidence, and tests.
 - The [Phase 1 release review](phase-1-completion.md) records the application
@@ -35,23 +34,21 @@ baseline is limited to the reviewed promotion-preparation documentation.
   liquidity-write, persistence, analytics, backend, service worker, or Pages
   deployment surface.
 
-## Promotion Gates After This PR Merges
+## Promotion Result
 
-1. Confirm the checklist PR is reviewed and merged into `dev` and record the
-   resulting exact `dev` SHA.
-2. Confirm the only open Phase 1 items are epic #15 and promotion issue #23,
-   with no other PR open against `dev` or `main`.
-3. Re-run the documented format, lint, typecheck, unit, browser, build, artifact,
-   privacy, safety, and static-preview gates against that exact `dev` SHA.
-4. Open the actual PR from `dev` to `main` with the Phase 1 milestone,
-   `Closes #23`, the exact SHA, evidence, and the requirement to use a regular
-   merge commit.
-5. Obtain an independent GitHub-visible readiness signal on the promotion PR.
-   The user's promotion authorization applies to the accepted application
-   baseline; any intervening product change requires renewed review and
-   acceptance.
-6. After merge, fast-forward `dev` to the resulting `main` merge commit, push
-   the synchronization, verify the stable state, close epic #15, and then close
-   the Phase 1 milestone.
+- PR #35 promoted exact final `dev` candidate
+  `487801c8b8d36ffec4d2b4d076e34b030dc9b8e7` to `main` with `Closes #23` and the
+  Phase 1 milestone.
+- An independent reviewer posted `ready to merge` at that exact head after
+  reviewing the runbook, branch identity, user authorization, verification,
+  privacy, safety, scope, and regular-merge requirement.
+- PR #35 merged with the required regular merge commit
+  `19046d1f0dfae069a5847b2fb57bd662aa89aacd`. Issue #23 closed, and `dev` was
+  fast-forwarded so `main` and `dev` share that commit.
+- Exact stable-main format, lint, typecheck, 21-file/107-test, build, artifact,
+  diff, and local `/met-visualizer/` HTTP 200 checks passed after promotion.
+- No product behavior, dependency, privacy boundary, or read-only scope changed
+  during promotion.
 
-GitHub Pages activation remains a separate explicit user gate after promotion.
+Phase 1 is complete. Future phases are unplanned. GitHub Pages activation
+remains a separate explicit user gate.

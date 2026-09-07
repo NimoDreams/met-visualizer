@@ -26,9 +26,9 @@ Current reviews:
 - [Phase 1 liquidity-overlay proof](phase-1-liquidity-overlay-proof.md)
 - [Phase 1 experience-completion proof](phase-1-experience-completion-proof.md)
 - [Phase 1 release-candidate verification](phase-1-completion.md) — application
-  candidate evidence; independently reviewed and accepted by the user
-- [Phase 1 promotion preparation](phase-1-promotion-preparation.md) — active
-  Stage 1 checklist; promotion and Pages activation are not part of this PR
+  candidate evidence; independently reviewed, accepted, and promoted
+- [Phase 1 promotion record](phase-1-promotion-preparation.md) — reviewed
+  `dev`-to-`main` promotion and post-merge verification
 
 Before closing an epic or phase review, scan `docs/follow-ups.md` and promote
 relevant items into GitHub Issues, specs, decisions, or future planning notes.

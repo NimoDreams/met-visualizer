@@ -2,19 +2,16 @@
 
 ## Current State — 2026-09-07
 
-Phase 0 is complete. Its product, feasibility, loading, provider, UX, technical,
-branch, privacy, and safety direction was independently reviewed and accepted by
-the user on 2026-09-06. Phase 1 implementation is authorized and tracked in
-[milestone 2](https://github.com/NimoDreams/met-visualizer/milestone/2) and
-[epic #15](https://github.com/NimoDreams/met-visualizer/issues/15).
+Phase 0 planning and Phase 1 MVP delivery are complete. Phase 1 was verified,
+independently reviewed, accepted by the user, and promoted through PR #35 on
+2026-09-07.
 
 - Local: met-visualizer repository root
 - GitHub: NimoDreams/met-visualizer
-- `main` holds the accepted Phase 0 baseline. `dev` holds accepted Phase 1
-  candidate `8471b0367e34ee02c47a6b9148201a8e32067dbb`; issue branches start
-  from and target `dev`.
+- `main` and `dev` share promoted Phase 1 baseline
+  `19046d1f0dfae069a5847b2fb57bd662aa89aacd`.
 - Phase 0 [epic #1](https://github.com/NimoDreams/met-visualizer/issues/1) and
-  milestone are closed; the [roadmap](roadmap.md) links active Phase 1 work.
+  milestone are closed; the [roadmap](roadmap.md) records Phase 1 delivery.
 - PM, Developer, and Code Reviewer remain separate roles. Reviewers must post
   GitHub-visible readiness before merge.
 
@@ -63,14 +60,18 @@ Vite, Lightweight Charts, RPC-only Solana modules, minimum Meteora read decoders
 and a main-only GitHub Pages workflow. The local runtime intentionally excludes
 Docker Compose. See the [technical foundation](specs/technical-foundation.md).
 
-## Active Delivery Gate
+## Current Delivery State
 
-[Issues #16–#22 and #31](https://github.com/NimoDreams/met-visualizer/issues/15)
-are merged in `dev`. The [Phase 1 completion review](reviews/phase-1-completion.md)
-was independently reviewed, and the user accepted exact `dev` candidate
-`8471b0367e34ee02c47a6b9148201a8e32067dbb` for promotion on 2026-09-07. Issue
-#23 is the active checklist and `dev` to `main` promotion gate. GitHub Pages
-activation remains separate and is not yet authorized.
+[Issues #16–#23 and #31](https://github.com/NimoDreams/met-visualizer/issues/15)
+delivered the Phase 1 MVP. The [completion review](reviews/phase-1-completion.md)
+and [promotion record](reviews/phase-1-promotion-preparation.md) preserve exact
+candidate, review, verification, and branch evidence. Promotion PR #35 used a
+regular merge commit, and exact stable SHA
+`19046d1f0dfae069a5847b2fb57bd662aa89aacd` passed the post-merge checks.
+
+GitHub Pages activation remains separate and is not yet authorized. No later
+product phase, scope, or branch plan has been accepted; future work should begin
+with PM planning and GitHub Issues.
 
 ## Read Next
 

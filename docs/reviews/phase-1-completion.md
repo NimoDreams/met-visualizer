@@ -1,8 +1,8 @@
 # Phase 1 Release-Candidate Verification
 
-Status: issue #22 verification evidence, independently reviewed in PR #33 and
-accepted by the user on 2026-09-07. GitHub Pages activation and promotion to
-`main` remain pending.
+Status: issue #22 verification evidence, independently reviewed in PR #33,
+accepted by the user, and promoted to `main` through reviewed PR #35 on
+2026-09-07. GitHub Pages activation remains pending and unapproved.
 
 ## Candidate Identity
 
@@ -153,8 +153,10 @@ workflow; Pages is not activated.
   assistive technology, device, or an installed Safari release.
 - The actual GitHub Pages origin, deployment workflow, and post-deploy asset
   behavior cannot be tested until the user authorizes Pages activation.
-- This report completed issue #22 without activating Pages or promoting the
-  release. PR #33 received the required GitHub-visible readiness signal, and
-  the user accepted resulting `dev` candidate
-  `8471b0367e34ee02c47a6b9148201a8e32067dbb`. Issue #23 owns exact-final-`dev`
-  reverification and the documented merge-commit promotion flow.
+- PR #33 received the required GitHub-visible readiness signal, and the user
+  accepted resulting `dev` candidate
+  `8471b0367e34ee02c47a6b9148201a8e32067dbb`. Issue #23 reverified final `dev`,
+  and reviewed PR #35 promoted it with regular merge commit
+  `19046d1f0dfae069a5847b2fb57bd662aa89aacd`. `main` and `dev` were synchronized,
+  and the exact stable commit passed the post-merge checks. Pages remains a
+  separate explicit approval gate.
