@@ -8,7 +8,8 @@ acceptance, GitHub Pages activation, and promotion to `main` remain pending.
 - Application candidate: `cf56630713155fa966536bb103cc2763bd35d089` from
   `dev`. Every application, test fixture, dependency, and production artifact
   claim below applies to this commit.
-- Verification-report content: `REPORT_CONTENT_SHA`. This later commit adds the
+- Verification-report content:
+  `d921bc1c12d640995c5276233447474a5758689d`. This later commit adds the
   release-only browser instrumentation and this report; it does not change the
   application candidate. The PR head is recorded on GitHub because a commit
   cannot contain its own SHA.
@@ -155,4 +156,3 @@ workflow; Pages is not activated.
   An independent reviewer must leave the required GitHub-visible signal. After
   issue #22 merges, issue #23 must reverify the exact final `dev` SHA, receive
   explicit user approval, and use the documented merge-commit promotion flow.
-
