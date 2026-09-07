@@ -1,6 +1,6 @@
 # Phase 1 Position Loading Proof
 
-Status: implementation evidence for issue #19; independent review pending.
+Status: implemented and independently reviewed in issue #19 / PR #28.
 
 ## Contract exercised
 
