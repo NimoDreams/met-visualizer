@@ -33,6 +33,20 @@ pull requests, current CI, and resolved review conversations on `main` and
 and enable GitHub's available security scanning and private vulnerability
 reporting. Pages activation and its workflow remain a separate release gate.
 
+All provider JSON crosses one streaming, decompressed-byte boundary before
+`JSON.parse`: public responses stop at 2 MiB, `getTokenSupply` at 64 KiB, and
+allowed account RPC methods at 24 MiB. A valid oversized `Content-Length` fails
+before reading, while chunked responses are counted and cancelled as soon as
+they exceed their ceiling. Errors identify the provider and limit without
+including the endpoint, request URL/body, or response content.
+
+RPC endpoint input is limited to 4,096 UTF-16 code units, requires HTTPS, and
+cannot contain credentials or a fragment; provider paths and query keys remain
+supported in session memory. Public scheduling admits at most 64 queued items,
+caps provider deferrals at five minutes, and keeps timer delays within the
+signed 32-bit browser range. GeckoTerminal's response cache is a 256-entry LRU
+that removes expired entries.
+
 ## Selected Technical Foundation
 
 - Single root package using Node.js 24 LTS, npm, strict TypeScript, React 19.2,

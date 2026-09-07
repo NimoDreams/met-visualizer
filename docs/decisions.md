@@ -338,3 +338,22 @@ not act as an RPC hostname allowlist. Repository controls enforce the existing
 PR and verification workflow without making a second GitHub approver mandatory.
 GitHub Pages remains disabled until its separate reviewed and user-approved
 activation.
+
+## 2026-09-07: Bound Network Transport Before Domain Parsing
+
+Context: Public providers and a user-selected RPC are untrusted browser inputs.
+Whole-body JSON helpers, unbounded queues, and unbounded response caches could
+consume memory or leave timers deferred far beyond a useful session.
+
+Decision: Count decompressed response bytes while streaming and reject before
+JSON parsing above 2 MiB for public APIs, 64 KiB for `getTokenSupply`, or 24 MiB
+for allowed account RPC methods. Limit RPC endpoint input to 4,096 UTF-16 code
+units with HTTPS and no embedded credentials or fragment. Cap the public queue
+at 64, provider deferrals at five minutes, and the GeckoTerminal LRU cache at
+256 live entries.
+
+Consequence: Oversized or malformed transport input fails with a redacted,
+provider-specific error, and response streams are cancelled at the boundary.
+Paths and query keys remain usable for bring-your-own RPC providers. Higher-level
+provider schemas, account data, and session/Worker limits remain tracked by the
+dependent security-remediation issues.

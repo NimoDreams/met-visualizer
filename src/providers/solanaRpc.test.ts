@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcSessionManager } from "../app/session";
-import { NativeReadOnlySolanaRpc } from "./solanaRpc";
+import {
+  ACCOUNT_RPC_JSON_MAX_BYTES,
+  MAX_RPC_ENDPOINT_CODE_UNITS,
+  NativeReadOnlySolanaRpc,
+  TOKEN_SUPPLY_JSON_MAX_BYTES,
+  parseRpcEndpoint,
+} from "./solanaRpc";
 
 describe("NativeReadOnlySolanaRpc", () => {
   beforeEach(() => vi.restoreAllMocks());
@@ -39,7 +45,98 @@ describe("NativeReadOnlySolanaRpc", () => {
   it("rejects a non-HTTPS RPC endpoint", () => {
     expect(
       () => new NativeReadOnlySolanaRpc(new URL("http://rpc.example.invalid")),
-    ).toThrow("RPC endpoints must use HTTPS.");
+    ).toThrow("Use an HTTPS RPC endpoint.");
+  });
+
+  it("accepts endpoint input at 4,096 UTF-16 units with a path and query", () => {
+    const prefix = "https://rpc.example.invalid/custom/path?key=";
+    const value = `${prefix}${"x".repeat(MAX_RPC_ENDPOINT_CODE_UNITS - prefix.length)}`;
+
+    expect(value).toHaveLength(MAX_RPC_ENDPOINT_CODE_UNITS);
+    expect(parseRpcEndpoint(value)).toMatchObject({
+      pathname: "/custom/path",
+      search: `?key=${"x".repeat(MAX_RPC_ENDPOINT_CODE_UNITS - prefix.length)}`,
+    });
+  });
+
+  it("rejects endpoint input above 4,096 UTF-16 units without echoing it", () => {
+    const prefix = "https://rpc.example.invalid/?private=";
+    const value = `${prefix}${"x".repeat(MAX_RPC_ENDPOINT_CODE_UNITS + 1 - prefix.length)}`;
+
+    expect(value).toHaveLength(MAX_RPC_ENDPOINT_CODE_UNITS + 1);
+    expect(() => parseRpcEndpoint(value)).toThrow(
+      "RPC endpoint must be 4,096 characters or fewer.",
+    );
+    try {
+      parseRpcEndpoint(value);
+    } catch (error) {
+      expect(String(error)).not.toContain(value);
+    }
+  });
+
+  it.each([
+    ["username", "https://user@127.0.0.1/path?key=ok"],
+    ["password", "https://user:password@127.0.0.1/path?key=ok"],
+    ["fragment", "https://rpc.example.invalid/path?key=ok#private"],
+    ["empty fragment", "https://rpc.example.invalid/path?key=ok#"],
+  ])("rejects an endpoint containing a %s", (_label, value) => {
+    expect(() => parseRpcEndpoint(value)).toThrow(/cannot include/);
+    try {
+      parseRpcEndpoint(value);
+    } catch (error) {
+      expect(String(error)).not.toContain(value);
+    }
+  });
+
+  it("uses the 64 KiB token-supply response limit", async () => {
+    const fetchMock = vi.spyOn(window, "fetch");
+    const client = new NativeReadOnlySolanaRpc(
+      "https://rpc.example.invalid/path?key=private",
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ jsonrpc: "2.0", id: 1, result: { value: {} } }),
+        { headers: { "Content-Length": String(TOKEN_SUPPLY_JSON_MAX_BYTES) } },
+      ),
+    );
+    await expect(client.getTokenSupply("mint")).resolves.toEqual({ value: {} });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response("{}", {
+        headers: {
+          "Content-Length": String(TOKEN_SUPPLY_JSON_MAX_BYTES + 1),
+        },
+      }),
+    );
+    await expect(client.getTokenSupply("mint")).rejects.toMatchObject({
+      kind: "limit",
+      message: "Solana RPC response exceeded the safe size limit.",
+    });
+  });
+
+  it("uses the 24 MiB account-method response limit", async () => {
+    const fetchMock = vi.spyOn(window, "fetch");
+    const client = new NativeReadOnlySolanaRpc(
+      "https://rpc.example.invalid/path?key=private",
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: [] }), {
+        headers: { "Content-Length": String(ACCOUNT_RPC_JSON_MAX_BYTES) },
+      }),
+    );
+    await expect(client.getProgramAccounts("program", {})).resolves.toEqual([]);
+
+    fetchMock.mockResolvedValueOnce(
+      new Response("{}", {
+        headers: {
+          "Content-Length": String(ACCOUNT_RPC_JSON_MAX_BYTES + 1),
+        },
+      }),
+    );
+    await expect(client.getMultipleAccounts([], {})).rejects.toMatchObject({
+      kind: "limit",
+      message: "Solana RPC response exceeded the safe size limit.",
+    });
   });
 
   it("reads current mint supply through the same narrow RPC boundary", async () => {

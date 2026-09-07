@@ -1,4 +1,5 @@
 import { ProviderRequestError, requestJson } from "./http";
+import { BoundedTtlCache } from "./boundedCache";
 import {
   sharedPublicRequestBudget,
   type PublicRequestBudget,
@@ -67,8 +68,6 @@ export type QuotePrice = {
   observedAt: number;
 };
 
-type CacheEntry = { expiresAt: number; value: unknown };
-
 export interface GeckoTerminalProvider {
   getToken(mint: string, signal?: AbortSignal): Promise<GeckoTokenMetadata>;
   getPools(mint: string, signal?: AbortSignal): Promise<GeckoPoolCandidate[]>;
@@ -93,7 +92,7 @@ export interface GeckoTerminalProvider {
 }
 
 export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
-  #cache = new Map<string, CacheEntry>();
+  #cache = new BoundedTtlCache<unknown>();
 
   constructor(
     private readonly budget: PublicRequestBudget = sharedPublicRequestBudget,
@@ -243,7 +242,7 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
     cacheMs: number,
   ): Promise<unknown> {
     const cached = this.#cache.get(key);
-    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    if (cached !== undefined) return cached;
 
     try {
       const value = await this.budget.schedule(
@@ -258,11 +257,15 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
         { key, priority, signal },
       );
       if (cacheMs > 0) {
-        this.#cache.set(key, { value, expiresAt: Date.now() + cacheMs });
+        const now = Date.now();
+        this.#cache.set(key, value, now + cacheMs, now);
       }
       return value;
     } catch (error) {
       if (error instanceof ProviderRequestError) {
+        if (error.kind === "limit" || error.kind === "invalid-json") {
+          throw new GeckoTerminalError("shape", error.message);
+        }
         if (error.status === 429) {
           this.budget.defer(error.retryAfterMs ?? 60_000);
           throw new GeckoTerminalError(

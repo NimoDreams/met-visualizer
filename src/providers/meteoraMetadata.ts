@@ -79,6 +79,9 @@ export class PublicMeteoraMetadataProvider implements MeteoraMetadataProvider {
     } catch (error) {
       if (error instanceof MeteoraMetadataError) throw error;
       if (error instanceof ProviderRequestError) {
+        if (error.kind === "limit" || error.kind === "invalid-json") {
+          throw new MeteoraMetadataError("shape", error.message);
+        }
         throw new MeteoraMetadataError(
           error.status === undefined ? "network" : "provider",
           error.status === undefined

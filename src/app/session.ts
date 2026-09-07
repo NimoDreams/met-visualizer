@@ -12,7 +12,7 @@ export class RpcSessionManager {
   #controller?: AbortController;
 
   connect(endpoint: string): RpcSession {
-    const client = new NativeReadOnlySolanaRpc(new URL(endpoint));
+    const client = new NativeReadOnlySolanaRpc(endpoint);
     this.disconnect();
     const controller = new AbortController();
     this.#controller = controller;
