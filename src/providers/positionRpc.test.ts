@@ -85,6 +85,32 @@ describe("PositionV2 RPC snapshot", () => {
     ).rejects.toThrow(/stale or malformed/i);
   });
 
+  it("accepts SPL decimal metadata through 255 and rejects N+1", async () => {
+    const accepted = new PositionFixtureRpc(1);
+    accepted.supplyDecimals = 255;
+    await expect(
+      loadPositionRpcSnapshot(
+        accepted,
+        oracle.pool,
+        oracle.owner,
+        1,
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({ quoteDecimals: 255 });
+
+    const rejected = new PositionFixtureRpc(1);
+    rejected.supplyDecimals = 256;
+    await expect(
+      loadPositionRpcSnapshot(
+        rejected,
+        oracle.pool,
+        oracle.owner,
+        1,
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow(/stale or malformed/i);
+  });
+
   it("keeps the 1,800-position JUP shape to 18 bounded hydration calls", async () => {
     const rpc = new PositionFixtureRpc(1_800);
     const startedAt = performance.now();
@@ -117,6 +143,7 @@ class PositionFixtureRpc implements ReadOnlySolanaRpc {
   readonly supplyConfigs: AccountScanConfig[] = [];
   missingLast = false;
   supplySlot?: number;
+  supplyDecimals = 6;
 
   constructor(private readonly count: number) {}
 
@@ -128,7 +155,7 @@ class PositionFixtureRpc implements ReadOnlySolanaRpc {
     if (config) this.supplyConfigs.push(config);
     return Promise.resolve({
       context: { slot: this.supplySlot ?? this.snapshotSlot },
-      value: { amount: "1", decimals: 6 },
+      value: { amount: "1", decimals: this.supplyDecimals },
     } as T);
   }
 

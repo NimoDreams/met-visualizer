@@ -13,6 +13,11 @@ import {
 } from "./geckoTerminal";
 import { PublicRequestBudget } from "./publicRequestBudget";
 import { PUBLIC_JSON_MAX_BYTES } from "./http";
+import {
+  MAX_PUBLIC_CANDIDATES,
+  MAX_PUBLIC_CANDLES,
+  MAX_PUBLIC_QUOTE_MINTS,
+} from "../domain/providerLimits";
 
 describe("PublicGeckoTerminalProvider", () => {
   beforeEach(() => vi.restoreAllMocks());
@@ -142,6 +147,153 @@ describe("PublicGeckoTerminalProvider", () => {
       kind: "shape",
       message: "GeckoTerminal response exceeded the safe size limit.",
     } satisfies Partial<GeckoTerminalError>);
+  });
+
+  it("enforces candidate and candle row limits before parsing rows", async () => {
+    const row = (poolResponse() as { data: unknown[] }).data[0];
+    const fetchMock = vi
+      .spyOn(window, "fetch")
+      .mockResolvedValueOnce(
+        Response.json({ data: Array(MAX_PUBLIC_CANDIDATES).fill(row) }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ data: Array(MAX_PUBLIC_CANDIDATES + 1).fill(row) }),
+      );
+    const provider = new PublicGeckoTerminalProvider(new PublicRequestBudget());
+    await expect(provider.getPools(TOKEN_MINT)).resolves.toHaveLength(
+      MAX_PUBLIC_CANDIDATES,
+    );
+    await expect(
+      new PublicGeckoTerminalProvider(new PublicRequestBudget()).getPools(
+        TOKEN_MINT,
+      ),
+    ).rejects.toMatchObject({ kind: "shape" });
+
+    const pool = (await parseOnePool(provider))[0]!;
+    fetchMock.mockResolvedValueOnce(
+      Response.json(
+        candleResponse(candleFixture(1_700_000_000, MAX_PUBLIC_CANDLES + 1)),
+      ),
+    );
+    await expect(provider.getCandles(pool, "15m")).rejects.toMatchObject({
+      kind: "shape",
+    });
+  });
+
+  it("rejects out-of-range request bounds before issuing a public request", async () => {
+    const fetchMock = vi.spyOn(window, "fetch");
+    const provider = new PublicGeckoTerminalProvider(new PublicRequestBudget());
+    const pool = {
+      address: "pool",
+      name: "pool",
+      dexId: "dex",
+      baseMint: TOKEN_MINT,
+      quoteMint: QUOTE_MINT,
+      tokenSide: "base" as const,
+    };
+
+    await expect(
+      provider.getCandles(pool, "15m", { limit: MAX_PUBLIC_CANDLES + 1 }),
+    ).rejects.toMatchObject({ kind: "shape" });
+    await expect(
+      provider.getQuotePrices(
+        Array.from(
+          { length: MAX_PUBLIC_QUOTE_MINTS + 1 },
+          (_, index) => `mint-${index}`,
+        ),
+      ),
+    ).rejects.toMatchObject({ kind: "shape" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts the candle and quote-mint boundaries", async () => {
+    const mints = Array.from(
+      { length: MAX_PUBLIC_QUOTE_MINTS },
+      (_, index) => `mint-${index}`,
+    );
+    const fetchMock = vi
+      .spyOn(window, "fetch")
+      .mockResolvedValueOnce(
+        Response.json(
+          candleResponse(candleFixture(1_700_000_000, MAX_PUBLIC_CANDLES)),
+        ),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          data: {
+            attributes: {
+              token_prices: Object.fromEntries(
+                mints.map((mint) => [mint, "1"]),
+              ),
+            },
+          },
+        }),
+      );
+    const provider = new PublicGeckoTerminalProvider(new PublicRequestBudget());
+    const pool = {
+      address: "pool",
+      name: "pool",
+      dexId: "dex",
+      baseMint: TOKEN_MINT,
+      quoteMint: QUOTE_MINT,
+      tokenSide: "base" as const,
+    };
+
+    await expect(
+      provider.getCandles(pool, "15m", { limit: MAX_PUBLIC_CANDLES }),
+    ).resolves.toHaveLength(MAX_PUBLIC_CANDLES);
+    await expect(provider.getQuotePrices(mints)).resolves.toHaveLength(
+      MAX_PUBLIC_QUOTE_MINTS,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects overlong labels, decimals, decimal text, and future times", async () => {
+    const overlongDexResponse = poolResponse() as {
+      data: Array<{
+        relationships: { dex: { data: { id: string } } };
+      }>;
+    };
+    overlongDexResponse.data[0]!.relationships.dex.data.id = "D".repeat(65);
+    const invalidResponses = [
+      tokenResponse({ name: "😀".repeat(257) }),
+      tokenResponse({ symbol: "S".repeat(65) }),
+      tokenResponse({ decimals: 256 }),
+      tokenResponse({ price_usd: "9".repeat(97) }),
+      tokenResponse({ price_usd: 0 }),
+      overlongDexResponse,
+      candleResponse([
+        {
+          ...candleFixture(1_700_000_000, 1)[0]!,
+          time: Math.floor(Date.now() / 1_000) + 24 * 60 * 60 + 1,
+        },
+      ]),
+    ];
+
+    for (const [index, response] of invalidResponses.entries()) {
+      vi.spyOn(window, "fetch").mockResolvedValueOnce(Response.json(response));
+      const provider = new PublicGeckoTerminalProvider(
+        new PublicRequestBudget(),
+      );
+      const request =
+        index < 5
+          ? provider.getToken(TOKEN_MINT)
+          : index === 5
+            ? provider.getPools(TOKEN_MINT)
+            : provider.getCandles(
+                {
+                  address: "pool",
+                  name: "pool",
+                  dexId: "dex",
+                  baseMint: TOKEN_MINT,
+                  quoteMint: QUOTE_MINT,
+                  tokenSide: "base",
+                },
+                "15m",
+              );
+      await expect(request).rejects.toMatchObject({ kind: "shape" });
+      vi.restoreAllMocks();
+    }
   });
 });
 

@@ -14,10 +14,12 @@ import type {
 import type { PublicRequestPriority } from "../providers/publicRequestBudget";
 import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
 import {
+  applyValuation,
   loadMarketCandles,
   loadOlderCandles,
   loadReferenceMarket,
   NoReferenceMarketError,
+  resolveValuationBasis,
 } from "./referenceMarket";
 
 const NOW = 1_800_000_000_000;
@@ -127,6 +129,56 @@ describe("reference-market selection", () => {
 
     expect(session.basis).toMatchObject({ kind: "price", displaySupply: 1 });
     expect(session.candles[0]?.close).toBe(session.candles[0]?.priceClose);
+  });
+
+  it("accepts bounded u64 supply and rejects amount or decimal overflow", async () => {
+    const token = tokenFixture({ marketCapUsd: undefined });
+    const signal = new AbortController().signal;
+    await expect(
+      resolveBasis(token, {
+        value: { amount: "18446744073709551615", decimals: 255 },
+      }),
+    ).resolves.toMatchObject({ kind: "fdv" });
+
+    for (const value of [
+      { amount: "18446744073709551616", decimals: 0 },
+      { amount: "1".repeat(21), decimals: 0 },
+      { amount: "1", decimals: 256 },
+      { amount: "1", decimals: Number.MAX_SAFE_INTEGER + 1 },
+    ]) {
+      const result = await resolveBasis(token, { value });
+      expect(result).toMatchObject({ kind: "price" });
+    }
+
+    async function resolveBasis(
+      currentToken: ReturnType<typeof tokenFixture>,
+      response: { value: { amount: string; decimals: number } },
+    ) {
+      const rpc = fixtureRpc(response);
+      return resolveValuationBasis(currentToken, rpc, TOKEN_MINT, signal);
+    }
+  });
+
+  it("rejects non-finite market-cap normalization and FDV products", async () => {
+    const token = tokenFixture({ priceUsd: 1e-308, marketCapUsd: 1e308 });
+    await expect(
+      resolveValuationBasis(
+        token,
+        undefined,
+        TOKEN_MINT,
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({ kind: "price" });
+
+    expect(() =>
+      applyValuation(candleFixture(NOW_SECONDS - 900, 1), {
+        kind: "fdv",
+        label: "FDV (USD)",
+        source: "current Solana mint supply",
+        displaySupply: 1e308,
+        observedAt: NOW,
+      }),
+    ).toThrow(/supported numeric range/i);
   });
 
   it("uses a limited-history fallback and reports no usable market distinctly", async () => {

@@ -9,6 +9,11 @@ import {
   GeckoTerminalError,
 } from "../providers/geckoTerminal";
 import type { PublicRequestPriority } from "../providers/publicRequestBudget";
+import {
+  MAX_SPL_DECIMALS,
+  isSafeIntegerInRange,
+  isSupportedSplAmount,
+} from "./providerLimits";
 
 const DEFAULT_HISTORY_SECONDS = 24 * 60 * 60;
 const ADEQUATE_HISTORY_SECONDS = 23 * 60 * 60;
@@ -355,13 +360,15 @@ export async function resolveValuationBasis(
   signal: AbortSignal,
 ): Promise<ValuationBasis> {
   if (token.marketCapUsd && token.priceUsd) {
-    return {
-      kind: "market-cap",
-      label: "Market Cap (USD)",
-      source: "CoinGecko verified",
-      displaySupply: token.marketCapUsd / token.priceUsd,
-      observedAt: token.observedAt,
-    };
+    const displaySupply = token.marketCapUsd / token.priceUsd;
+    if (Number.isFinite(displaySupply) && displaySupply > 0)
+      return {
+        kind: "market-cap",
+        label: "Market Cap (USD)",
+        source: "CoinGecko verified",
+        displaySupply,
+        observedAt: token.observedAt,
+      };
   }
 
   if (rpc) {
@@ -434,17 +441,28 @@ export function applyValuation(
   candles: GeckoCandle[],
   basis: ValuationBasis,
 ): ValuationCandle[] {
-  return candles.map((candle) => ({
-    ...candle,
-    priceOpen: candle.open,
-    priceHigh: candle.high,
-    priceLow: candle.low,
-    priceClose: candle.close,
-    open: candle.open * basis.displaySupply,
-    high: candle.high * basis.displaySupply,
-    low: candle.low * basis.displaySupply,
-    close: candle.close * basis.displaySupply,
-  }));
+  if (!Number.isFinite(basis.displaySupply) || basis.displaySupply <= 0)
+    throw new Error("Reference-market valuation has an invalid supply basis.");
+  return candles.map((candle) => {
+    const values = [candle.open, candle.high, candle.low, candle.close].map(
+      (price) => price * basis.displaySupply,
+    );
+    if (values.some((value) => !Number.isFinite(value) || value <= 0))
+      throw new Error(
+        "Reference-market valuation exceeds the supported numeric range.",
+      );
+    return {
+      ...candle,
+      priceOpen: candle.open,
+      priceHigh: candle.high,
+      priceLow: candle.low,
+      priceClose: candle.close,
+      open: values[0]!,
+      high: values[1]!,
+      low: values[2]!,
+      close: values[3]!,
+    };
+  });
 }
 
 export function describeFreshness(
@@ -534,7 +552,10 @@ function stripValuation(candle: ValuationCandle): GeckoCandle {
 }
 
 function decimalAmount(amount: string, decimals: number): number {
-  if (!/^\d+$/.test(amount) || !Number.isInteger(decimals) || decimals < 0) {
+  if (
+    !isSupportedSplAmount(amount) ||
+    !isSafeIntegerInRange(decimals, 0, MAX_SPL_DECIMALS)
+  ) {
     return 0;
   }
   const padded = amount.padStart(decimals + 1, "0");

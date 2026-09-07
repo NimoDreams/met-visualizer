@@ -1,6 +1,18 @@
 import { ProviderRequestError, requestJson } from "./http";
 import { BoundedTtlCache } from "./boundedCache";
 import {
+  MAX_PROVIDER_IDENTIFIER_CODE_POINTS,
+  MAX_PROVIDER_NAME_CODE_POINTS,
+  MAX_PUBLIC_CANDIDATES,
+  MAX_PUBLIC_CANDLES,
+  MAX_PUBLIC_QUOTE_MINTS,
+  MAX_SPL_DECIMALS,
+  boundedDecimalNumber,
+  isBoundedText,
+  isSafeIntegerInRange,
+  isSupportedTimestampSeconds,
+} from "../domain/providerLimits";
+import {
   sharedPublicRequestBudget,
   type PublicRequestBudget,
   type PublicRequestPriority,
@@ -120,11 +132,26 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
 
     return {
       address,
-      name: requiredString(attributes.name, "token name"),
-      symbol: requiredString(attributes.symbol, "token symbol"),
-      decimals: requiredInteger(attributes.decimals, "token decimals"),
-      priceUsd: optionalPositiveNumber(attributes.price_usd),
-      marketCapUsd: optionalPositiveNumber(attributes.market_cap_usd),
+      name: requiredString(
+        attributes.name,
+        "token name",
+        MAX_PROVIDER_NAME_CODE_POINTS,
+      ),
+      symbol: requiredString(
+        attributes.symbol,
+        "token symbol",
+        MAX_PROVIDER_IDENTIFIER_CODE_POINTS,
+      ),
+      decimals: requiredInteger(
+        attributes.decimals,
+        "token decimals",
+        MAX_SPL_DECIMALS,
+      ),
+      priceUsd: optionalPositiveNumber(attributes.price_usd, "token price"),
+      marketCapUsd: optionalPositiveNumber(
+        attributes.market_cap_usd,
+        "token market cap",
+      ),
       observedAt: Date.now(),
     };
   }
@@ -148,6 +175,9 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
     if (!isRecord(response) || !Array.isArray(response.data)) {
       throw shapeError("Pool response is missing its data list.");
     }
+    if (response.data.length > MAX_PUBLIC_CANDIDATES) {
+      throw shapeError("Pool response exceeds the supported candidate limit.");
+    }
 
     return response.data.map((item, index) => parsePool(item, mint, index));
   }
@@ -162,10 +192,20 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
       signal?: AbortSignal;
     } = {},
   ): Promise<GeckoCandle[]> {
+    const limit = options.limit ?? MAX_PUBLIC_CANDLES;
+    if (!isSafeIntegerInRange(limit, 1, MAX_PUBLIC_CANDLES)) {
+      throw shapeError("Candle request has an invalid limit.");
+    }
+    if (
+      options.beforeTimestamp !== undefined &&
+      !isSupportedTimestampSeconds(options.beforeTimestamp)
+    ) {
+      throw shapeError("Candle request has an invalid timestamp.");
+    }
     const { timeframe, aggregate } = intervalRequest(interval);
     const query = new URLSearchParams({
       aggregate,
-      limit: String(options.limit ?? 1_000),
+      limit: String(limit),
       currency: "usd",
       token: pool.tokenSide,
     });
@@ -184,6 +224,9 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
 
     if (!Array.isArray(attributes.ohlcv_list)) {
       throw shapeError("Candle response is missing its OHLCV list.");
+    }
+    if (attributes.ohlcv_list.length > MAX_PUBLIC_CANDLES) {
+      throw shapeError("Candle response exceeds the supported row limit.");
     }
 
     const unique = new Map<number, GeckoCandle>();
@@ -204,6 +247,9 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
   ): Promise<Map<string, QuotePrice>> {
     const uniqueMints = [...new Set(mints)].sort();
     if (uniqueMints.length === 0) return new Map();
+    if (uniqueMints.length > MAX_PUBLIC_QUOTE_MINTS) {
+      throw shapeError("Quote request exceeds the supported mint limit.");
+    }
 
     const response = await this.#read(
       `${GECKO_TERMINAL_SIMPLE_BASE}/token_price/${uniqueMints.map(encodeURIComponent).join(",")}`,
@@ -221,7 +267,7 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
     const prices = new Map<string, QuotePrice>();
     for (const mint of uniqueMints) {
       const rawPrice = attributes.token_prices[mint];
-      const priceUsd = optionalPositiveNumber(rawPrice);
+      const priceUsd = optionalPositiveNumber(rawPrice, "quote price");
       if (priceUsd !== undefined)
         prices.set(mint, {
           mint,
@@ -328,17 +374,27 @@ function parsePool(
 
   return {
     address: requiredString(attributes.address, "pool address"),
-    name: requiredString(attributes.name, "pool name"),
+    name: requiredString(
+      attributes.name,
+      "pool name",
+      MAX_PROVIDER_NAME_CODE_POINTS,
+    ),
     dexId,
     baseMint,
     quoteMint,
     tokenSide,
-    reserveUsd: optionalPositiveNumber(attributes.reserve_in_usd),
+    reserveUsd: optionalPositiveNumber(
+      attributes.reserve_in_usd,
+      "pool reserve",
+    ),
     volume24hUsd: isRecord(attributes.volume_usd)
-      ? optionalPositiveNumber(attributes.volume_usd.h24)
+      ? optionalPositiveNumber(attributes.volume_usd.h24, "24-hour volume")
       : undefined,
     createdAt: optionalDateSeconds(attributes.pool_created_at),
-    lastTradeTimestamp: optionalPositiveNumber(attributes.last_trade_timestamp),
+    lastTradeTimestamp: optionalTimestamp(
+      attributes.last_trade_timestamp,
+      "last-trade timestamp",
+    ),
     recentTrades: recentTradeCount(attributes.transactions),
   };
 }
@@ -347,7 +403,12 @@ function parseCandle(value: unknown, index: number): GeckoCandle {
   if (!Array.isArray(value) || value.length !== 6) {
     throw shapeError(`Candle ${index + 1} has an invalid tuple.`);
   }
-  const [time, open, high, low, close, volume] = value.map(Number);
+  const time = integerValue(value[0]);
+  const open = decimalValue(value[1]);
+  const high = decimalValue(value[2]);
+  const low = decimalValue(value[3]);
+  const close = decimalValue(value[4]);
+  const volume = decimalValue(value[5]);
   if (
     time === undefined ||
     open === undefined ||
@@ -355,8 +416,10 @@ function parseCandle(value: unknown, index: number): GeckoCandle {
     low === undefined ||
     close === undefined ||
     volume === undefined ||
-    !Number.isInteger(time) ||
-    ![open, high, low, close, volume].every(Number.isFinite) ||
+    !isSupportedTimestampSeconds(time) ||
+    ![open, high, low, close, volume].every(
+      (item) => item !== undefined && Number.isFinite(item),
+    ) ||
     open <= 0 ||
     high <= 0 ||
     low <= 0 ||
@@ -391,7 +454,11 @@ function relationshipId(value: unknown, label: string): string {
   if (!isRecord(value) || !isRecord(value.data)) {
     throw shapeError(`Pool response is missing ${label} data.`);
   }
-  return requiredString(value.data.id, `${label} id`);
+  return requiredString(
+    value.data.id,
+    `${label} id`,
+    label === "DEX" ? MAX_PROVIDER_IDENTIFIER_CODE_POINTS : undefined,
+  );
 }
 
 function recentTradeCount(value: unknown): number | undefined {
@@ -399,9 +466,14 @@ function recentTradeCount(value: unknown): number | undefined {
   for (const key of ["m5", "m15", "h1"]) {
     const window = value[key];
     if (!isRecord(window)) continue;
-    const buys = Number(window.buys);
-    const sells = Number(window.sells);
-    if (Number.isFinite(buys) && Number.isFinite(sells)) return buys + sells;
+    const buys = integerValue(window.buys);
+    const sells = integerValue(window.sells);
+    if (buys === undefined || sells === undefined || buys < 0 || sells < 0)
+      throw shapeError("Pool response has invalid recent-trade counts.");
+    const total = buys + sells;
+    if (!Number.isSafeInteger(total))
+      throw shapeError("Pool response has invalid recent-trade counts.");
+    return total;
   }
   return undefined;
 }
@@ -426,31 +498,68 @@ export function intervalSeconds(interval: CandleInterval): number {
   return { "5m": 300, "15m": 900, "1h": 3_600, "4h": 14_400 }[interval];
 }
 
-function requiredString(value: unknown, label: string): string {
-  if (typeof value !== "string" || value.length === 0) {
+function requiredString(
+  value: unknown,
+  label: string,
+  maxCodePoints = Number.MAX_SAFE_INTEGER,
+): string {
+  if (!isBoundedText(value, maxCodePoints)) {
     throw shapeError(`Response has an invalid ${label}.`);
   }
   return value;
 }
 
-function requiredInteger(value: unknown, label: string): number {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0) {
+function requiredInteger(
+  value: unknown,
+  label: string,
+  maximum = Number.MAX_SAFE_INTEGER,
+): number {
+  const parsed = integerValue(value);
+  if (parsed === undefined || parsed < 0 || parsed > maximum) {
     throw shapeError(`Response has an invalid ${label}.`);
   }
   return parsed;
 }
 
-function optionalPositiveNumber(value: unknown): number | undefined {
+function optionalPositiveNumber(
+  value: unknown,
+  label: string,
+): number | undefined {
   if (value === null || value === undefined || value === "") return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  const parsed = decimalValue(value);
+  if (parsed === undefined || parsed <= 0)
+    throw shapeError(`Response has an invalid ${label}.`);
+  return parsed;
 }
 
 function optionalDateSeconds(value: unknown): number | undefined {
-  if (typeof value !== "string") return undefined;
+  if (value === null || value === undefined || value === "") return undefined;
+  if (typeof value !== "string")
+    throw shapeError("Response has an invalid pool-created timestamp.");
   const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) ? Math.floor(timestamp / 1_000) : undefined;
+  const seconds = Math.floor(timestamp / 1_000);
+  if (!Number.isFinite(timestamp) || !isSupportedTimestampSeconds(seconds))
+    throw shapeError("Response has an invalid pool-created timestamp.");
+  return seconds;
+}
+
+function optionalTimestamp(value: unknown, label: string): number | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const parsed = integerValue(value);
+  if (parsed === undefined || !isSupportedTimestampSeconds(parsed))
+    throw shapeError(`Response has an invalid ${label}.`);
+  return parsed;
+}
+
+function decimalValue(value: unknown): number | undefined {
+  return boundedDecimalNumber(value);
+}
+
+function integerValue(value: unknown): number | undefined {
+  const parsed = decimalValue(value);
+  return parsed !== undefined && Number.isSafeInteger(parsed)
+    ? parsed
+    : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

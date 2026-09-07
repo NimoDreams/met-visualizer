@@ -47,6 +47,15 @@ caps provider deferrals at five minutes, and keeps timer delays within the
 signed 32-bit browser range. GeckoTerminal's response cache is a 256-entry LRU
 that removes expired entries.
 
+Public-provider parsing fails closed before selection or numeric work. A
+response may expose at most 100 reference-market candidates, 1,000 candles, or
+100 quote mints. Names are limited to 256 Unicode code points and symbols/DEX
+identifiers to 64. Decimal text is limited to 128 characters, 96 coefficient
+digits, and an exponent magnitude of 100; normalized prices and FDV products
+must remain finite and positive. SPL supplies use 0–255 decimals and a 1–20
+digit unsigned-64-bit amount. Provider timestamps are safe nonnegative integers
+no more than 24 hours ahead, and pagination totals stop at 100,000.
+
 ## Selected Technical Foundation
 
 - Single root package using Node.js 24 LTS, npm, strict TypeScript, React 19.2,
