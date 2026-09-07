@@ -25,6 +25,8 @@ Current reviews:
 - [Phase 1 position-loading proof](phase-1-position-loading-proof.md)
 - [Phase 1 liquidity-overlay proof](phase-1-liquidity-overlay-proof.md)
 - [Phase 1 experience-completion proof](phase-1-experience-completion-proof.md)
+- [Phase 1 release-candidate verification](phase-1-completion.md) — application
+  candidate evidence; independent review and release acceptance pending
 
 Before closing an epic or phase review, scan `docs/follow-ups.md` and promote
 relevant items into GitHub Issues, specs, decisions, or future planning notes.

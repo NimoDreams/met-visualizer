@@ -1,4 +1,4 @@
-import { expect, type Locator } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 export async function expectMinimumTouchTargets(
   locators: readonly Locator[],
@@ -7,17 +7,23 @@ export async function expectMinimumTouchTargets(
   for (const locator of locators) {
     await expect(locator).toBeVisible();
     const box = await locator.boundingBox();
-    expect(
-      box,
-      `missing bounds for ${await accessibleName(locator)}`,
-    ).not.toBeNull();
+    const name = await accessibleName(locator);
+    expect(box, `missing bounds for ${name}`).not.toBeNull();
+    if (process.env.REPORT_TOUCH_TARGETS === "1") {
+      const viewport = await locator.evaluate(
+        () => `${window.innerWidth}x${window.innerHeight}`,
+      );
+      console.log(
+        `[touch] ${test.info().project.name} ${viewport} ${name}: ${box!.width.toFixed(6)}x${box!.height.toFixed(6)}`,
+      );
+    }
     expect(
       roundedCssPixels(box!.width),
-      `touch width for ${await accessibleName(locator)}`,
+      `touch width for ${name}`,
     ).toBeGreaterThanOrEqual(minimum);
     expect(
       roundedCssPixels(box!.height),
-      `touch height for ${await accessibleName(locator)}`,
+      `touch height for ${name}`,
     ).toBeGreaterThanOrEqual(minimum);
   }
 }
