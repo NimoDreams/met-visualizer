@@ -317,6 +317,60 @@ button:disabled {
   color: #ffd178;
 }
 
+.global-position-controls {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid #34445b;
+  border-radius: 9px;
+  background: #0c1421;
+}
+
+.global-filter-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.global-filter-heading > div,
+.global-filter-summary {
+  display: grid;
+  gap: 3px;
+}
+
+.global-filter-heading strong {
+  font-size: 0.76rem;
+}
+
+.global-filter-heading span,
+.global-filter-summary,
+.minimum-filter label {
+  color: #8494aa;
+  font-size: 0.65rem;
+  line-height: 1.45;
+}
+
+.minimum-filter {
+  display: grid;
+  gap: 5px;
+}
+
+.minimum-filter input {
+  padding: 7px 8px;
+  font-size: 0.72rem;
+}
+
+.global-filter-actions {
+  margin: 0;
+}
+
+.global-filter-actions button.active {
+  color: #07130e;
+  background: #4fdb9a;
+}
+
 .pool-list {
   display: grid;
   max-height: 650px;
@@ -524,6 +578,31 @@ button:disabled {
   border-bottom: 0;
 }
 
+.position-row.hovered {
+  background: rgba(255, 209, 120, 0.09);
+  box-shadow: inset 3px 0 #ffd178;
+}
+
+.position-row.unavailable {
+  color: #8494aa;
+  background: #0c1421;
+}
+
+.position-value {
+  justify-items: end;
+}
+
+.unavailable-position-group {
+  display: grid;
+}
+
+.unavailable-position-group > strong {
+  padding: 8px;
+  color: #ffd178;
+  border-bottom: 1px solid #27364d;
+  font-size: 0.65rem;
+}
+
 .position-row span {
   display: grid;
   min-width: 0;
@@ -566,6 +645,38 @@ button:disabled {
   min-height: 460px;
   overflow: hidden;
   border-radius: 9px;
+}
+
+.chart-canvas:focus-visible {
+  outline: 2px solid #4fdb9a;
+  outline-offset: 3px;
+}
+
+.liquidity-tooltip {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+  padding: 9px 11px;
+  border: 1px solid #705a2a;
+  border-radius: 8px;
+  color: #9cacbf;
+  background: #251f12;
+  font-size: 0.68rem;
+}
+
+.liquidity-tooltip strong {
+  color: #ffd178;
+}
+
+.liquidity-tooltip ul {
+  display: grid;
+  gap: 2px;
+  margin: 2px 0;
+  padding-left: 18px;
+}
+
+.liquidity-keyboard-note {
+  margin-top: 7px;
 }
 
 .chart-loading {

@@ -1,7 +1,10 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { ReferenceMarketPanel } from "../chart/ReferenceMarketPanel";
 import { DlmmPoolsPanel } from "../components/DlmmPoolsPanel";
 import { isSolanaAddress } from "../domain/solanaAddress";
+import type { ReferenceMarketSession } from "../domain/referenceMarket";
+import type { LiquidityOverlayModel } from "../domain/liquidityOverlay";
+import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
 import { RpcSessionManager, type RpcSession } from "./session";
 import { useHashRoute } from "./useHashRoute";
 
@@ -78,6 +81,52 @@ function DocsView() {
         </section>
       </div>
     </main>
+  );
+}
+
+function VisualizationWorkspace({
+  mint,
+  rpc,
+}: {
+  mint?: string;
+  rpc?: ReadOnlySolanaRpc;
+}) {
+  const [reference, setReference] = useState<ReferenceMarketSession>();
+  const [overlay, setOverlay] = useState<LiquidityOverlayModel>();
+  const [hoveredPositionKeys, setHoveredPositionKeys] = useState<
+    readonly string[]
+  >([]);
+  const reportReference = useCallback(
+    (session?: ReferenceMarketSession) => setReference(session),
+    [],
+  );
+  const reportOverlay = useCallback(
+    (model?: LiquidityOverlayModel) => setOverlay(model),
+    [],
+  );
+  const reportHover = useCallback(
+    (keys: readonly string[]) => setHoveredPositionKeys(keys),
+    [],
+  );
+
+  return (
+    <section className="workspace" aria-label="Visualization workspace">
+      <ReferenceMarketPanel
+        mint={mint}
+        rpc={rpc}
+        overlay={overlay}
+        onSessionChange={reportReference}
+        onHoverPositionKeys={reportHover}
+      />
+
+      <DlmmPoolsPanel
+        mint={mint}
+        rpc={rpc}
+        reference={reference}
+        hoveredPositionKeys={hoveredPositionKeys}
+        onOverlayChange={reportOverlay}
+      />
+    </section>
   );
 }
 
@@ -249,19 +298,11 @@ export function App() {
             ) : null}
           </form>
 
-          <section className="workspace" aria-label="Visualization workspace">
-            <ReferenceMarketPanel
-              key={activeToken?.sequence}
-              mint={activeToken?.mint}
-              rpc={rpcSession?.client}
-            />
-
-            <DlmmPoolsPanel
-              key={`pools-${activeToken?.sequence ?? "idle"}`}
-              mint={activeToken?.mint}
-              rpc={rpcSession?.client}
-            />
-          </section>
+          <VisualizationWorkspace
+            key={activeToken?.sequence ?? "idle"}
+            mint={activeToken?.mint}
+            rpc={rpcSession?.client}
+          />
         </main>
       )}
     </div>

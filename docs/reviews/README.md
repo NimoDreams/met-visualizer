@@ -22,6 +22,8 @@ Current reviews:
 - [Phase 1 scaffold browser proof](phase-1-scaffold-browser-proof.md)
 - [Phase 1 reference-market browser proof](phase-1-reference-market-browser-proof.md)
 - [Phase 1 DLMM pool-selection proof](phase-1-dlmm-pool-selection-proof.md)
+- [Phase 1 position-loading proof](phase-1-position-loading-proof.md)
+- [Phase 1 liquidity-overlay proof](phase-1-liquidity-overlay-proof.md)
 
 Before closing an epic or phase review, scan `docs/follow-ups.md` and promote
 relevant items into GitHub Issues, specs, decisions, or future planning notes.

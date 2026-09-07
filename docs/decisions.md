@@ -244,6 +244,30 @@ provider metadata over on-chain identity. Representative implementation evidence
 must include newer memecoin cases with short history and FDV fallback as well as
 the JUP stress case.
 
+## 2026-09-06: Render Exact Current Liquidity On The Reference Axis
+
+Context: Positions from different DLMM pools may put the entered token on either
+side, use different quote-token decimals, and distribute principal across many
+bins. Traders need one comparable view without treating future bin prices as
+current position value.
+
+Decision: Normalize each selected bin to the reference session's Market Cap,
+FDV, or Price axis using its pool orientation, decimal scale, current public
+quote-token USD price, and the reference session's fixed display supply. Use bin
+prices only for vertical placement. Apportion each position's reviewed current
+principal value exactly across its bins according to current active-bin value.
+Apply minimum-USD and complete-denominator 80% masks globally across enabled
+pools while preserving underlying checkbox selection.
+
+Consequence: Contributions reconcile with the position-value denominator, and
+different pools share one visible scale. Unsupported conversions remain in the
+position list with their overlay disabled. Existing contributor masks remain
+stable while refresh makes the denominator incomplete; users cannot recompute
+the 80% set until every enabled pool is complete again. Adding an enabled pool
+or requesting a position refresh advances one coordinator generation and
+refreshes every enabled pool into it; independently observed generations cannot
+claim one complete denominator.
+
 ## 2026-09-06: Complete Phase 0 And Begin Phase 1
 
 Context: The completion review assembled the independently reviewed product,

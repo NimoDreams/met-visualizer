@@ -29,6 +29,7 @@ export type ValuedPosition = {
 
 export type PositionValueResult = {
   positions: ValuedPosition[];
+  currentPriceQ64?: bigint;
   totalValueUsd?: Rational;
   totalValueUsdMicros?: bigint;
   valueCoverage: "complete" | "unknown";
@@ -169,6 +170,7 @@ export function valueAndRankPositions(input: {
     : undefined;
   return {
     positions,
+    currentPriceQ64: input.currentPriceQ64,
     totalValueUsd,
     totalValueUsdMicros: totalValueUsd
       ? divideRounded(
@@ -240,7 +242,7 @@ export function addRational(left: Rational, right: Rational): Rational {
   });
 }
 
-function compareRational(left: Rational, right: Rational): number {
+export function compareRational(left: Rational, right: Rational): number {
   const difference =
     left.numerator * right.denominator - right.numerator * left.denominator;
   return difference === 0n ? 0 : difference > 0n ? 1 : -1;
@@ -257,7 +259,7 @@ export function rationalPercentage(
   return Number(hundredths) / 100;
 }
 
-function normalizeRational(value: Rational): Rational {
+export function normalizeRational(value: Rational): Rational {
   const divisor = greatestCommonDivisor(value.numerator, value.denominator);
   return {
     numerator: value.numerator / divisor,

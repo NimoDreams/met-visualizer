@@ -37,6 +37,8 @@ export function usePoolPositions(
   enteredMint: string,
   minContextSlot: number,
   gecko: GeckoTerminalProvider = publicGeckoTerminalProvider,
+  active = true,
+  valuationGeneration = 0,
 ) {
   const generation = useRef(0);
   const controller = useRef<AbortController | undefined>(undefined);
@@ -96,17 +98,19 @@ export function usePoolPositions(
               setState({ status: "loading", progress: next });
           },
           refreshing,
+          valuationGeneration,
         );
         if (
           requestController.signal.aborted ||
           generation.current !== requestGeneration
         )
           return;
+        const loadedForGeneration = { ...loaded, valuationGeneration };
         const latest = current.current;
         const session =
           refreshing && latest
-            ? preservePositionSelection(latest, loaded)
-            : loaded;
+            ? preservePositionSelection(latest, loadedForGeneration)
+            : loadedForGeneration;
         current.current = session;
         setState({ status: "ready", session, refreshing: false });
       } catch (error) {
@@ -127,10 +131,14 @@ export function usePoolPositions(
         } else setState({ status: "error", message: describeError(error) });
       }
     },
-    [enteredMint, gecko, minContextSlot, rpc],
+    [enteredMint, gecko, minContextSlot, rpc, valuationGeneration],
   );
 
   useEffect(() => {
+    if (!active) {
+      controller.current?.abort();
+      return;
+    }
     const previousIdentity = identity.current;
     const samePoolSession =
       previousIdentity?.rpc === rpc &&
@@ -141,7 +149,7 @@ export function usePoolPositions(
     if (!samePoolSession) current.current = undefined;
     void run(Boolean(samePoolSession));
     return () => controller.current?.abort();
-  }, [enteredMint, pool.address, rpc, run]);
+  }, [active, enteredMint, pool.address, rpc, run]);
 
   const cancel = useCallback(() => {
     controller.current?.abort();
@@ -169,18 +177,25 @@ export function usePoolPositions(
       actionError: state.status === "ready" ? state.actionError : undefined,
     }));
   }, []);
-  const toggle = useCallback((address: string) => {
-    const previous = current.current;
-    if (!previous) return;
-    const next = togglePositionSelection(previous, address);
-    current.current = next;
-    setState((state) => ({
-      status: "ready",
-      session: next,
-      refreshing: state.status === "ready" ? state.refreshing : false,
-      actionError: state.status === "ready" ? state.actionError : undefined,
-    }));
-  }, []);
+  const toggle = useCallback(
+    (address: string, eligibleAddresses?: readonly string[]) => {
+      const previous = current.current;
+      if (!previous) return;
+      const next = togglePositionSelection(
+        previous,
+        address,
+        eligibleAddresses,
+      );
+      current.current = next;
+      setState((state) => ({
+        status: "ready",
+        session: next,
+        refreshing: state.status === "ready" ? state.refreshing : false,
+        actionError: state.status === "ready" ? state.actionError : undefined,
+      }));
+    },
+    [],
+  );
 
   return useMemo(
     () => ({ state, cancel, restart, refresh, reveal, toggle }),
