@@ -66,4 +66,31 @@ readiness directly on GitHub. Promotion follows the
 [promotion workflow](workflows/dev-to-main-promotion.md) and requires user
 approval. First GitHub Pages activation remains a separate approval gate.
 
-No trading or fund-movement features are planned. Future phases are unplanned.
+No trading or fund-movement features are planned.
+
+## Public Launch Readiness — Active
+
+The Phase 1 product is already the accepted functional MVP. The launch batch
+adds the passive Docs Tip Jar, removes unintended public identity/path traces,
+hardens individual network and decoding trust boundaries, applies browser and
+repository protections, and prepares a reviewed main-only Pages workflow.
+
+Before activation, complete and independently review public-provider validation
+(#49), RPC account-envelope validation (#50), RPC request privacy and DLMM slot
+consistency (#44), and the exact-candidate audit (#39/#40). Pages issue #41 then
+requires the user's explicit approval of the deployment candidate and activation
+action. Epic #37 and milestone 3 remain the source of truth.
+
+## First Public Update — Planned
+
+Milestone 4 and epic #56 contain the deliberately deferred aggregate browser
+availability controls. Issue #51 caps per-pool decoded bytes, bins, secondary RPC
+work, deadlines, and valuation overflow. Issue #52 caps cross-pool concurrency,
+session-ready positions, Worker transfer/lifetime, and exposes honest limit
+states. Issue #55 verifies that this reviewed update reaches the existing Pages
+site and converts concrete early-user feedback into focused GitHub Issues.
+
+The accepted interim risk is limited to a pathological aggregate workload
+slowing, freezing, or crashing an individual visitor's tab. The first launch
+still bounds individual responses, provider values, and RPC accounts and retains
+the read-only, session-only, no-wallet, no-persistence architecture.
