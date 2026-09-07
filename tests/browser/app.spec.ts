@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { TIP_JAR_ADDRESS, TIP_JAR_SNS } from "../../src/app/TipJar";
 import { expectMinimumTouchTargets } from "./touchTargets";
 
 test("serves the project base and preserves hash navigation across reload", async ({
@@ -51,7 +52,7 @@ test("clears the RPC on reload and never puts it in storage or the URL", async (
   ).toEqual({ local: {}, session: {} });
 
   await page.reload();
-  await expect(page.getByText("Required")).toBeVisible();
+  await expect(page.getByText("Required", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Your Solana RPC endpoint")).toHaveValue("");
   expect(await page.content()).not.toContain(marker);
 });
@@ -148,4 +149,70 @@ test("supports keyboard navigation, responsive pane switching, and reduced motio
       );
     });
   expect(docsTextContrast).toBeGreaterThanOrEqual(4.5);
+});
+
+test("keeps the Docs tip jar static, copy-only, and phone accessible", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("./#/docs");
+
+  const tipJar = page.getByRole("region", { name: "Tip Jar" });
+  const copyButton = page.getByRole("button", { name: "Copy address" });
+  await expect(tipJar.getByText(TIP_JAR_SNS, { exact: true })).toBeVisible();
+  await expect(
+    tipJar.getByText(TIP_JAR_ADDRESS, { exact: true }),
+  ).toBeVisible();
+  await expect(tipJar).toContainText(
+    /support is appreciated but never required/i,
+  );
+  await expect(tipJar.locator("a")).toHaveCount(0);
+  await expectMinimumTouchTargets([copyButton]);
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: (value: string) => {
+          document.documentElement.dataset.tipJarCopy = value;
+          return Promise.resolve();
+        },
+      },
+    });
+  });
+  const originalUrl = page.url();
+  await copyButton.click();
+  await expect(tipJar.getByRole("status")).toHaveText("Address copied.");
+  expect(await page.locator("html").getAttribute("data-tip-jar-copy")).toBe(
+    TIP_JAR_ADDRESS,
+  );
+  expect(page.url()).toBe(originalUrl);
+  expect(
+    await page.evaluate(() => ({
+      local: { ...localStorage },
+      session: { ...sessionStorage },
+    })),
+  ).toEqual({ local: {}, session: {} });
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: () => Promise.reject(new Error("Denied")) },
+    });
+  });
+  await copyButton.click();
+  await expect(tipJar.getByRole("alert")).toContainText(
+    "Copy failed. Select and copy the full address instead.",
+  );
+  await expect(
+    tipJar.getByText(TIP_JAR_ADDRESS, { exact: true }),
+  ).toBeVisible();
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expectMinimumTouchTargets([copyButton]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
 });
