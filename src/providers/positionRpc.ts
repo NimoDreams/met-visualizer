@@ -66,6 +66,7 @@ export async function loadPositionRpcSnapshot(
     },
     signal,
   );
+  throwIfAborted(signal);
   started.requests += 1;
   validateContext(keyResponse, minContextSlot, "position discovery");
   const addresses = validateProgramAccounts(
@@ -98,6 +99,7 @@ export async function loadPositionRpcSnapshot(
       },
       signal,
     );
+    throwIfAborted(signal);
     started.requests += 1;
     validateContext(response, maximumSlot, "position hydration");
     if (response.value.length !== batch.length)
@@ -147,6 +149,7 @@ export async function loadPositionRpcSnapshot(
       minContextSlot: maximumSlot,
     }),
   ]);
+  throwIfAborted(signal);
   started.requests += 2;
   validateContext(binResponse, maximumSlot, "bin-array hydration");
   validateTokenSupply(supplyResponse, maximumSlot);

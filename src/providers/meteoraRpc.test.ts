@@ -133,6 +133,75 @@ describe("Meteora RPC discovery", () => {
     ).rejects.toThrow(/minimum context slot/i);
   });
 
+  it("rejects stale hydration, then recovers on a fresh retry", async () => {
+    const rpc = new FixtureRpc([
+      account(oracle.data),
+      account(reorientedAccount()),
+    ]);
+    rpc.hydrationSlot = 109;
+    await expect(
+      discoverDlmmPools(rpc, JUP, new AbortController().signal),
+    ).rejects.toThrow(/minimum context slot/i);
+    expect(rpc.multipleCalls[0]?.config).toMatchObject({ minContextSlot: 110 });
+
+    rpc.hydrationSlot = 120;
+    await expect(
+      discoverDlmmPools(rpc, JUP, new AbortController().signal),
+    ).resolves.toMatchObject({ maximumSlot: 120 });
+  });
+
+  it("advances the requested minimum slot across hydration batches", async () => {
+    const stale = new StressRpc(101, [2, 1]);
+    await expect(
+      discoverDlmmPools(stale, JUP, new AbortController().signal),
+    ).rejects.toThrow(/minimum context slot/i);
+    expect(stale.requestedMinSlots).toEqual([1, 2]);
+
+    const current = new StressRpc(101, [2, 2]);
+    const result = await discoverDlmmPools(
+      current,
+      JUP,
+      new AbortController().signal,
+    );
+    expect(result.pools).toHaveLength(101);
+    expect(result.maximumSlot).toBe(2);
+  });
+
+  it("rejects unsafe slots and invalid discovery addresses before decoding", async () => {
+    const unsafeSlot = new FixtureRpc([
+      account(oracle.data),
+      account(reorientedAccount()),
+    ]);
+    unsafeSlot.scanSlotX = -1;
+    await expect(
+      discoverDlmmPools(unsafeSlot, JUP, new AbortController().signal),
+    ).rejects.toThrow(/missing context or values/i);
+
+    const invalidAddress = new FixtureRpc([
+      account(oracle.data),
+      account(reorientedAccount()),
+    ]);
+    invalidAddress.scanAddressX = "invalid-pool-address";
+    await expect(
+      discoverDlmmPools(invalidAddress, JUP, new AbortController().signal),
+    ).rejects.toThrow(/canonical 32-byte/i);
+  });
+
+  it("honors cancellation even when a fixture RPC returns after abort", async () => {
+    const controller = new AbortController();
+    const rpc = new FixtureRpc([
+      account(oracle.data),
+      account(reorientedAccount()),
+    ]);
+    rpc.onHydration = () => controller.abort();
+    await expect(
+      discoverDlmmPools(rpc, JUP, controller.signal),
+    ).rejects.toMatchObject({
+      name: "AbortError",
+      message: "RPC request was cancelled.",
+    });
+  });
+
   it("hydrates the 626-pool JUP stress shape in bounded account batches", async () => {
     const rpc = new StressRpc(626);
     const result = await discoverDlmmPools(
@@ -197,7 +266,7 @@ describe("Meteora RPC discovery", () => {
     expect(invalidAddress.batchSizes).toEqual([]);
 
     const unsafeSlot = new FixtureRpc([]);
-    unsafeSlot.xSlot = Number.MAX_SAFE_INTEGER + 1;
+    unsafeSlot.scanSlotX = Number.MAX_SAFE_INTEGER + 1;
     await expect(
       discoverDlmmPools(unsafeSlot, JUP, new AbortController().signal),
     ).rejects.toThrow(/missing context or values/i);
@@ -305,8 +374,11 @@ class FixtureRpc implements ReadOnlySolanaRpc {
   }> = [];
   positionCount = 0;
   positionSlot = 450;
-  xSlot = 100;
-  ySlot = 110;
+  scanSlotX = 100;
+  scanSlotY = 110;
+  hydrationSlot = 120;
+  onHydration?: () => void;
+  scanAddressX = oracle.address;
 
   constructor(private readonly hydrated: Array<FixtureAccount | null>) {}
 
@@ -336,10 +408,10 @@ class FixtureRpc implements ReadOnlySolanaRpc {
     )[1];
     const isX = mintFilter?.memcmp.offset === 88;
     return Promise.resolve({
-      context: { slot: isX ? this.xSlot : this.ySlot },
+      context: { slot: isX ? this.scanSlotX : this.scanSlotY },
       value: [
         {
-          pubkey: isX ? oracle.address : SECOND_POOL,
+          pubkey: isX ? this.scanAddressX : SECOND_POOL,
           account: account(""),
         },
       ],
@@ -351,8 +423,9 @@ class FixtureRpc implements ReadOnlySolanaRpc {
     config: MultipleAccountsConfig,
   ): Promise<T> {
     this.multipleCalls.push({ addresses, config });
+    this.onHydration?.();
     return Promise.resolve({
-      context: { slot: 120 },
+      context: { slot: this.hydrationSlot },
       value: this.hydrated,
     } as T);
   }
@@ -364,16 +437,23 @@ class FixtureRpc implements ReadOnlySolanaRpc {
 
 class StressRpc implements ReadOnlySolanaRpc {
   readonly batchSizes: number[] = [];
+  readonly requestedMinSlots: number[] = [];
   readonly addresses: string[];
   readonly yAddresses: string[];
+  readonly hydrationSlots: number[];
 
-  constructor(count: number, yCount = 0) {
+  constructor(count: number, yCountOrHydrationSlots: number | number[] = 0) {
     this.addresses = Array.from({ length: count }, (_, index) =>
       numberedAddress(index + 1),
     );
+    const yCount =
+      typeof yCountOrHydrationSlots === "number" ? yCountOrHydrationSlots : 0;
     this.yAddresses = Array.from({ length: yCount }, (_, index) =>
       numberedAddress(count + index + 1),
     );
+    this.hydrationSlots = Array.isArray(yCountOrHydrationSlots)
+      ? yCountOrHydrationSlots
+      : [];
   }
 
   getTokenSupply<T>(): Promise<T> {
@@ -399,10 +479,15 @@ class StressRpc implements ReadOnlySolanaRpc {
     } as T);
   }
 
-  getMultipleAccounts<T>(addresses: readonly string[]): Promise<T> {
+  getMultipleAccounts<T>(
+    addresses: readonly string[],
+    config: MultipleAccountsConfig,
+  ): Promise<T> {
     this.batchSizes.push(addresses.length);
+    this.requestedMinSlots.push(Number(config.minContextSlot));
+    const slot = this.hydrationSlots[this.batchSizes.length - 1] ?? 2;
     return Promise.resolve({
-      context: { slot: 2 },
+      context: { slot },
       value: addresses.map(() => account(oracle.data)),
     } as T);
   }

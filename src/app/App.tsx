@@ -57,7 +57,10 @@ function DocsView({ hidden }: { hidden: boolean }) {
             you disconnect, replace it, reload, or close the page. It is never
             placed in browser storage, the URL, analytics, or market-data
             requests. Your browser sends read-only JSON-RPC calls directly to
-            that endpoint, so its operator can observe those calls.
+            that endpoint with caching disabled, ambient credentials omitted,
+            and no referrer. Redirects fail closed, so enter the provider’s
+            final HTTPS endpoint. Its operator can observe the RPC calls and
+            ordinary network metadata such as your IP address.
           </p>
           <p>
             GeckoTerminal receives the public token mint and public market or

@@ -37,6 +37,12 @@ describe("NativeReadOnlySolanaRpc", () => {
     const requestBody = typeof init?.body === "string" ? init.body : "";
     expect(url).toBe("https://rpc.example.invalid/");
     expect(init?.signal).toBeInstanceOf(AbortSignal);
+    expect(init).toMatchObject({
+      cache: "no-store",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+      redirect: "error",
+    });
     expect(JSON.parse(requestBody)).toMatchObject({
       method: "getProgramAccounts",
     });
@@ -46,6 +52,79 @@ describe("NativeReadOnlySolanaRpc", () => {
     expect(
       () => new NativeReadOnlySolanaRpc(new URL("http://rpc.example.invalid")),
     ).toThrow("Use an HTTPS RPC endpoint.");
+  });
+
+  it("fails closed on redirects without exposing a path or query credential", async () => {
+    const endpoint = "https://rpc.example.invalid/custom/path?key=private";
+    const fetchMock = vi
+      .spyOn(window, "fetch")
+      .mockRejectedValue(new TypeError(`redirect blocked for ${endpoint}`));
+    const client = new NativeReadOnlySolanaRpc(endpoint);
+
+    const request = client.getProgramAccounts(
+      "11111111111111111111111111111111",
+      {},
+    );
+    await expect(request).rejects.toMatchObject({
+      provider: "Solana RPC",
+      kind: "network",
+      message: "Solana RPC request could not be completed.",
+    });
+    await expect(request).rejects.not.toThrow(endpoint);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(endpoint);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      cache: "no-store",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+      redirect: "error",
+    });
+  });
+
+  it("cancels an active RPC request with a redacted AbortError", async () => {
+    const endpoint = "https://rpc.example.invalid/path?key=private";
+    vi.spyOn(window, "fetch").mockImplementation(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException(`aborted ${endpoint}`, "AbortError")),
+          );
+        }),
+    );
+    const controller = new AbortController();
+    const client = new NativeReadOnlySolanaRpc(endpoint);
+    const request = client.getProgramAccounts(
+      "11111111111111111111111111111111",
+      {},
+      controller.signal,
+    );
+    controller.abort();
+
+    await expect(request).rejects.toMatchObject({
+      name: "AbortError",
+      message: "Request was cancelled.",
+    });
+    await expect(request).rejects.not.toThrow(endpoint);
+  });
+
+  it("does not echo malformed provider error fields", async () => {
+    const marker = "private-provider-error-marker";
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      Response.json({
+        jsonrpc: "2.0",
+        id: 1,
+        error: { code: marker, message: marker },
+      }),
+    );
+    const client = new NativeReadOnlySolanaRpc(
+      "https://rpc.example.invalid/path?key=private",
+    );
+    const request = client.getProgramAccounts(
+      "11111111111111111111111111111111",
+      {},
+    );
+
+    await expect(request).rejects.toThrow("Solana RPC read failed.");
+    await expect(request).rejects.not.toThrow(marker);
   });
 
   it("accepts endpoint input at 4,096 UTF-16 units with a path and query", () => {

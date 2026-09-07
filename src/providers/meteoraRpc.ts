@@ -57,6 +57,7 @@ export async function discoverDlmmPools(
     scanPools(rpc, mint, "x", signal),
     scanPools(rpc, mint, "y", signal),
   ]);
+  throwIfAborted(signal);
   const minimumContextSlot = Math.max(asX.slot, asY.slot);
   const orientations = new Map<string, Set<"x" | "y">>();
   for (const { address, orientation } of [...asX.keys, ...asY.keys]) {
@@ -76,6 +77,7 @@ export async function discoverDlmmPools(
   let minimumSlot = Math.min(asX.slot, asY.slot);
   let maximumSlot = Math.max(asX.slot, asY.slot);
   let missingAccounts = 0;
+  let hydrationMinSlot = minimumContextSlot;
 
   for (let index = 0; index < addresses.length; index += ACCOUNT_BATCH_SIZE) {
     const batch = addresses.slice(index, index + ACCOUNT_BATCH_SIZE);
@@ -84,13 +86,15 @@ export async function discoverDlmmPools(
       {
         commitment: "confirmed",
         encoding: "base64",
-        minContextSlot: minimumContextSlot,
+        minContextSlot: hydrationMinSlot,
       },
       signal,
     );
-    validateContext(response, "pool hydration");
+    throwIfAborted(signal);
+    validateContext(response, "pool hydration", hydrationMinSlot);
     minimumSlot = Math.min(minimumSlot, response.context.slot);
     maximumSlot = Math.max(maximumSlot, response.context.slot);
+    hydrationMinSlot = Math.max(hydrationMinSlot, response.context.slot);
     if (response.value.length !== batch.length) {
       throw new DlmmRpcDiscoveryError(
         "RPC pool hydration returned an incomplete account batch.",
@@ -172,12 +176,8 @@ export async function countPoolPositions(
     },
     signal,
   );
-  validateContext(response, "position probe");
-  if (response.context.slot < minContextSlot) {
-    throw new DlmmRpcDiscoveryError(
-      "RPC position probe returned below its requested minimum context slot.",
-    );
-  }
+  throwIfAborted(signal);
+  validateContext(response, "position probe", minContextSlot);
   const accounts = validateProgramAccounts(
     response.value,
     "RPC position probe",
@@ -215,6 +215,7 @@ async function scanPools(
     },
     signal,
   );
+  throwIfAborted(signal);
   validateContext(response, `token-${orientation} pool scan`);
   const accounts = validateProgramAccounts(
     response.value,
@@ -234,6 +235,7 @@ async function scanPools(
 function validateContext(
   value: ContextResult<unknown>,
   operation: string,
+  minContextSlot?: number,
 ): void {
   if (
     !value ||
@@ -245,6 +247,16 @@ function validateContext(
       `RPC ${operation} response is missing context or values.`,
     );
   }
+  if (minContextSlot !== undefined && value.context.slot < minContextSlot) {
+    throw new DlmmRpcDiscoveryError(
+      `RPC ${operation} returned below its requested minimum context slot.`,
+    );
+  }
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted)
+    throw new DOMException("RPC request was cancelled.", "AbortError");
 }
 
 function validateSlot(slot: number, operation: string): void {

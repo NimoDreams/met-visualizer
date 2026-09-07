@@ -434,3 +434,19 @@ Consequence: Oversized or malformed RPC data fails before hydration or decoder
 work can amplify it. The existing retry and last-good-data behavior remains the
 recovery path, and the 626-pool and 1,800-position representative stress cases
 remain supported within the public-launch limits.
+
+## 2026-09-07: Make RPC Fetch Privacy And Slot Consistency Explicit
+
+Context: Session-only storage does not by itself control browser cache,
+credentials, referrers, redirects, or whether a provider honors a requested
+minimum observation slot.
+
+Decision: Send every RPC fetch with caching disabled, ambient credentials
+omitted, no referrer, and redirects rejected. Require the final HTTPS provider
+endpoint. Validate safe nonnegative context slots and account envelopes, reject
+hydration below `minContextSlot`, and advance the required slot across batches.
+
+Consequence: RPC paths and query credentials remain compatible without entering
+storage or error text. Redirecting endpoints require their final URL, and stale
+or malformed DLMM snapshots use the existing visible error, retry, and
+last-good refresh behavior rather than being decoded as current data.
