@@ -1,3 +1,7 @@
+import { MAX_RETRY_AFTER_MS, safeTimerDelay } from "./http";
+
+export const MAX_PUBLIC_QUEUE_ITEMS = 64;
+
 export type PublicRequestPriority =
   "user" | "selected" | "standard" | "speculative";
 
@@ -38,6 +42,7 @@ function abortError(): DOMException {
 export class PublicRequestBudget {
   readonly limit: number;
   readonly windowMs: number;
+  readonly queueLimit: number;
 
   #dispatches: number[] = [];
   #inflight = new Map<string, QueueItem>();
@@ -46,9 +51,17 @@ export class PublicRequestBudget {
   #timer?: ReturnType<typeof setTimeout>;
   #blockedUntil = 0;
 
-  constructor({ limit = 10, windowMs = 60_000 } = {}) {
+  constructor({
+    limit = 10,
+    windowMs = 60_000,
+    queueLimit = MAX_PUBLIC_QUEUE_ITEMS,
+  } = {}) {
     this.limit = limit;
     this.windowMs = windowMs;
+    this.queueLimit = Math.min(
+      MAX_PUBLIC_QUEUE_ITEMS,
+      Math.max(0, Number.isFinite(queueLimit) ? Math.floor(queueLimit) : 0),
+    );
   }
 
   schedule<T>(
@@ -61,6 +74,13 @@ export class PublicRequestBudget {
 
     let item = options.key ? this.#inflight.get(options.key) : undefined;
     if (!item) {
+      if (this.#queue.length >= this.queueLimit) {
+        return Promise.reject(
+          new Error(
+            "Public request queue reached its safe limit. Try again shortly.",
+          ),
+        );
+      }
       item = {
         key: options.key,
         priority: priorityOrder[options.priority ?? "standard"],
@@ -79,7 +99,17 @@ export class PublicRequestBudget {
   }
 
   defer(durationMs: number): void {
-    this.#blockedUntil = Math.max(this.#blockedUntil, Date.now() + durationMs);
+    const boundedDuration = Math.min(
+      Math.max(
+        0,
+        Number.isFinite(durationMs) ? durationMs : MAX_RETRY_AFTER_MS,
+      ),
+      MAX_RETRY_AFTER_MS,
+    );
+    this.#blockedUntil = Math.max(
+      this.#blockedUntil,
+      Date.now() + boundedDuration,
+    );
     this.#armTimer();
   }
 
@@ -197,7 +227,7 @@ export class PublicRequestBudget {
         this.#timer = undefined;
         this.#drain();
       },
-      Math.max(0, readyAt - now),
+      safeTimerDelay(readyAt - now),
     );
   }
 }

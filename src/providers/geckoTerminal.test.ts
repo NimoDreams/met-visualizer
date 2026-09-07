@@ -12,6 +12,7 @@ import {
   GeckoTerminalError,
 } from "./geckoTerminal";
 import { PublicRequestBudget } from "./publicRequestBudget";
+import { PUBLIC_JSON_MAX_BYTES } from "./http";
 
 describe("PublicGeckoTerminalProvider", () => {
   beforeEach(() => vi.restoreAllMocks());
@@ -126,6 +127,20 @@ describe("PublicGeckoTerminalProvider", () => {
     await expect(provider.getPools(TOKEN_MINT)).rejects.toMatchObject({
       kind: "rate-limit",
       status: 429,
+    } satisfies Partial<GeckoTerminalError>);
+  });
+
+  it("surfaces an oversized public response as a redacted shape error", async () => {
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      new Response("{}", {
+        headers: { "Content-Length": String(PUBLIC_JSON_MAX_BYTES + 1) },
+      }),
+    );
+    const provider = new PublicGeckoTerminalProvider(new PublicRequestBudget());
+
+    await expect(provider.getToken(TOKEN_MINT)).rejects.toMatchObject({
+      kind: "shape",
+      message: "GeckoTerminal response exceeded the safe size limit.",
     } satisfies Partial<GeckoTerminalError>);
   });
 });

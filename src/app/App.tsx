@@ -9,18 +9,19 @@ import { isSolanaAddress } from "../domain/solanaAddress";
 import type { ReferenceMarketSession } from "../domain/referenceMarket";
 import type { LiquidityOverlayModel } from "../domain/liquidityOverlay";
 import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
+import { parseRpcEndpoint, RpcEndpointError } from "../providers/solanaRpc";
 import { RpcSessionManager, type RpcSession } from "./session";
 import { TipJar } from "./TipJar";
 import { useHashRoute } from "./useHashRoute";
 
 function validateRpc(value: string): string | undefined {
   try {
-    const endpoint = new URL(value);
-    return endpoint.protocol === "https:"
-      ? undefined
-      : "Use an HTTPS RPC endpoint.";
-  } catch {
-    return "Enter a complete HTTPS RPC endpoint.";
+    parseRpcEndpoint(value);
+    return undefined;
+  } catch (error) {
+    return error instanceof RpcEndpointError
+      ? error.message
+      : "Enter a complete HTTPS RPC endpoint.";
   }
 }
 

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { PublicRequestBudget } from "./publicRequestBudget";
+import {
+  MAX_PUBLIC_QUEUE_ITEMS,
+  PublicRequestBudget,
+} from "./publicRequestBudget";
 
 describe("PublicRequestBudget", () => {
   it("dispatches queued work by priority and preserves order within a priority", async () => {
@@ -176,6 +179,70 @@ describe("PublicRequestBudget", () => {
 
     await expect(request).rejects.toMatchObject({ name: "AbortError" });
     expect(run).not.toHaveBeenCalled();
+  });
+
+  it("accepts 64 queued items and rejects N+1 before dispatch", async () => {
+    const budget = new PublicRequestBudget({ limit: 0 });
+    const controllers = Array.from(
+      { length: MAX_PUBLIC_QUEUE_ITEMS },
+      () => new AbortController(),
+    );
+    const run = vi.fn(() => Promise.resolve(undefined));
+    const accepted = controllers.map((controller) =>
+      budget.schedule(run, { signal: controller.signal }),
+    );
+
+    await expect(budget.schedule(run)).rejects.toThrow(
+      "Public request queue reached its safe limit.",
+    );
+    controllers.forEach((controller) => controller.abort());
+    await Promise.allSettled(accepted);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("still deduplicates a live key when the queue is full", async () => {
+    const budget = new PublicRequestBudget({ limit: 0, queueLimit: 1 });
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const run = vi.fn(() => Promise.resolve("shared"));
+    const first = budget.schedule(run, {
+      key: "same",
+      signal: firstController.signal,
+    });
+    const second = budget.schedule(run, {
+      key: "same",
+      signal: secondController.signal,
+    });
+
+    firstController.abort();
+    secondController.abort();
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+    await expect(second).rejects.toMatchObject({ name: "AbortError" });
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("cannot be configured above the public queue ceiling", () => {
+    const budget = new PublicRequestBudget({
+      queueLimit: MAX_PUBLIC_QUEUE_ITEMS + 1,
+    });
+    expect(budget.queueLimit).toBe(MAX_PUBLIC_QUEUE_ITEMS);
+  });
+
+  it("caps far-future deferrals at five minutes without re-arm loops", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const budget = new PublicRequestBudget();
+    const run = vi.fn(() => Promise.resolve("ready"));
+
+    budget.defer(Number.POSITIVE_INFINITY);
+    const request = budget.schedule(run);
+    await vi.advanceTimersByTimeAsync(299_999);
+    expect(run).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(request).resolves.toBe("ready");
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
   });
 });
 
