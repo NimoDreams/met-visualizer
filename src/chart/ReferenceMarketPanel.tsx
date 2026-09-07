@@ -8,33 +8,46 @@ import type { LiquidityOverlayModel } from "../domain/liquidityOverlay";
 
 const intervals: CandleInterval[] = ["5m", "15m", "1h", "4h"];
 
+export type ReferencePanelStatus = {
+  state: "idle" | "loading" | "current" | "stale" | "error";
+  label: string;
+  basis?: string;
+  market?: string;
+};
+
 export function ReferenceMarketPanel({
   mint,
   rpc,
   overlay,
   onSessionChange,
+  onStatusChange,
   onHoverPositionKeys,
 }: {
   mint?: string;
   rpc?: ReadOnlySolanaRpc;
   overlay?: LiquidityOverlayModel;
   onSessionChange?: (session?: ReferenceMarketSession) => void;
+  onStatusChange?: (status: ReferencePanelStatus) => void;
   onHoverPositionKeys?: (keys: readonly string[]) => void;
 }) {
-  const { state, refresh, changeInterval, changeMarket, loadOlder } =
+  const { state, retry, refresh, changeInterval, changeMarket, loadOlder } =
     useReferenceMarket(mint, rpc);
 
   useEffect(() => {
     onSessionChange?.(state.status === "ready" ? state.session : undefined);
   }, [onSessionChange, state]);
 
+  useEffect(() => {
+    onStatusChange?.(describePanelStatus(state));
+  }, [onStatusChange, state]);
+
   if (state.status === "idle") {
     return (
-      <article className="chart-panel surface">
+      <article className="chart-panel surface" aria-labelledby="chart-heading">
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Reference market</p>
-            <h2>Awaiting token CA</h2>
+            <h2 id="chart-heading">Awaiting token CA</h2>
           </div>
         </div>
         <ReferenceChart />
@@ -48,10 +61,18 @@ export function ReferenceMarketPanel({
 
   if (state.status === "loading") {
     return (
-      <article className="chart-panel surface" aria-busy="true">
+      <article
+        className="chart-panel surface"
+        aria-busy="true"
+        aria-labelledby="chart-heading"
+      >
         <p className="eyebrow">GeckoTerminal · keyless public data</p>
-        <h2>Finding a reference market…</h2>
-        <div className="chart-loading" />
+        <h2 id="chart-heading">Finding a reference market…</h2>
+        <div
+          aria-label="Loading reference-market candles"
+          className="chart-loading"
+          role="status"
+        />
         <p className="chart-note">
           Checking up to three liquidity-and-volume-ranked markets for completed
           USD candles.
@@ -62,15 +83,18 @@ export function ReferenceMarketPanel({
 
   if (state.status === "error") {
     return (
-      <article className="chart-panel surface">
+      <article className="chart-panel surface" aria-labelledby="chart-heading">
         <p className="eyebrow">Reference market unavailable</p>
-        <h2>{errorTitle(state.kind)}</h2>
+        <h2 id="chart-heading">{errorTitle(state.kind)}</h2>
         <div className="market-error" role="alert">
           <p>{state.message}</p>
           <p>
-            Meteora pool and position data can remain available independently
-            when that workflow is added.
+            Meteora pool and position data remain available independently. See
+            the <a href="#/docs">Docs</a> for provider limits and recovery.
           </p>
+          <button className="button-secondary" type="button" onClick={retry}>
+            Retry chart
+          </button>
         </div>
         <ReferenceChart />
       </article>
@@ -83,11 +107,15 @@ export function ReferenceMarketPanel({
   const last = session.candles.at(-1);
 
   return (
-    <article className="chart-panel surface" aria-busy={busy}>
+    <article
+      className="chart-panel surface"
+      aria-busy={busy}
+      aria-labelledby="chart-heading"
+    >
       <div className="panel-heading market-heading">
         <div>
           <p className="eyebrow">GeckoTerminal · keyless public data</p>
-          <h2>
+          <h2 id="chart-heading">
             {session.token.name} <span>{session.token.symbol}</span>
           </h2>
         </div>
@@ -226,7 +254,8 @@ export function ReferenceMarketPanel({
 
       {state.actionError ? (
         <p className="market-action-error" role="alert">
-          Last-good candles remain visible. {state.actionError}
+          Last-good candles remain visible. {state.actionError} See the{" "}
+          <a href="#/docs">Docs</a> for refresh and stale-data behavior.
         </p>
       ) : null}
 
@@ -246,6 +275,38 @@ export function ReferenceMarketPanel({
       ) : null}
     </article>
   );
+}
+
+function describePanelStatus(
+  state: ReturnType<typeof useReferenceMarket>["state"],
+): ReferencePanelStatus {
+  if (state.status === "idle") return { state: "idle", label: "Chart waiting" };
+  if (state.status === "loading")
+    return { state: "loading", label: "Chart loading" };
+  if (state.status === "error")
+    return { state: "error", label: "Chart unavailable" };
+  return {
+    state: state.stale
+      ? "stale"
+      : state.action === "idle"
+        ? "current"
+        : "loading",
+    label: state.stale
+      ? "Chart stale"
+      : state.action === "idle"
+        ? state.session.freshness.state === "delayed"
+          ? "Chart delayed"
+          : state.session.freshness.state === "unknown"
+            ? "Chart freshness unknown"
+            : "Chart current"
+        : state.action === "backfilling"
+          ? "Chart loading history"
+          : state.action === "changing"
+            ? "Chart changing"
+            : "Chart refreshing",
+    basis: state.session.basis.label,
+    market: `${state.session.market.name} · ${state.session.market.dexId}`,
+  };
 }
 
 function errorTitle(kind: string): string {

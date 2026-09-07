@@ -20,6 +20,10 @@ import {
   type PoolOverlayInput,
 } from "../domain/liquidityOverlay";
 import type { ReferenceMarketSession } from "../domain/referenceMarket";
+import {
+  describePanelStatus,
+  type PositionsPanelStatus,
+} from "./positionsPanelStatus";
 
 type DlmmPoolsPanelProps = {
   mint?: string;
@@ -27,6 +31,7 @@ type DlmmPoolsPanelProps = {
   reference?: ReferenceMarketSession;
   hoveredPositionKeys?: readonly string[];
   onOverlayChange?: (model?: LiquidityOverlayModel) => void;
+  onStatusChange?: (status: PositionsPanelStatus) => void;
 };
 
 export function DlmmPoolsPanel({
@@ -35,8 +40,9 @@ export function DlmmPoolsPanel({
   reference,
   hoveredPositionKeys = [],
   onOverlayChange,
+  onStatusChange,
 }: DlmmPoolsPanelProps) {
-  const { state, refresh, toggle } = useDlmmPools(mint, rpc);
+  const { state, retry, refresh, toggle } = useDlmmPools(mint, rpc);
   const [positionStates, setPositionStates] = useState<
     Record<string, PoolPositionsState>
   >({});
@@ -79,6 +85,17 @@ export function DlmmPoolsPanel({
   useEffect(() => {
     onOverlayChange?.(mint && readySession ? overlay : undefined);
   }, [mint, onOverlayChange, overlay, readySession]);
+
+  useEffect(() => {
+    onStatusChange?.(
+      describePanelStatus(
+        state,
+        overlay,
+        positionStates,
+        state.status === "ready" ? state.session.enabledAddresses : [],
+      ),
+    );
+  }, [onStatusChange, overlay, positionStates, state]);
 
   const largestSignature = overlay.largestTargetKeys.join("|");
   useEffect(() => {
@@ -154,11 +171,14 @@ export function DlmmPoolsPanel({
   }
 
   return (
-    <aside className="positions-panel surface">
+    <aside
+      className="positions-panel surface"
+      aria-labelledby="positions-heading"
+    >
       <div className="pool-panel-heading">
         <div>
           <p className="eyebrow">Meteora DLMM</p>
-          <h2>Pools &amp; positions</h2>
+          <h2 id="positions-heading">Pools &amp; positions</h2>
         </div>
         {state.status === "ready" ? (
           <button
@@ -184,6 +204,13 @@ export function DlmmPoolsPanel({
         <div className="market-error" role="alert">
           <strong>RPC pool discovery failed</strong>
           <p>{state.message}</p>
+          <p>
+            The chart can remain available independently. See the{" "}
+            <a href="#/docs">Docs</a> for provider limits and recovery.
+          </p>
+          <button className="button-secondary" type="button" onClick={retry}>
+            Retry pools
+          </button>
         </div>
       ) : null}
       {state.status === "ready" && rpc ? (
@@ -283,7 +310,8 @@ function PoolResults({
       ) : null}
       {session.rpcStale && actionError ? (
         <div className="market-action-error" role="alert">
-          RPC refresh failed. Last-good pool data remains visible. {actionError}
+          RPC refresh failed. Last-good pool data remains visible. {actionError}{" "}
+          <a href="#/docs">Read refresh details.</a>
         </div>
       ) : null}
       <GlobalPositionControls

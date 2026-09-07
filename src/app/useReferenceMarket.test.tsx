@@ -48,6 +48,33 @@ describe("useReferenceMarket", () => {
     },
   );
 
+  it("retries an initial provider failure without changing the token session", async () => {
+    let failing = true;
+    const market = poolFixture("retry-pool");
+    const getToken = vi.fn(() =>
+      failing
+        ? Promise.reject(new GeckoTerminalError("network", "offline"))
+        : Promise.resolve(tokenFixture()),
+    );
+    const provider: GeckoTerminalProvider = {
+      getToken,
+      getPools: vi.fn(() => Promise.resolve([market])),
+      getCandles: vi.fn(() =>
+        Promise.resolve(candleFixture(NOW_SECONDS - 24 * 3_600, 96)),
+      ),
+      getQuotePrices: vi.fn(() => Promise.resolve(new Map())),
+    };
+    const { result } = renderHook(() =>
+      useReferenceMarket(TOKEN_MINT, undefined, provider),
+    );
+    await waitFor(() => expect(result.current.state.status).toBe("error"));
+
+    failing = false;
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+    expect(getToken).toHaveBeenCalledTimes(2);
+  });
+
   it("reports an empty candidate list as no market", async () => {
     const provider: GeckoTerminalProvider = {
       getToken: vi.fn(() => Promise.resolve(tokenFixture())),
