@@ -5,14 +5,17 @@ import {
   type DlmmPoolSession,
 } from "../domain/dlmmPools";
 import {
+  GeckoTerminalError,
   publicGeckoTerminalProvider,
   type GeckoTerminalProvider,
 } from "../providers/geckoTerminal";
 import {
+  MeteoraMetadataError,
   publicMeteoraMetadataProvider,
   type MeteoraMetadataProvider,
 } from "../providers/meteoraMetadata";
-import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
+import { DlmmRpcDiscoveryError } from "../providers/meteoraRpc";
+import { SolanaRpcError, type ReadOnlySolanaRpc } from "../providers/solanaRpc";
 
 export type DlmmPoolsState =
   | { status: "idle" }
@@ -227,7 +230,10 @@ function preserveStableSelection(
 }
 
 function describeError(error: unknown): string {
-  return error instanceof Error
+  return error instanceof SolanaRpcError ||
+    error instanceof DlmmRpcDiscoveryError ||
+    error instanceof MeteoraMetadataError ||
+    error instanceof GeckoTerminalError
     ? error.message
     : "DLMM pools could not be loaded from this RPC.";
 }

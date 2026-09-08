@@ -1,21 +1,23 @@
-import type {
-  GeckoTerminalProvider,
-  QuotePrice,
+import {
+  GeckoTerminalError,
+  type GeckoTerminalProvider,
+  type QuotePrice,
 } from "../providers/geckoTerminal";
-import type {
-  MeteoraMetadataProvider,
-  MeteoraPoolMetadata,
-  MeteoraPoolOrientation,
-  MeteoraPoolPage,
+import {
+  MeteoraMetadataError,
+  type MeteoraMetadataProvider,
+  type MeteoraPoolMetadata,
+  type MeteoraPoolOrientation,
+  type MeteoraPoolPage,
 } from "../providers/meteoraMetadata";
-import { MeteoraMetadataError } from "../providers/meteoraMetadata";
 import {
   countPoolPositions,
+  DlmmRpcDiscoveryError,
   discoverDlmmPools,
   type DiscoveredDlmmPool,
   type DlmmPoolDiscovery,
 } from "../providers/meteoraRpc";
-import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
+import { SolanaRpcError, type ReadOnlySolanaRpc } from "../providers/solanaRpc";
 
 const MAX_PAGES_PER_ORIENTATION = 5;
 
@@ -148,9 +150,11 @@ export async function loadDlmmPoolSession(
     } catch (error) {
       if (signal.aborted) throw error;
       selectionDetail =
-        error instanceof Error
+        error instanceof SolanaRpcError ||
+        error instanceof DlmmRpcDiscoveryError ||
+        error instanceof GeckoTerminalError
           ? `Automatic qualification stopped: ${error.message}`
-          : "Automatic qualification failed.";
+          : "Automatic qualification stopped: RPC qualification failed.";
     }
   }
 
@@ -533,7 +537,9 @@ function describeMetadataFailure(
   return {
     state: incomplete ? "incomplete" : "unavailable",
     detail:
-      error instanceof Error ? `${prefix}: ${error.message}` : `${prefix}.`,
+      error instanceof MeteoraMetadataError
+        ? `${prefix}: ${error.message}`
+        : `${prefix}.`,
     requests,
     metadata: reconciled.metadata,
     candidates: reconciled.candidates,

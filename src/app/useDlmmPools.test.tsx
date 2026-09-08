@@ -114,11 +114,29 @@ describe("useDlmmPools", () => {
     expect(result.current.state).toMatchObject({
       status: "ready",
       refreshing: false,
-      actionError: "fixture RPC unavailable",
+      actionError: "DLMM pools could not be loaded from this RPC.",
       session: {
         rpcStale: true,
         enabledAddresses: [oracle.address],
       },
+    });
+  });
+
+  it("does not publish an unexpected RPC exception or endpoint canary", async () => {
+    const rpc = new OnePoolRpc();
+    rpc.fail = true;
+    rpc.failureMessage =
+      "response-canary https://rpc.example.invalid/?key=endpoint-canary";
+    const metadata = new ToggleMetadataProvider();
+    const gecko = new OneQuoteProvider();
+    const { result } = renderHook(() =>
+      useDlmmPools(JUP, rpc, metadata, gecko),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe("error"));
+    expect(result.current.state).toEqual({
+      status: "error",
+      message: "DLMM pools could not be loaded from this RPC.",
     });
   });
 
@@ -158,6 +176,7 @@ describe("useDlmmPools", () => {
 
 class OnePoolRpc implements ReadOnlySolanaRpc {
   fail = false;
+  failureMessage = "fixture RPC unavailable";
   hydrationSlot = 2;
 
   getTokenSupply<T>(): Promise<T> {
@@ -168,7 +187,7 @@ class OnePoolRpc implements ReadOnlySolanaRpc {
     _program: string,
     config: AccountScanConfig,
   ): Promise<T> {
-    if (this.fail) return Promise.reject(new Error("fixture RPC unavailable"));
+    if (this.fail) return Promise.reject(new Error(this.failureMessage));
     const filters = config.filters as Array<{
       memcmp: { offset: number; bytes: string };
     }>;
@@ -188,7 +207,7 @@ class OnePoolRpc implements ReadOnlySolanaRpc {
   }
 
   getMultipleAccounts<T>(): Promise<T> {
-    if (this.fail) return Promise.reject(new Error("fixture RPC unavailable"));
+    if (this.fail) return Promise.reject(new Error(this.failureMessage));
     return Promise.resolve({
       context: { slot: this.hydrationSlot },
       value: [account(poolAccount(JUP))],

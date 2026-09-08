@@ -470,3 +470,20 @@ or negative values never enter selection, and persistent provider failures stay
 visible. The browser cannot reliably distinguish a CORS-hidden rate limit from
 other network failures, so the UI states that limitation rather than claiming a
 status code it cannot observe.
+
+## 2026-09-07: Validate And Redact JSON-RPC Envelopes
+
+Context: A syntactically valid JSON response from a user-selected RPC may still
+be a primitive, array, or malformed JSON-RPC object. Native property operations
+and upstream error text must not reach visible pool or position failures.
+
+Decision: Before reading a result, require a non-array JSON-RPC 2.0 object with
+the matching request ID and exactly one result or valid error object. Discard
+upstream error messages and data. Classify timeout, opaque network, HTTP, valid
+RPC, response-limit, and malformed-envelope failures with fixed project-owned
+messages, and make pool and position hooks reject unexpected exception text.
+
+Consequence: Malformed or hostile RPC responses fail before domain property
+access or account decoding. Existing retry, cancellation, and last-good behavior
+remain available without copying endpoint, response, or nested error content
+into UI text, logs, or production artifacts.
