@@ -1,4 +1,4 @@
-import { requestJson } from "./http";
+import { ProviderRequestError, requestJson } from "./http";
 
 export const MAX_RPC_ENDPOINT_CODE_UNITS = 4_096;
 export const TOKEN_SUPPLY_JSON_MAX_BYTES = 64 * 1024;
@@ -6,13 +6,21 @@ export const ACCOUNT_RPC_JSON_MAX_BYTES = 24 * 1024 * 1024;
 
 type JsonRpcId = number;
 
-type JsonRpcResponse<T> =
-  | { jsonrpc: "2.0"; id: JsonRpcId; result: T }
-  | {
-      jsonrpc: "2.0";
-      id: JsonRpcId;
-      error: { code: number; message: string; data?: unknown };
-    };
+export type SolanaRpcErrorKind =
+  "timeout" | "network" | "http" | "rpc" | "limit" | "malformed";
+
+export class SolanaRpcError extends Error {
+  readonly provider = "Solana RPC";
+
+  constructor(
+    readonly kind: SolanaRpcErrorKind,
+    readonly status?: number,
+    readonly code?: number,
+  ) {
+    super(solanaRpcErrorMessage(kind, status, code));
+    this.name = "SolanaRpcError";
+  }
+}
 
 export type AccountScanConfig = Readonly<Record<string, unknown>>;
 export type MultipleAccountsConfig = Readonly<Record<string, unknown>>;
@@ -105,9 +113,10 @@ export class NativeReadOnlySolanaRpc implements ReadOnlySolanaRpc {
     params: readonly unknown[],
     signal?: AbortSignal,
   ): Promise<T> {
-    const response = await requestJson<JsonRpcResponse<T>>(
-      this.#endpoint.href,
-      {
+    const requestId = this.#nextId++;
+    let response: unknown;
+    try {
+      response = await requestJson<unknown>(this.#endpoint.href, {
         provider: "Solana RPC",
         signal,
         maxResponseBytes:
@@ -123,25 +132,96 @@ export class NativeReadOnlySolanaRpc implements ReadOnlySolanaRpc {
           redirect: "error",
           body: JSON.stringify({
             jsonrpc: "2.0",
-            id: this.#nextId++,
+            id: requestId,
             method,
             params,
           }),
         },
-      },
-    );
-
-    if ("error" in response) {
-      const code = response.error.code;
-      throw new Error(
-        Number.isSafeInteger(code)
-          ? `Solana RPC read failed (${code}).`
-          : "Solana RPC read failed.",
-      );
+      });
+    } catch (error) {
+      if (isAbortError(error)) throw error;
+      throw normalizeTransportError(error);
     }
 
-    return response.result;
+    return readJsonRpcEnvelope<T>(response, requestId);
   }
+}
+
+function readJsonRpcEnvelope<T>(value: unknown, requestId: JsonRpcId): T {
+  if (!isRecord(value) || value.jsonrpc !== "2.0" || value.id !== requestId) {
+    throw malformedRpcResponse();
+  }
+
+  const hasResult = Object.hasOwn(value, "result");
+  const hasError = Object.hasOwn(value, "error");
+  if (hasResult === hasError) throw malformedRpcResponse();
+
+  if (hasResult) return value.result as T;
+
+  const error = value.error;
+  if (
+    !isRecord(error) ||
+    typeof error.code !== "number" ||
+    !Number.isSafeInteger(error.code) ||
+    typeof error.message !== "string"
+  ) {
+    throw malformedRpcResponse();
+  }
+  const code = error.code;
+  throw new SolanaRpcError("rpc", undefined, code);
+}
+
+function normalizeTransportError(error: unknown): SolanaRpcError {
+  if (!(error instanceof ProviderRequestError)) {
+    return new SolanaRpcError("network");
+  }
+  if (error.kind === "timeout") {
+    return new SolanaRpcError("timeout");
+  }
+  if (error.kind === "limit") {
+    return new SolanaRpcError("limit");
+  }
+  if (error.kind === "invalid-json") return malformedRpcResponse();
+  if (error.status !== undefined) {
+    return new SolanaRpcError("http", error.status);
+  }
+  return new SolanaRpcError("network");
+}
+
+function malformedRpcResponse(): SolanaRpcError {
+  return new SolanaRpcError("malformed");
+}
+
+function solanaRpcErrorMessage(
+  kind: SolanaRpcErrorKind,
+  status?: number,
+  code?: number,
+): string {
+  if (kind === "timeout") return "Solana RPC request timed out.";
+  if (kind === "network") return "Solana RPC request could not be completed.";
+  if (kind === "limit")
+    return "Solana RPC response exceeded the safe size limit.";
+  if (kind === "malformed") return "Solana RPC response is malformed.";
+  if (kind === "http")
+    return Number.isSafeInteger(status)
+      ? `Solana RPC request failed with HTTP ${status}.`
+      : "Solana RPC request failed.";
+  return Number.isSafeInteger(code)
+    ? `Solana RPC read failed (${code}).`
+    : "Solana RPC read failed.";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError"
+  );
 }
 
 export class RpcEndpointError extends Error {

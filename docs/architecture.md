@@ -286,6 +286,14 @@ bins. Context slots are safe nonnegative integers, and BinArray-derived bin IDs
 must fit signed int32. A limit failure stops the affected load with a redacted,
 retryable error instead of forwarding partial data to downstream decoders.
 
+The native RPC boundary validates the top-level JSON-RPC envelope before pool
+or position code reads it. A response must be a non-array object with version
+`2.0`, the matching numeric request ID, and exactly one result or valid error
+object. Upstream error messages and data are never forwarded. Timeout, opaque
+network, HTTP, valid RPC, size-limit, and malformed-response failures use
+project-owned classifications and fixed messages; pool and position hooks only
+publish errors from those reviewed boundaries.
+
 ## Liquidity Overlay
 
 Issue #20 adds a project-owned Lightweight Charts series primitive. It places

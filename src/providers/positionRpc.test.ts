@@ -6,7 +6,12 @@ import {
   POSITION_V2_DISCRIMINATOR,
 } from "../domain/meteoraAccounts";
 import oracle from "../test/fixtures/positionOracle.json";
-import type { AccountScanConfig, ReadOnlySolanaRpc } from "./solanaRpc";
+import {
+  NativeReadOnlySolanaRpc,
+  SolanaRpcError,
+  type AccountScanConfig,
+  type ReadOnlySolanaRpc,
+} from "./solanaRpc";
 import { loadPositionRpcSnapshot } from "./positionRpc";
 import {
   MAX_BIN_ARRAYS_PER_POOL,
@@ -16,6 +21,33 @@ import {
 afterEach(() => vi.restoreAllMocks());
 
 describe("PositionV2 RPC snapshot", () => {
+  it("rejects a malformed JSON-RPC envelope before the position read path can inspect it", async () => {
+    const endpointMarker = "endpoint-canary";
+    const responseMarker = "response-canary";
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ responseMarker })),
+    );
+    const rpc = new NativeReadOnlySolanaRpc(
+      `https://rpc.example.invalid/path?key=${endpointMarker}`,
+    );
+    const atobSpy = vi.spyOn(globalThis, "atob");
+    const request = loadPositionRpcSnapshot(
+      rpc,
+      oracle.pool,
+      oracle.owner,
+      1,
+      new AbortController().signal,
+    );
+
+    await expect(request).rejects.toMatchObject({
+      kind: "malformed",
+      message: "Solana RPC response is malformed.",
+    } satisfies Partial<SolanaRpcError>);
+    await expect(request).rejects.not.toThrow(endpointMarker);
+    await expect(request).rejects.not.toThrow(responseMarker);
+    expect(atobSpy).not.toHaveBeenCalled();
+  });
+
   it("hydrates positions in bounded batches and includes every context slot", async () => {
     const rpc = new PositionFixtureRpc(205);
     const progress: number[] = [];

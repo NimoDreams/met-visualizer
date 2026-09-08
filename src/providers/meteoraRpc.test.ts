@@ -6,10 +6,12 @@ import {
   POSITION_V2_DISCRIMINATOR,
 } from "../domain/meteoraAccounts";
 import oracle from "../test/fixtures/lbPairOracle.json";
-import type {
-  AccountScanConfig,
-  MultipleAccountsConfig,
-  ReadOnlySolanaRpc,
+import {
+  NativeReadOnlySolanaRpc,
+  SolanaRpcError,
+  type AccountScanConfig,
+  type MultipleAccountsConfig,
+  type ReadOnlySolanaRpc,
 } from "./solanaRpc";
 import { countPoolPositions, discoverDlmmPools } from "./meteoraRpc";
 import {
@@ -24,6 +26,25 @@ const SECOND_POOL = encodeBase58(new Uint8Array(32).fill(7));
 afterEach(() => vi.restoreAllMocks());
 
 describe("Meteora RPC discovery", () => {
+  it("rejects a malformed JSON-RPC envelope before the DLMM pool read path can inspect it", async () => {
+    const endpointMarker = "endpoint-canary";
+    const responseMarker = "response-canary";
+    vi.spyOn(window, "fetch").mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify(responseMarker))),
+    );
+    const rpc = new NativeReadOnlySolanaRpc(
+      `https://rpc.example.invalid/path?key=${endpointMarker}`,
+    );
+    const request = discoverDlmmPools(rpc, JUP, new AbortController().signal);
+
+    await expect(request).rejects.toMatchObject({
+      kind: "malformed",
+      message: "Solana RPC response is malformed.",
+    } satisfies Partial<SolanaRpcError>);
+    await expect(request).rejects.not.toThrow(endpointMarker);
+    await expect(request).rejects.not.toThrow(responseMarker);
+  });
+
   it("scans both mint orientations and hydrates decoded pools at a shared context", async () => {
     const rpc = new FixtureRpc([
       account(oracle.data),

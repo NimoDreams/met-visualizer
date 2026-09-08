@@ -7,11 +7,12 @@ import {
   type PoolPositionSession,
 } from "../domain/poolPositions";
 import {
+  GeckoTerminalError,
   publicGeckoTerminalProvider,
   type GeckoTerminalProvider,
 } from "../providers/geckoTerminal";
 import type { PositionRpcProgress } from "../providers/positionRpc";
-import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
+import { SolanaRpcError, type ReadOnlySolanaRpc } from "../providers/solanaRpc";
 
 export type PoolPositionsState =
   | { status: "loading"; progress: PositionRpcProgress }
@@ -204,7 +205,7 @@ export function usePoolPositions(
 }
 
 function describeError(error: unknown): string {
-  return error instanceof Error
+  return error instanceof SolanaRpcError || error instanceof GeckoTerminalError
     ? error.message
     : "Positions could not be loaded from this RPC.";
 }
