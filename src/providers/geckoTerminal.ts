@@ -25,7 +25,7 @@ const GECKO_TERMINAL_SIMPLE_BASE =
 const CACHE_MS = 60_000;
 
 export type GeckoErrorKind =
-  "rate-limit" | "not-found" | "network" | "provider" | "shape";
+  "rate-limit" | "not-found" | "timeout" | "network" | "provider" | "shape";
 
 export class GeckoTerminalError extends Error {
   constructor(
@@ -179,7 +179,22 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
       throw shapeError("Pool response exceeds the supported candidate limit.");
     }
 
-    return response.data.map((item, index) => parsePool(item, mint, index));
+    const candidates: GeckoPoolCandidate[] = [];
+    let firstInvalidCandidate: GeckoTerminalError | undefined;
+    for (const [index, item] of response.data.entries()) {
+      try {
+        candidates.push(parsePool(item, mint, index));
+      } catch (error) {
+        if (!(error instanceof GeckoTerminalError) || error.kind !== "shape") {
+          throw error;
+        }
+        firstInvalidCandidate ??= error;
+      }
+    }
+    if (candidates.length === 0 && firstInvalidCandidate) {
+      throw firstInvalidCandidate;
+    }
+    return candidates;
   }
 
   async getCandles(
@@ -327,10 +342,16 @@ export class PublicGeckoTerminalProvider implements GeckoTerminalProvider {
             error.status,
           );
         }
+        if (error.kind === "timeout") {
+          throw new GeckoTerminalError(
+            "timeout",
+            "GeckoTerminal request timed out. Try again.",
+          );
+        }
         if (error.status === undefined) {
           throw new GeckoTerminalError(
             "network",
-            "GeckoTerminal could not be reached.",
+            "GeckoTerminal could not be reached. Its public API may be unavailable or rate limiting browser requests; try again shortly.",
           );
         }
         if (error.status >= 500) this.budget.defer(1_000);
@@ -383,12 +404,12 @@ function parsePool(
     baseMint,
     quoteMint,
     tokenSide,
-    reserveUsd: optionalPositiveNumber(
+    reserveUsd: optionalNonNegativeNumber(
       attributes.reserve_in_usd,
       "pool reserve",
     ),
     volume24hUsd: isRecord(attributes.volume_usd)
-      ? optionalPositiveNumber(attributes.volume_usd.h24, "24-hour volume")
+      ? optionalNonNegativeNumber(attributes.volume_usd.h24, "24-hour volume")
       : undefined,
     createdAt: optionalDateSeconds(attributes.pool_created_at),
     lastTradeTimestamp: optionalTimestamp(
@@ -528,6 +549,17 @@ function optionalPositiveNumber(
   if (value === null || value === undefined || value === "") return undefined;
   const parsed = decimalValue(value);
   if (parsed === undefined || parsed <= 0)
+    throw shapeError(`Response has an invalid ${label}.`);
+  return parsed;
+}
+
+function optionalNonNegativeNumber(
+  value: unknown,
+  label: string,
+): number | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const parsed = decimalValue(value);
+  if (parsed === undefined || parsed < 0)
     throw shapeError(`Response has an invalid ${label}.`);
   return parsed;
 }

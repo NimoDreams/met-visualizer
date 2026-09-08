@@ -314,6 +314,7 @@ function errorTitle(kind: string): string {
     {
       "no-market": "No usable market found",
       "rate-limit": "Public request limit reached",
+      timeout: "Public request timed out",
       network: "Network request failed",
       "provider-shape": "Provider response changed",
       provider: "Provider request failed",

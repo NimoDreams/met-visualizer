@@ -197,6 +197,12 @@ function DocsView({ hidden }: { hidden: boolean }) {
             chart, pool discovery, or position load. Phone pane switches keep
             selections, filters, loaded extent, and the chart range in memory.
           </p>
+          <p>
+            Some public-provider throttling responses omit browser CORS access,
+            so the browser can expose them only as a network failure. If that
+            happens, wait briefly and use Retry chart; the app does not loop or
+            retry invisibly.
+          </p>
         </section>
         <section className="surface">
           <h2>Limits</h2>

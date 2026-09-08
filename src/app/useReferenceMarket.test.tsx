@@ -22,17 +22,24 @@ const NOW_SECONDS = Math.floor(Date.now() / 1_000);
 
 describe("useReferenceMarket", () => {
   it.each([
-    ["rate-limit", "rate-limit"],
-    ["network", "network"],
-    ["shape", "provider-shape"],
+    [
+      "rate-limit",
+      "rate-limit",
+      "GeckoTerminal is rate limiting public requests. Try again shortly.",
+    ],
+    ["timeout", "timeout", "GeckoTerminal request timed out. Try again."],
+    [
+      "network",
+      "network",
+      "GeckoTerminal could not be reached. Its public API may be unavailable or rate limiting browser requests; try again shortly.",
+    ],
+    ["shape", "provider-shape", "Fixture response changed."],
   ] as const)(
     "reports %s failures distinctly",
-    async (providerKind, expected) => {
+    async (providerKind, expected, message) => {
       const provider: GeckoTerminalProvider = {
         getToken: vi.fn(() =>
-          Promise.reject(
-            new GeckoTerminalError(providerKind, "fixture failure"),
-          ),
+          Promise.reject(new GeckoTerminalError(providerKind, message)),
         ),
         getPools: vi.fn(() => Promise.resolve([])),
         getCandles: vi.fn(() => Promise.resolve([])),
@@ -45,6 +52,7 @@ describe("useReferenceMarket", () => {
       await waitFor(() => expect(result.current.state.status).toBe("error"));
       if (result.current.state.status !== "error") throw new Error("not error");
       expect(result.current.state.kind).toBe(expected);
+      expect(result.current.state.message).toBe(message);
     },
   );
 

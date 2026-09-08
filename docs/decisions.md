@@ -450,3 +450,23 @@ Consequence: RPC paths and query credentials remain compatible without entering
 storage or error text. Redirecting endpoints require their final URL, and stale
 or malformed DLMM snapshots use the existing visible error, retry, and
 last-good refresh behavior rather than being decoded as current data.
+
+## 2026-09-07: Treat Inactive Pool Ranking Values As Nonnegative
+
+Context: GeckoTerminal legitimately reports zero reserve or 24-hour volume for
+inactive pool rows. Treating those optional ranking fields like strictly
+positive prices caused one inactive row to reject an otherwise usable candidate
+list. Public throttling can also appear to browser code as an opaque network
+failure when its response is not CORS-readable.
+
+Decision: Accept bounded zero for reserve and volume while keeping token,
+quote, and candle prices strictly positive. Reject a malformed optional ranking
+row without discarding independently valid candidates; fail the response when
+no candidate survives. Keep recovery user-visible and scheduler-bounded through
+Retry chart, with no automatic retry burst for an opaque provider failure.
+
+Consequence: Inactive rows no longer break the CA-to-chart workflow, malformed
+or negative values never enter selection, and persistent provider failures stay
+visible. The browser cannot reliably distinguish a CORS-hidden rate limit from
+other network failures, so the UI states that limitation rather than claiming a
+status code it cannot observe.

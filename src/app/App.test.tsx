@@ -145,6 +145,11 @@ describe("App", () => {
     expect(
       screen.getByText(/caching disabled, ambient credentials omitted/i),
     ).toHaveTextContent(/no referrer.*redirects fail closed/i);
+    expect(
+      screen.getByText(
+        /public-provider throttling responses omit browser cors/i,
+      ),
+    ).toHaveTextContent(/wait briefly and use retry chart/i);
     const referenceCopy = screen
       .getByRole("heading", { name: "Reference-market selection" })
       .closest("section");
