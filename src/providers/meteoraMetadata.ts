@@ -1,4 +1,12 @@
 import { isSolanaAddress } from "../domain/solanaAddress";
+import {
+  MAX_PROVIDER_IDENTIFIER_CODE_POINTS,
+  MAX_PROVIDER_NAME_CODE_POINTS,
+  MAX_PROVIDER_PAGINATION_TOTAL,
+  boundedDecimalNumber,
+  isBoundedText,
+  isSafeIntegerInRange,
+} from "../domain/providerLimits";
 import { ProviderRequestError, requestJson } from "./http";
 
 const METEORA_DATA_BASE = "https://dlmm.datapi.meteora.ag";
@@ -79,6 +87,9 @@ export class PublicMeteoraMetadataProvider implements MeteoraMetadataProvider {
     } catch (error) {
       if (error instanceof MeteoraMetadataError) throw error;
       if (error instanceof ProviderRequestError) {
+        if (error.kind === "limit" || error.kind === "invalid-json") {
+          throw new MeteoraMetadataError("shape", error.message);
+        }
         throw new MeteoraMetadataError(
           error.status === undefined ? "network" : "provider",
           error.status === undefined
@@ -107,7 +118,12 @@ function parsePoolPage(
   const currentPage = requiredInteger(value.current_page, "current page", 1);
   const pageCount = requiredInteger(value.pages, "page count", 0);
   const pageSize = requiredInteger(value.page_size, "page size", 1);
-  const total = requiredInteger(value.total, "total", 0);
+  const total = requiredInteger(
+    value.total,
+    "total",
+    0,
+    MAX_PROVIDER_PAGINATION_TOTAL,
+  );
   if (
     currentPage !== requestedPage ||
     pageSize !== METEORA_METADATA_PAGE_SIZE
@@ -174,14 +190,26 @@ function parsePool(
 
   return {
     address,
-    name: requiredString(value.name, "pool name"),
+    name: requiredString(
+      value.name,
+      "pool name",
+      MAX_PROVIDER_NAME_CODE_POINTS,
+    ),
     tokenXMint,
     tokenYMint,
-    tokenXSymbol: optionalString(value.token_x.symbol),
-    tokenYSymbol: optionalString(value.token_y.symbol),
-    tvlUsd: requiredNumber(value.tvl, "pool TVL"),
+    tokenXSymbol: optionalString(
+      value.token_x.symbol,
+      "token X symbol",
+      MAX_PROVIDER_IDENTIFIER_CODE_POINTS,
+    ),
+    tokenYSymbol: optionalString(
+      value.token_y.symbol,
+      "token Y symbol",
+      MAX_PROVIDER_IDENTIFIER_CODE_POINTS,
+    ),
+    tvlUsd: requiredNumber(value.tvl, "pool TVL", 0),
     volume24hUsd: isRecord(value.volume)
-      ? requiredNumber(value.volume["24h"], "24-hour volume")
+      ? requiredNumber(value.volume["24h"], "24-hour volume", 0)
       : 0,
     blacklisted: value.is_blacklisted === true,
     observedAt,
@@ -227,20 +255,36 @@ function requiredAddress(value: unknown, label: string): string {
   return address;
 }
 
-function requiredString(value: unknown, label: string): string {
-  if (typeof value !== "string" || value.length === 0) {
+function requiredString(
+  value: unknown,
+  label: string,
+  maxCodePoints = Number.MAX_SAFE_INTEGER,
+): string {
+  if (!isBoundedText(value, maxCodePoints)) {
     throw shapeError(`Invalid ${label}.`);
   }
   return value;
 }
 
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+function optionalString(
+  value: unknown,
+  label: string,
+  maxCodePoints: number,
+): string | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  if (!isBoundedText(value, maxCodePoints))
+    throw shapeError(`Invalid ${label}.`);
+  return value;
 }
 
-function requiredNumber(value: unknown, label: string): number {
-  const number = Number(value);
-  if (!Number.isFinite(number)) throw shapeError(`Invalid ${label}.`);
+function requiredNumber(
+  value: unknown,
+  label: string,
+  minimum: number,
+): number {
+  const number = boundedDecimalNumber(value);
+  if (number === undefined || number < minimum)
+    throw shapeError(`Invalid ${label}.`);
   return number;
 }
 
@@ -248,12 +292,12 @@ function requiredInteger(
   value: unknown,
   label: string,
   minimum: number,
+  maximum = Number.MAX_SAFE_INTEGER,
 ): number {
-  const number = Number(value);
-  if (!Number.isInteger(number) || number < minimum) {
+  if (!isSafeIntegerInRange(value, minimum, maximum)) {
     throw shapeError(`Invalid ${label}.`);
   }
-  return number;
+  return Number(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

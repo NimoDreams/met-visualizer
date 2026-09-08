@@ -16,7 +16,12 @@ import {
 import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
 
 export type ReferenceMarketErrorKind =
-  "no-market" | "rate-limit" | "network" | "provider-shape" | "provider";
+  | "no-market"
+  | "rate-limit"
+  | "timeout"
+  | "network"
+  | "provider-shape"
+  | "provider";
 
 export type ReferenceMarketState =
   | { status: "idle" }

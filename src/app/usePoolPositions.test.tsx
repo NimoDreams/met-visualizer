@@ -6,7 +6,7 @@ import {
   type PoolPositionSession,
 } from "../domain/poolPositions";
 import type { GeckoTerminalProvider } from "../providers/geckoTerminal";
-import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
+import { SolanaRpcError, type ReadOnlySolanaRpc } from "../providers/solanaRpc";
 import { usePoolPositions } from "./usePoolPositions";
 
 vi.mock("../domain/poolPositions", async (importOriginal) => {
@@ -81,8 +81,38 @@ describe("usePoolPositions generations", () => {
       expect(result.current.state).toMatchObject({
         status: "ready",
         refreshing: false,
-        actionError: "refresh unavailable",
+        actionError: "Positions could not be loaded from this RPC.",
         session: { stale: true, poolAddress: "pool" },
+      }),
+    );
+  });
+
+  it("redacts unexpected position errors but preserves safe RPC classifications", async () => {
+    load.mockRejectedValueOnce(
+      new Error(
+        "response-canary https://rpc.example.invalid/?key=endpoint-canary",
+      ),
+    );
+    const first = renderHook(() =>
+      usePoolPositions(rpc, poolItem("pool-a"), "mint", 1, gecko),
+    );
+    await waitFor(() =>
+      expect(first.result.current.state.status).toBe("error"),
+    );
+    expect(first.result.current.state).toEqual({
+      status: "error",
+      message: "Positions could not be loaded from this RPC.",
+    });
+    first.unmount();
+
+    load.mockRejectedValueOnce(new SolanaRpcError("timeout"));
+    const second = renderHook(() =>
+      usePoolPositions(rpc, poolItem("pool-b"), "mint", 1, gecko),
+    );
+    await waitFor(() =>
+      expect(second.result.current.state).toEqual({
+        status: "error",
+        message: "Solana RPC request timed out.",
       }),
     );
   });

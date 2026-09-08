@@ -16,7 +16,7 @@ planned.
 
 ## Current Setup
 
-- Local repo: `met-visualizer repository root`
+- Repository: [NimoDreams/met-visualizer](https://github.com/NimoDreams/met-visualizer)
 - Product seed: visualize Meteora LP positions for arbitrary Solana tokens.
 - Active work should be planned through GitHub Issues and milestones.
 - Durable project memory should live in `docs/`.
@@ -72,6 +72,11 @@ where it remains only in page memory.
 
 Never commit secrets, API keys, credentials, database dumps, exports, `.env`
 files, human notes, or other sensitive local artifacts.
+
+Keep public docs and logs portable: use paths relative to the repository and do
+not publish absolute workstation paths. Before committing, verify that the
+author and committer use a GitHub noreply email or another email explicitly
+approved for public use.
 
 This project should start as read-only visualization/research software. Do not
 add trading, signing, wallet connection, private-key handling, seed-phrase

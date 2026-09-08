@@ -992,6 +992,74 @@ button:disabled {
   text-underline-offset: 0.18em;
 }
 
+.docs-grid .tip-jar {
+  grid-column: 1 / -1;
+  padding: 20px 24px;
+  border-color: #27364d;
+  background: #0d1522;
+}
+
+.tip-jar-copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+}
+
+.tip-jar .eyebrow {
+  margin-bottom: 5px;
+  color: #788aa2;
+}
+
+.tip-jar h2 {
+  margin-bottom: 8px;
+}
+
+.tip-jar button {
+  min-height: 44px;
+}
+
+.tip-jar-identifiers {
+  display: grid;
+  grid-template-columns: minmax(0, 0.4fr) minmax(0, 1fr);
+  gap: 12px 24px;
+  margin: 18px 0 0;
+}
+
+.tip-jar-identifiers div {
+  min-width: 0;
+}
+
+.tip-jar-identifiers dt {
+  margin-bottom: 4px;
+  color: #788aa2;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tip-jar-identifiers dd {
+  margin: 0;
+  color: #d8e1ee;
+}
+
+.tip-jar-identifiers code {
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+}
+
+.docs-grid .tip-jar-feedback {
+  min-height: 1.4em;
+  margin-top: 12px;
+  color: #86efbd;
+  font-size: 0.76rem;
+}
+
+.docs-grid .tip-jar-feedback.failed {
+  color: #ff9da7;
+}
+
 @media (max-width: 980px) {
   .hero,
   .workspace,
@@ -1075,6 +1143,15 @@ button:disabled {
 
   .chart-canvas {
     min-height: 390px;
+  }
+
+  .tip-jar-copy,
+  .tip-jar-identifiers {
+    grid-template-columns: 1fr;
+  }
+
+  .tip-jar-copy button {
+    width: 100%;
   }
 }
 

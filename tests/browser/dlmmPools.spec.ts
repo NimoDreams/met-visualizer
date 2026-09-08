@@ -15,6 +15,15 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   page,
 }) => {
   test.setTimeout(60_000);
+  await page.addInitScript(() => {
+    const target = window as Window & { cspViolations?: string[] };
+    target.cspViolations = [];
+    window.addEventListener("securitypolicyviolation", (event) => {
+      target.cspViolations?.push(
+        `${event.effectiveDirective}: ${event.blockedURI}`,
+      );
+    });
+  });
   const rpcMarker = "dlmm-browser-secret";
   const externalRequests: string[] = [];
   let positionSnapshotScans = 0;
@@ -115,7 +124,7 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
         context: { slot },
         value: binArrayScan
           ? positionOracle.binArrayData.map((data, index) => ({
-              pubkey: `bin-${index}`,
+              pubkey: numberedAddress(2_000 + index),
               account: rpcAccount(data),
             }))
           : positionProbe
@@ -377,6 +386,64 @@ test("discovers, ranks, and expands a DLMM pool without exposing the RPC", async
   expect(externalRequests.every((url) => !url.includes(rpcMarker))).toBe(true);
   expect(page.url()).not.toContain(rpcMarker);
   expect(await page.content()).not.toContain(rpcMarker);
+  expect(
+    await page.evaluate(() => ({ ...localStorage, ...sessionStorage })),
+  ).toEqual({});
+  expect(
+    await page.evaluate(
+      () =>
+        (window as Window & { cspViolations?: string[] }).cspViolations ?? [],
+    ),
+  ).toEqual([]);
+});
+
+test("redacts a malformed RPC envelope before rendering the DLMM failure", async ({
+  page,
+}) => {
+  const endpointMarker = "synthetic-endpoint-canary";
+  const responseMarker = "synthetic-response-canary";
+  const browserMessages: string[] = [];
+  page.on("console", (message) => browserMessages.push(message.text()));
+  page.on("pageerror", (error) => browserMessages.push(error.message));
+  const now = Math.floor(Date.now() / 1_000);
+
+  await page.route("https://api.geckoterminal.com/**", async (route) => {
+    const url = route.request().url();
+    await route.fulfill({
+      json: url.includes("/ohlcv/")
+        ? candleResponse(candleFixture(now - 24 * 3_600, 96))
+        : url.includes("/pools?")
+          ? poolResponse("browser-reference-pool")
+          : tokenResponse(),
+    });
+  });
+  await page.route("https://rpc.example.invalid/**", async (route) => {
+    await route.fulfill({
+      body: JSON.stringify(
+        `${responseMarker} https://rpc.example.invalid/?key=${endpointMarker}`,
+      ),
+      contentType: "application/json",
+    });
+  });
+
+  await page.goto("./#/");
+  await page
+    .getByLabel("Your Solana RPC endpoint")
+    .fill(`https://rpc.example.invalid/private/path?key=${endpointMarker}`);
+  await page.getByRole("button", { name: "Connect RPC" }).click();
+  await page.getByLabel("Token contract address (CA)").fill(TOKEN_MINT);
+  await page.getByRole("button", { name: "Load token" }).click();
+
+  await expect(
+    page.getByText("Solana RPC response is malformed.", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Retry pools" })).toBeVisible();
+  const rendered = await page.content();
+  expect(rendered).not.toContain(endpointMarker);
+  expect(rendered).not.toContain(responseMarker);
+  expect(page.url()).not.toContain(endpointMarker);
+  expect(browserMessages.join("\n")).not.toContain(endpointMarker);
+  expect(browserMessages.join("\n")).not.toContain(responseMarker);
   expect(
     await page.evaluate(() => ({ ...localStorage, ...sessionStorage })),
   ).toEqual({});

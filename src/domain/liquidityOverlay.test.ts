@@ -9,6 +9,8 @@ import {
 import type { PoolPositionSession } from "./poolPositions";
 import type { ValuedPosition } from "./positionValuation";
 import type { ReferenceMarketSession } from "./referenceMarket";
+import { resolveValuationBasis } from "./referenceMarket";
+import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
 
 const Q64 = 1n << 64n;
 const mint = "So11111111111111111111111111111111111111112";
@@ -205,6 +207,53 @@ describe("global liquidity overlay", () => {
     expect(model.levels).toHaveLength(1);
     expect(model.levels[0]?.axisPrice).toBe(1_000);
     expect(model.completeDenominator).toBe(true);
+  });
+
+  it("carries accepted derived supply values through common-axis normalization", async () => {
+    const baseReference = reference();
+    const rpc = {
+      getTokenSupply: () =>
+        Promise.resolve({
+          value: { amount: "18446744073709551615", decimals: 255 },
+        }),
+    } as unknown as ReadOnlySolanaRpc;
+    const tinyBasis = await resolveValuationBasis(
+      baseReference.token,
+      rpc,
+      mint,
+      new AbortController().signal,
+    );
+    expect(tinyBasis.kind).toBe("fdv");
+    expect(tinyBasis.displaySupply).toBeGreaterThan(0);
+
+    for (const basis of [
+      tinyBasis,
+      await resolveValuationBasis(
+        {
+          ...baseReference.token,
+          priceUsd: 1e-100,
+          marketCapUsd: 1e100,
+        },
+        undefined,
+        mint,
+        new AbortController().signal,
+      ),
+    ]) {
+      const model = buildLiquidityOverlay({
+        reference: { ...baseReference, basis },
+        pools: [
+          poolInput("pool-derived", "y", "1", Q64, [
+            position("position", 1n, 1_000_000n, 0n),
+          ]),
+        ],
+        totalPoolCount: 1,
+        valuationGeneration: 1,
+        filter: { mode: "all" },
+      });
+      expect(model.levels).toHaveLength(1);
+      expect(model.levels[0]?.axisPrice).toBeGreaterThan(0);
+      expect(Number.isFinite(model.levels[0]?.axisPrice)).toBe(true);
+    }
   });
 
   it("aggregates a dense 1,800-position distribution within the UI budget", () => {

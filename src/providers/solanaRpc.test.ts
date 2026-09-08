@@ -1,9 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcSessionManager } from "../app/session";
-import { NativeReadOnlySolanaRpc } from "./solanaRpc";
+import {
+  ACCOUNT_RPC_JSON_MAX_BYTES,
+  MAX_RPC_ENDPOINT_CODE_UNITS,
+  NativeReadOnlySolanaRpc,
+  SolanaRpcError,
+  TOKEN_SUPPLY_JSON_MAX_BYTES,
+  parseRpcEndpoint,
+} from "./solanaRpc";
 
 describe("NativeReadOnlySolanaRpc", () => {
   beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.useRealTimers());
 
   it("sends only an approved read method and forwards the abort signal", async () => {
     const fetchMock = vi
@@ -31,6 +39,12 @@ describe("NativeReadOnlySolanaRpc", () => {
     const requestBody = typeof init?.body === "string" ? init.body : "";
     expect(url).toBe("https://rpc.example.invalid/");
     expect(init?.signal).toBeInstanceOf(AbortSignal);
+    expect(init).toMatchObject({
+      cache: "no-store",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+      redirect: "error",
+    });
     expect(JSON.parse(requestBody)).toMatchObject({
       method: "getProgramAccounts",
     });
@@ -39,7 +53,309 @@ describe("NativeReadOnlySolanaRpc", () => {
   it("rejects a non-HTTPS RPC endpoint", () => {
     expect(
       () => new NativeReadOnlySolanaRpc(new URL("http://rpc.example.invalid")),
-    ).toThrow("RPC endpoints must use HTTPS.");
+    ).toThrow("Use an HTTPS RPC endpoint.");
+  });
+
+  it("fails closed on redirects without exposing a path or query credential", async () => {
+    const endpoint = "https://rpc.example.invalid/custom/path?key=private";
+    const fetchMock = vi
+      .spyOn(window, "fetch")
+      .mockRejectedValue(new TypeError(`redirect blocked for ${endpoint}`));
+    const client = new NativeReadOnlySolanaRpc(endpoint);
+
+    const request = client.getProgramAccounts(
+      "11111111111111111111111111111111",
+      {},
+    );
+    await expect(request).rejects.toMatchObject({
+      provider: "Solana RPC",
+      kind: "network",
+      message: "Solana RPC request could not be completed.",
+    });
+    await expect(request).rejects.not.toThrow(endpoint);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(endpoint);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      cache: "no-store",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+      redirect: "error",
+    });
+  });
+
+  it("cancels an active RPC request with a redacted AbortError", async () => {
+    const endpoint = "https://rpc.example.invalid/path?key=private";
+    vi.spyOn(window, "fetch").mockImplementation(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException(`aborted ${endpoint}`, "AbortError")),
+          );
+        }),
+    );
+    const controller = new AbortController();
+    const client = new NativeReadOnlySolanaRpc(endpoint);
+    const request = client.getProgramAccounts(
+      "11111111111111111111111111111111",
+      {},
+      controller.signal,
+    );
+    controller.abort();
+
+    await expect(request).rejects.toMatchObject({
+      name: "AbortError",
+      message: "Request was cancelled.",
+    });
+    await expect(request).rejects.not.toThrow(endpoint);
+  });
+
+  it("does not echo malformed provider error fields", async () => {
+    const marker = "private-provider-error-marker";
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      Response.json({
+        jsonrpc: "2.0",
+        id: 1,
+        error: { code: marker, message: marker },
+      }),
+    );
+    const client = new NativeReadOnlySolanaRpc(
+      "https://rpc.example.invalid/path?key=private",
+    );
+    const request = client.getProgramAccounts(
+      "11111111111111111111111111111111",
+      {},
+    );
+
+    await expect(request).rejects.toMatchObject({
+      kind: "malformed",
+      message: "Solana RPC response is malformed.",
+    } satisfies Partial<SolanaRpcError>);
+    await expect(request).rejects.not.toThrow(marker);
+  });
+
+  it("redacts valid JSON-RPC error messages while retaining a safe code", async () => {
+    const endpointMarker = "endpoint-canary";
+    const responseMarker = "response-canary";
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      Response.json({
+        jsonrpc: "2.0",
+        id: 1,
+        error: {
+          code: -32_001,
+          message: `upstream included ${responseMarker}`,
+          data: { endpoint: endpointMarker },
+        },
+      }),
+    );
+    const client = new NativeReadOnlySolanaRpc(
+      `https://rpc.example.invalid/path?key=${endpointMarker}`,
+    );
+    const request = client.getProgramAccounts("program", {});
+
+    await expect(request).rejects.toMatchObject({
+      kind: "rpc",
+      code: -32_001,
+      message: "Solana RPC read failed (-32001).",
+    } satisfies Partial<SolanaRpcError>);
+    await expect(request).rejects.not.toThrow(endpointMarker);
+    await expect(request).rejects.not.toThrow(responseMarker);
+  });
+
+  it.each([
+    ["null", null],
+    ["string", "response-canary"],
+    ["number", 42],
+    ["boolean", false],
+    ["array", ["response-canary"]],
+    ["empty object", {}],
+    ["wrong version", { jsonrpc: "1.0", id: 1, result: [] }],
+    ["wrong id", { jsonrpc: "2.0", id: 2, result: [] }],
+    ["missing result", { jsonrpc: "2.0", id: 1 }],
+    [
+      "result and error",
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        result: [],
+        error: { code: -32_000, message: "response-canary" },
+      },
+    ],
+    ["null error", { jsonrpc: "2.0", id: 1, error: null }],
+    [
+      "invalid error code",
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        error: { code: "response-canary", message: "response-canary" },
+      },
+    ],
+    [
+      "invalid error message",
+      { jsonrpc: "2.0", id: 1, error: { code: -32_000, message: 7 } },
+    ],
+  ] as const)(
+    "rejects a %s envelope before pool or position result access",
+    async (_label, value) => {
+      for (const method of ["pool", "position"] as const) {
+        vi.spyOn(window, "fetch").mockResolvedValueOnce(
+          new Response(JSON.stringify(value), {
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+        const client = new NativeReadOnlySolanaRpc(
+          "https://rpc.example.invalid/path?key=endpoint-canary",
+        );
+        const request =
+          method === "pool"
+            ? client.getProgramAccounts("program", {})
+            : client.getMultipleAccounts(["position"], {});
+
+        await expect(request).rejects.toMatchObject({
+          kind: "malformed",
+          message: "Solana RPC response is malformed.",
+        } satisfies Partial<SolanaRpcError>);
+        await expect(request).rejects.not.toThrow("endpoint-canary");
+        await expect(request).rejects.not.toThrow("response-canary");
+      }
+    },
+  );
+
+  it("classifies timeouts separately from opaque network failures", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.spyOn(window, "fetch").mockImplementationOnce(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("endpoint-canary", "AbortError")),
+            { once: true },
+          );
+        }),
+    );
+    const client = new NativeReadOnlySolanaRpc(
+      "https://rpc.example.invalid/path?key=endpoint-canary",
+    );
+    const request = client.getProgramAccounts("program", {});
+    const rejection = expect(request).rejects.toMatchObject({
+      kind: "timeout",
+      message: "Solana RPC request timed out.",
+    } satisfies Partial<SolanaRpcError>);
+
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    await rejection;
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("normalizes invalid JSON without copying parser or response text", async () => {
+    const endpointMarker = "endpoint-canary";
+    const responseMarker = "response-canary";
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      new Response(`{ invalid ${responseMarker}`, {
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    const client = new NativeReadOnlySolanaRpc(
+      `https://rpc.example.invalid/path?key=${endpointMarker}`,
+    );
+    const request = client.getProgramAccounts("program", {});
+
+    await expect(request).rejects.toMatchObject({
+      kind: "malformed",
+      message: "Solana RPC response is malformed.",
+    } satisfies Partial<SolanaRpcError>);
+    await expect(request).rejects.not.toThrow(endpointMarker);
+    await expect(request).rejects.not.toThrow(responseMarker);
+  });
+
+  it("accepts endpoint input at 4,096 UTF-16 units with a path and query", () => {
+    const prefix = "https://rpc.example.invalid/custom/path?key=";
+    const value = `${prefix}${"x".repeat(MAX_RPC_ENDPOINT_CODE_UNITS - prefix.length)}`;
+
+    expect(value).toHaveLength(MAX_RPC_ENDPOINT_CODE_UNITS);
+    expect(parseRpcEndpoint(value)).toMatchObject({
+      pathname: "/custom/path",
+      search: `?key=${"x".repeat(MAX_RPC_ENDPOINT_CODE_UNITS - prefix.length)}`,
+    });
+  });
+
+  it("rejects endpoint input above 4,096 UTF-16 units without echoing it", () => {
+    const prefix = "https://rpc.example.invalid/?private=";
+    const value = `${prefix}${"x".repeat(MAX_RPC_ENDPOINT_CODE_UNITS + 1 - prefix.length)}`;
+
+    expect(value).toHaveLength(MAX_RPC_ENDPOINT_CODE_UNITS + 1);
+    expect(() => parseRpcEndpoint(value)).toThrow(
+      "RPC endpoint must be 4,096 characters or fewer.",
+    );
+    try {
+      parseRpcEndpoint(value);
+    } catch (error) {
+      expect(String(error)).not.toContain(value);
+    }
+  });
+
+  it.each([
+    ["username", "https://user@127.0.0.1/path?key=ok"],
+    ["password", "https://user:password@127.0.0.1/path?key=ok"],
+    ["fragment", "https://rpc.example.invalid/path?key=ok#private"],
+    ["empty fragment", "https://rpc.example.invalid/path?key=ok#"],
+  ])("rejects an endpoint containing a %s", (_label, value) => {
+    expect(() => parseRpcEndpoint(value)).toThrow(/cannot include/);
+    try {
+      parseRpcEndpoint(value);
+    } catch (error) {
+      expect(String(error)).not.toContain(value);
+    }
+  });
+
+  it("uses the 64 KiB token-supply response limit", async () => {
+    const fetchMock = vi.spyOn(window, "fetch");
+    const client = new NativeReadOnlySolanaRpc(
+      "https://rpc.example.invalid/path?key=private",
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ jsonrpc: "2.0", id: 1, result: { value: {} } }),
+        { headers: { "Content-Length": String(TOKEN_SUPPLY_JSON_MAX_BYTES) } },
+      ),
+    );
+    await expect(client.getTokenSupply("mint")).resolves.toEqual({ value: {} });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response("{}", {
+        headers: {
+          "Content-Length": String(TOKEN_SUPPLY_JSON_MAX_BYTES + 1),
+        },
+      }),
+    );
+    await expect(client.getTokenSupply("mint")).rejects.toMatchObject({
+      kind: "limit",
+      message: "Solana RPC response exceeded the safe size limit.",
+    });
+  });
+
+  it("uses the 24 MiB account-method response limit", async () => {
+    const fetchMock = vi.spyOn(window, "fetch");
+    const client = new NativeReadOnlySolanaRpc(
+      "https://rpc.example.invalid/path?key=private",
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: [] }), {
+        headers: { "Content-Length": String(ACCOUNT_RPC_JSON_MAX_BYTES) },
+      }),
+    );
+    await expect(client.getProgramAccounts("program", {})).resolves.toEqual([]);
+
+    fetchMock.mockResolvedValueOnce(
+      new Response("{}", {
+        headers: {
+          "Content-Length": String(ACCOUNT_RPC_JSON_MAX_BYTES + 1),
+        },
+      }),
+    );
+    await expect(client.getMultipleAccounts([], {})).rejects.toMatchObject({
+      kind: "limit",
+      message: "Solana RPC response exceeded the safe size limit.",
+    });
   });
 
   it("reads current mint supply through the same narrow RPC boundary", async () => {

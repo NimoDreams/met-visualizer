@@ -21,6 +21,15 @@ const POSITION_BIN_EXTENSION_BYTES = 112;
 const BIN_ARRAY_BYTES = 10_136;
 const BIN_ARRAY_SIZE = 70;
 const BIN_BYTES = 144;
+const MAXIMUM_LB_PAIR_BYTES = 4_096;
+const MAXIMUM_POSITION_V2_BYTES = 157_080;
+const MAXIMUM_POSITION_V2_ENCODED_CHARACTERS = 209_440;
+const MAXIMUM_BIN_ARRAY_ENCODED_CHARACTERS = 13_516;
+const INT32_MINIMUM = -2_147_483_648n;
+const INT32_MAXIMUM = 2_147_483_647n;
+
+export type MeteoraAccountKind =
+  "empty" | "LB pair" | "PositionV2" | "BinArray";
 
 export type DecodedLbPair = {
   tokenXMint: string;
@@ -63,11 +72,6 @@ export type DecodedBinArray = {
 
 export function decodeLbPairAccount(encoded: string): DecodedLbPair {
   const data = decodeBase64(encoded, "LB pair");
-  if (data.length < MINIMUM_LB_PAIR_BYTES) {
-    throw new MeteoraAccountDecodeError(
-      `LB pair account is too short (${data.length} bytes).`,
-    );
-  }
   if (LB_PAIR_DISCRIMINATOR_BYTES.some((byte, index) => data[index] !== byte)) {
     throw new MeteoraAccountDecodeError("LB pair discriminator mismatch.");
   }
@@ -154,11 +158,18 @@ export function decodeBinArrayAccount(
       "BinArray pool does not match its RPC filter.",
     );
   }
-  const firstBinId = Number(index) * BIN_ARRAY_SIZE;
+  const firstBinId = index * BigInt(BIN_ARRAY_SIZE);
+  const lastBinId = firstBinId + BigInt(BIN_ARRAY_SIZE - 1);
+  if (firstBinId < INT32_MINIMUM || lastBinId > INT32_MAXIMUM) {
+    throw new MeteoraAccountDecodeError(
+      "BinArray derives bin identifiers outside signed-int32 range.",
+    );
+  }
+  const firstBinIdNumber = Number(firstBinId);
   const bins = Array.from({ length: BIN_ARRAY_SIZE }, (_, binIndex) => {
     const offset = 56 + binIndex * BIN_BYTES;
     return {
-      binId: firstBinId + binIndex,
+      binId: firstBinIdNumber + binIndex,
       amountX: view.getBigUint64(offset, true),
       amountY: view.getBigUint64(offset + 8, true),
       priceQ64: readU128(view, offset + 16),
@@ -185,11 +196,104 @@ function assertDiscriminator(
   }
 }
 
-function decodeBase64(value: string, label: string): Uint8Array {
+export function validateMeteoraAccountBase64(
+  value: unknown,
+  kind: MeteoraAccountKind,
+): number {
+  if (typeof value !== "string") {
+    throw new MeteoraAccountDecodeError(`${kind} data must be base64 text.`);
+  }
+
+  const maximumEncodedCharacters =
+    kind === "PositionV2"
+      ? MAXIMUM_POSITION_V2_ENCODED_CHARACTERS
+      : kind === "BinArray"
+        ? MAXIMUM_BIN_ARRAY_ENCODED_CHARACTERS
+        : kind === "LB pair"
+          ? Math.ceil(MAXIMUM_LB_PAIR_BYTES / 3) * 4
+          : 0;
+  if (value.length > maximumEncodedCharacters) {
+    throw new MeteoraAccountDecodeError(`${kind} data exceeds its size limit.`);
+  }
+  if (value.length % 4 !== 0) {
+    throw new MeteoraAccountDecodeError(
+      `${kind} data is not canonical base64.`,
+    );
+  }
+
+  const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+  const contentLength = value.length - padding;
+  for (let index = 0; index < contentLength; index += 1) {
+    if (base64Sextet(value.charCodeAt(index)) < 0) {
+      throw new MeteoraAccountDecodeError(
+        `${kind} data is not canonical base64.`,
+      );
+    }
+  }
+  for (let index = contentLength; index < value.length; index += 1) {
+    if (value[index] !== "=") {
+      throw new MeteoraAccountDecodeError(
+        `${kind} data is not canonical base64.`,
+      );
+    }
+  }
+  if (padding === 2) {
+    const finalValue = base64Sextet(value.charCodeAt(value.length - 3));
+    if (finalValue < 0 || (finalValue & 0b1111) !== 0) {
+      throw new MeteoraAccountDecodeError(
+        `${kind} data is not canonical base64.`,
+      );
+    }
+  } else if (padding === 1) {
+    const finalValue = base64Sextet(value.charCodeAt(value.length - 2));
+    if (finalValue < 0 || (finalValue & 0b11) !== 0) {
+      throw new MeteoraAccountDecodeError(
+        `${kind} data is not canonical base64.`,
+      );
+    }
+  }
+
+  const decodedBytes = (value.length / 4) * 3 - padding;
+  const validSize =
+    kind === "empty"
+      ? decodedBytes === 0
+      : kind === "LB pair"
+        ? decodedBytes >= MINIMUM_LB_PAIR_BYTES &&
+          decodedBytes <= MAXIMUM_LB_PAIR_BYTES
+        : kind === "PositionV2"
+          ? decodedBytes >= POSITION_V2_BASE_BYTES &&
+            decodedBytes <= MAXIMUM_POSITION_V2_BYTES
+          : decodedBytes === BIN_ARRAY_BYTES;
+  if (!validSize) {
+    throw new MeteoraAccountDecodeError(
+      `${kind} data has an unsupported decoded size (${decodedBytes} bytes).`,
+    );
+  }
+  return decodedBytes;
+}
+
+function base64Sextet(code: number): number {
+  if (code >= 65 && code <= 90) return code - 65;
+  if (code >= 97 && code <= 122) return code - 97 + 26;
+  if (code >= 48 && code <= 57) return code - 48 + 52;
+  if (code === 43) return 62;
+  if (code === 47) return 63;
+  return -1;
+}
+
+function decodeBase64(value: string, kind: MeteoraAccountKind): Uint8Array {
+  const decodedBytes = validateMeteoraAccountBase64(value, kind);
   try {
     const binary = atob(value);
-    return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    if (binary.length !== decodedBytes) {
+      throw new Error("decoded length mismatch");
+    }
+    const bytes = new Uint8Array(decodedBytes);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
   } catch {
-    throw new MeteoraAccountDecodeError(`${label} data is not valid base64.`);
+    throw new MeteoraAccountDecodeError(`${kind} data is not valid base64.`);
   }
 }

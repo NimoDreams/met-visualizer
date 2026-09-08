@@ -20,6 +20,7 @@
     "test:browser:providers": "RUN_PROVIDER_PROOFS=1 playwright test --grep @provider",
     "build": "vite build",
     "verify:artifact": "node scripts/verify-build.mjs",
+    "verify:pages-workflow": "node scripts/verify-pages-workflow.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

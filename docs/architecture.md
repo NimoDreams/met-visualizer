@@ -22,6 +22,47 @@ Keep the RPC endpoint only in memory, out of storage, URLs, logs, analytics,
 source control, and builds. Do not forward it to market-data services. Developer
 environment variables must not become published browser credentials.
 
+The production document enforces a restrictive CSP: application scripts,
+styles, charts, and Workers load from the project origin, with one pinned style
+hash for Lightweight Charts attribution and inline style attributes needed for
+chart layout; images may also use embedded data. Outbound reads may use HTTPS so
+arbitrary user-provided RPCs remain compatible. A no-referrer policy keeps this
+site's URL out of outbound request metadata. GitHub repository controls require
+pull requests, current CI, and resolved review conversations on `main` and
+`dev`, reject branch force-push and deletion, require full-SHA Action references,
+and enable GitHub's available security scanning and private vulnerability
+reporting. Pages activation and its workflow remain a separate release gate.
+
+All provider JSON crosses one streaming, decompressed-byte boundary before
+`JSON.parse`: public responses stop at 2 MiB, `getTokenSupply` at 64 KiB, and
+allowed account RPC methods at 24 MiB. A valid oversized `Content-Length` fails
+before reading, while chunked responses are counted and cancelled as soon as
+they exceed their ceiling. Errors identify the provider and limit without
+including the endpoint, request URL/body, or response content.
+
+RPC endpoint input is limited to 4,096 UTF-16 code units, requires HTTPS, and
+cannot contain credentials or a fragment; provider paths and query keys remain
+supported in session memory. Public scheduling admits at most 64 queued items,
+caps provider deferrals at five minutes, and keeps timer delays within the
+signed 32-bit browser range. GeckoTerminal's response cache is a 256-entry LRU
+that removes expired entries.
+
+RPC `fetch` calls explicitly use `cache: no-store`, `credentials: omit`, and
+`referrerPolicy: no-referrer`. Redirects fail closed, so users must provide the
+RPC operator's final HTTPS endpoint; paths and query credentials remain usable
+only in session memory. DLMM account hydration requests carry the newest
+required `minContextSlot`, reject older or unsafe response slots, and advance
+that minimum across batches before decoding validated account entries.
+
+Public-provider parsing fails closed before selection or numeric work. A
+response may expose at most 100 reference-market candidates, 1,000 candles, or
+100 quote mints. Names are limited to 256 Unicode code points and symbols/DEX
+identifiers to 64. Decimal text is limited to 128 characters, 96 coefficient
+digits, and an exponent magnitude of 100; normalized prices and FDV products
+must remain finite and positive. SPL supplies use 0–255 decimals and a 1–20
+digit unsigned-64-bit amount. Provider timestamps are safe nonnegative integers
+no more than 24 hours ahead, and pagination totals stop at 100,000.
+
 ## Selected Technical Foundation
 
 - Single root package using Node.js 24 LTS, npm, strict TypeScript, React 19.2,
@@ -97,6 +138,16 @@ no consumers remain. Deterministic browser routing proved that the user RPC
 marker never entered GeckoTerminal request URLs, page content, or browser storage.
 See the
 [reference-market browser proof](reviews/phase-1-reference-market-browser-proof.md).
+
+GeckoTerminal pool reserve and 24-hour volume are optional ranking metadata and
+use a nonnegative domain: inactive rows legitimately report zero. Negative,
+malformed, or oversized optional values invalidate that candidate without
+discarding other usable candidates in the provider-ordered list. Token and
+quote prices remain strictly positive. A repeated browser-origin probe also
+showed that public throttling can become an opaque fetch failure when the
+provider response is not CORS-readable; the app labels that limitation and
+keeps recovery explicit through Retry chart instead of automatically amplifying
+the public request burst.
 
 Issue #18 adds RPC-authoritative DLMM discovery with two discriminator-and-mint
 key scans, context-slot-aware account hydration, and a minimum project-owned LB
@@ -220,6 +271,28 @@ closed rather than understating liquidity. Every position, bin-array, and token
 supply response joins the published RPC context-slot range and must meet the
 latest requested minimum slot. The quote-token supply request sends that
 `minContextSlot` as well as validating the returned slot.
+
+RPC account ingress is bounded before hydration, base64 allocation, or Worker
+decoding. One token may discover at most 2,000 unique DLMM pools; one enabled
+pool may discover at most 5,000 PositionV2 accounts and 512 BinArrays. Returned
+keys must be canonical 32-byte Solana addresses and are deduplicated before
+batching. Every account must use the exact `[string, "base64"]` tuple, the DLMM
+program owner, and `executable=false`. Base64 syntax, padding, encoded length,
+and decoded length are checked before `atob`: LB pairs allow 216–4,096 bytes,
+PositionV2 allows 8,120–157,080 bytes and at most 209,440 encoded characters,
+and BinArrays require exactly 10,136 bytes and at most 13,516 encoded
+characters. PositionV2 still must match the exact width formula for 1–1,400
+bins. Context slots are safe nonnegative integers, and BinArray-derived bin IDs
+must fit signed int32. A limit failure stops the affected load with a redacted,
+retryable error instead of forwarding partial data to downstream decoders.
+
+The native RPC boundary validates the top-level JSON-RPC envelope before pool
+or position code reads it. A response must be a non-array object with version
+`2.0`, the matching numeric request ID, and exactly one result or valid error
+object. Upstream error messages and data are never forwarded. Timeout, opaque
+network, HTTP, valid RPC, size-limit, and malformed-response failures use
+project-owned classifications and fixed messages; pool and position hooks only
+publish errors from those reviewed boundaries.
 
 ## Liquidity Overlay
 

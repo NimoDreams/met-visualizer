@@ -9,17 +9,19 @@ import { isSolanaAddress } from "../domain/solanaAddress";
 import type { ReferenceMarketSession } from "../domain/referenceMarket";
 import type { LiquidityOverlayModel } from "../domain/liquidityOverlay";
 import type { ReadOnlySolanaRpc } from "../providers/solanaRpc";
+import { parseRpcEndpoint, RpcEndpointError } from "../providers/solanaRpc";
 import { RpcSessionManager, type RpcSession } from "./session";
+import { TipJar } from "./TipJar";
 import { useHashRoute } from "./useHashRoute";
 
 function validateRpc(value: string): string | undefined {
   try {
-    const endpoint = new URL(value);
-    return endpoint.protocol === "https:"
-      ? undefined
-      : "Use an HTTPS RPC endpoint.";
-  } catch {
-    return "Enter a complete HTTPS RPC endpoint.";
+    parseRpcEndpoint(value);
+    return undefined;
+  } catch (error) {
+    return error instanceof RpcEndpointError
+      ? error.message
+      : "Enter a complete HTTPS RPC endpoint.";
   }
 }
 
@@ -55,7 +57,18 @@ function DocsView({ hidden }: { hidden: boolean }) {
             you disconnect, replace it, reload, or close the page. It is never
             placed in browser storage, the URL, analytics, or market-data
             requests. Your browser sends read-only JSON-RPC calls directly to
-            that endpoint, so its operator can observe those calls.
+            that endpoint with caching disabled, ambient credentials omitted,
+            and no referrer. Redirects fail closed, so enter the provider’s
+            final HTTPS endpoint. Its operator can observe the RPC calls and
+            ordinary network metadata such as your IP address.
+          </p>
+          <p>
+            GeckoTerminal receives the public token mint and public market or
+            pool addresses needed for charts and quote prices. The Meteora Data
+            API receives public token-mint filters used to rank pools. Like any
+            HTTPS service, each provider can receive ordinary network metadata,
+            such as your IP address and browser request headers. Met Visualizer
+            never forwards your RPC endpoint to either public provider.
           </p>
         </section>
         <section className="surface">
@@ -184,17 +197,27 @@ function DocsView({ hidden }: { hidden: boolean }) {
             chart, pool discovery, or position load. Phone pane switches keep
             selections, filters, loaded extent, and the chart range in memory.
           </p>
+          <p>
+            Some public-provider throttling responses omit browser CORS access,
+            so the browser can expose them only as a network failure. If that
+            happens, wait briefly and use Retry chart; the app does not loop or
+            retry invisibly.
+          </p>
         </section>
         <section className="surface">
           <h2>Limits</h2>
           <p>
             Public APIs can throttle, omit new or inactive tokens, change
             response shapes, or return delayed cached data. RPC servers vary in
-            indexing, CORS support, limits, and slot freshness. Results are
+            indexing, CORS support, limits, and slot freshness. For safety, one
+            token load supports up to 2,000 unique DLMM pools; each enabled pool
+            supports up to 5,000 positions and 512 bin arrays. Exceeding a limit
+            stops that affected load so it can be retried. Results are
             observational research, not execution prices, historical liquidity,
             financial advice, or a guarantee that every account was returned.
           </p>
         </section>
+        <TipJar />
       </div>
     </main>
   );

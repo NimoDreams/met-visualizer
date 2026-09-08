@@ -44,6 +44,24 @@ describe("useDlmmPools", () => {
     expect(readySession(result.current.state).mint).toBe(JUP);
   });
 
+  it("shows a stale hydration error and recovers through the existing retry", async () => {
+    const rpc = new OnePoolRpc();
+    const metadata = new ToggleMetadataProvider();
+    const gecko = new OneQuoteProvider();
+    rpc.hydrationSlot = 0;
+    const { result } = renderHook(() =>
+      useDlmmPools(JUP, rpc, metadata, gecko),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe("error"));
+    if (result.current.state.status !== "error")
+      throw new Error("expected the stale hydration error state");
+    expect(result.current.state.message).toMatch(/minimum context slot/i);
+    rpc.hydrationSlot = 2;
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+  });
+
   it("preserves the enabled pool and last-good metadata on provider refresh failure", async () => {
     const rpc = new OnePoolRpc();
     const metadata = new ToggleMetadataProvider();
@@ -96,11 +114,29 @@ describe("useDlmmPools", () => {
     expect(result.current.state).toMatchObject({
       status: "ready",
       refreshing: false,
-      actionError: "fixture RPC unavailable",
+      actionError: "DLMM pools could not be loaded from this RPC.",
       session: {
         rpcStale: true,
         enabledAddresses: [oracle.address],
       },
+    });
+  });
+
+  it("does not publish an unexpected RPC exception or endpoint canary", async () => {
+    const rpc = new OnePoolRpc();
+    rpc.fail = true;
+    rpc.failureMessage =
+      "response-canary https://rpc.example.invalid/?key=endpoint-canary";
+    const metadata = new ToggleMetadataProvider();
+    const gecko = new OneQuoteProvider();
+    const { result } = renderHook(() =>
+      useDlmmPools(JUP, rpc, metadata, gecko),
+    );
+
+    await waitFor(() => expect(result.current.state.status).toBe("error"));
+    expect(result.current.state).toEqual({
+      status: "error",
+      message: "DLMM pools could not be loaded from this RPC.",
     });
   });
 
@@ -140,6 +176,8 @@ describe("useDlmmPools", () => {
 
 class OnePoolRpc implements ReadOnlySolanaRpc {
   fail = false;
+  failureMessage = "fixture RPC unavailable";
+  hydrationSlot = 2;
 
   getTokenSupply<T>(): Promise<T> {
     throw new Error("not used");
@@ -149,7 +187,7 @@ class OnePoolRpc implements ReadOnlySolanaRpc {
     _program: string,
     config: AccountScanConfig,
   ): Promise<T> {
-    if (this.fail) return Promise.reject(new Error("fixture RPC unavailable"));
+    if (this.fail) return Promise.reject(new Error(this.failureMessage));
     const filters = config.filters as Array<{
       memcmp: { offset: number; bytes: string };
     }>;
@@ -169,9 +207,9 @@ class OnePoolRpc implements ReadOnlySolanaRpc {
   }
 
   getMultipleAccounts<T>(): Promise<T> {
-    if (this.fail) return Promise.reject(new Error("fixture RPC unavailable"));
+    if (this.fail) return Promise.reject(new Error(this.failureMessage));
     return Promise.resolve({
-      context: { slot: 2 },
+      context: { slot: this.hydrationSlot },
       value: [account(poolAccount(JUP))],
     } as T);
   }

@@ -68,6 +68,9 @@ describe("App", () => {
       "aria-pressed",
       "true",
     );
+    expect(
+      screen.queryByRole("region", { name: "Tip Jar" }),
+    ).not.toBeInTheDocument();
 
     act(() => {
       window.location.hash = "#/docs";
@@ -77,6 +80,10 @@ describe("App", () => {
     expect(
       screen.getByText(/one coherent, complete valuation generation/i),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/up to 2,000 unique DLMM pools/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tip Jar" })).toBeVisible();
 
     act(() => {
       window.location.hash = "#/";
@@ -130,6 +137,19 @@ describe("App", () => {
     expect(
       screen.getByText(/before any manual position change/i),
     ).toHaveTextContent(/remain unselected until you select them/i);
+    expect(
+      screen.getByText(/geckoterminal receives the public token mint/i),
+    ).toHaveTextContent(
+      /ordinary network metadata.*never forwards your rpc endpoint/i,
+    );
+    expect(
+      screen.getByText(/caching disabled, ambient credentials omitted/i),
+    ).toHaveTextContent(/no referrer.*redirects fail closed/i);
+    expect(
+      screen.getByText(
+        /public-provider throttling responses omit browser cors/i,
+      ),
+    ).toHaveTextContent(/wait briefly and use retry chart/i);
     const referenceCopy = screen
       .getByRole("heading", { name: "Reference-market selection" })
       .closest("section");

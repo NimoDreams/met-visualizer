@@ -6,10 +6,12 @@ Phase 0 planning and Phase 1 MVP delivery are complete. Phase 1 was verified,
 independently reviewed, accepted by the user, and promoted through PR #35 on
 2026-09-07.
 
-- Local: met-visualizer repository root
+- Repository root: the current checkout; public references use portable,
+  repository-relative paths.
 - GitHub: NimoDreams/met-visualizer
-- `main` and `dev` share promoted Phase 1 baseline
-  `19046d1f0dfae069a5847b2fb57bd662aa89aacd`.
+- `main` contains the rewritten, content-equivalent Phase 1 baseline at
+  `d663b9adf5f2f2b96cc24905ec04ab4b19736a96`; `dev` carries the reviewed
+  public-launch changes and remains the integration branch.
 - Phase 0 [epic #1](https://github.com/NimoDreams/met-visualizer/issues/1) and
   milestone are closed; the [roadmap](roadmap.md) records Phase 1 delivery.
 - PM, Developer, and Code Reviewer remain separate roles. Reviewers must post
@@ -69,9 +71,30 @@ candidate, review, verification, and branch evidence. Promotion PR #35 used a
 regular merge commit, and exact stable SHA
 `19046d1f0dfae069a5847b2fb57bd662aa89aacd` passed the post-merge checks.
 
-GitHub Pages activation remains separate and is not yet authorized. No later
-product phase, scope, or branch plan has been accepted; future work should begin
-with PM planning and GitHub Issues.
+Public launch readiness is tracked by
+[epic #37](https://github.com/NimoDreams/met-visualizer/issues/37). Its first
+change is a passive Docs Tip Jar with intentionally public SNS identity
+`nimodreams.sol` and canonical Solana address
+`DxYUGfMtgHmuo1VGRAEUjzcpuCwWCA5xggbgJUZuaFwF`. The address is static and
+copy-only; it does not add resolution, wallet, payment, transaction, analytics,
+or persistence behavior. The launch gate also includes bounded individual HTTP
+responses, public-provider values and RPC accounts, RPC request privacy and slot
+consistency, the final targeted security audit, and explicit approval of the
+exact Pages candidate. GitHub Pages activation remains separate and is not yet
+authorized.
+
+The user accepted deferring aggregate per-pool, cross-pool, and Worker resource
+limits in issues #51 and #52 to the first public update. Until that update, a
+pathological aggregate workload may slow, freeze, or crash one visitor's browser
+tab; it cannot expose funds, signing capability, keys, persisted user data, or a
+backend because those surfaces do not exist. Milestone 4 and epic #56 track the
+deferred controls, repeat Pages deployment proof, and early-feedback triage.
+
+The authorized history rewrite removed the former personal commit email and
+workstation path from published branch histories while preserving reviewed tree
+content. GitHub-owned protected pull-request refs may retain old commit metadata;
+the user accepted that platform residual and declined a GitHub Support request.
+New commits use the approved GitHub noreply identity.
 
 ## Read Next
 

@@ -282,3 +282,208 @@ dependencies and remains independently reviewed.
 Consequence: `main` remains the accepted stable baseline while Phase 1 issue PRs
 target `dev`. GitHub Pages activation and `dev` to `main` promotion remain
 separate explicit user decisions.
+
+## 2026-09-07: Publish A Passive Docs Tip Jar Identity
+
+Context: The maintainer wants an unobtrusive way for users who value the project
+to copy a public Solana support address without changing the research workflow.
+
+Decision: Publish SNS identity `nimodreams.sol` and canonical Solana address
+`DxYUGfMtgHmuo1VGRAEUjzcpuCwWCA5xggbgJUZuaFwF` as intentional public source
+values in Docs. Treat the full address as authoritative. Provide static display
+and an explicit copy control with accessible success or failure feedback.
+
+Consequence: Security and privacy scans should recognize these two identifiers
+as approved public data rather than credentials. Do not resolve SNS at runtime
+or add a wallet, payment URI, QR flow, transaction construction, external
+provider, analytics, persistence, backend, or navigation behavior.
+
+## 2026-09-07: Remove Current-Tree PII Without Rewriting Published History
+
+Context: The public-launch audit found workstation-specific paths in the current
+tracked documentation and identified commit identity as public metadata that
+must be intentionally approved. The Tip Jar SNS name and canonical Solana
+address remain explicitly authorized public identifiers.
+
+Decision: Use portable repository-relative references in public docs and logs,
+and require a GitHub noreply email or another explicitly approved public email
+for commit authors and committers. Remove the current-tree path findings in
+issue #42. Do not rewrite published Git history as part of this remediation.
+
+Consequence: The current tracked tree and production artifact can be verified
+without workstation paths or unapproved identity metadata. A history rewrite
+remains a separate explicit user decision because it would replace published
+commit identities and SHAs.
+
+## 2026-09-07: Apply Public-Launch Defense-In-Depth Before Pages
+
+Context: The browser must call fixed public providers and an arbitrary
+user-provided HTTPS RPC, while a static GitHub Pages site cannot add response
+headers. The repository also needs enforceable review and CI gates before public
+deployment.
+
+Decision: Enforce CSP and no-referrer policy in the production HTML document.
+Allow self-hosted scripts, styles, images, and Workers, one pinned Lightweight
+Charts attribution style, inline chart-layout attributes, embedded data images,
+and HTTPS connections; deny other resource types and navigation bases. Require pull
+requests, current CI, and resolved review conversations on `main` and `dev`,
+protect both branches from force-push and deletion, require Action references at
+full commit SHAs, and enable GitHub's available dependency, code, secret, and
+private-reporting controls. Keep required approvals at zero because this public
+repository currently has one GitHub owner; independent reviewers still leave the
+project's required GitHub-visible readiness signal.
+
+Consequence: Browser policy preserves arbitrary HTTPS RPC compatibility but does
+not act as an RPC hostname allowlist. Repository controls enforce the existing
+PR and verification workflow without making a second GitHub approver mandatory.
+GitHub Pages remains disabled until its separate reviewed and user-approved
+activation.
+
+## 2026-09-07: Launch Before Aggregate Browser Availability Hardening
+
+Context: The accepted Phase 1 application already provides the complete MVP
+workflow. The independent audit found no critical issue, secret exposure, wallet
+or transaction surface, analytics, persistence, backend, or fund risk. The
+remaining resource-control plan mixed individual untrusted-input validation with
+additional aggregate per-pool, cross-pool, and Worker limits, extending the time
+before real users could evaluate the product.
+
+Decision: Keep individual HTTP response limits, public-provider schema and
+numeric validation, RPC account/base64 envelopes, RPC request privacy and DLMM
+slot consistency, a targeted final audit, and the reviewed Pages workflow as
+pre-launch gates. Move issues #51 and #52 to milestone 4 as the first public
+update. Use that update to verify repeat deployment and turn concrete early-user
+feedback into focused issues under #55 and epic #56.
+
+Consequence: A pathological aggregate workload can temporarily slow, freeze, or
+crash one visitor's browser tab. This accepted availability risk does not expose
+funds, signing capability, keys, persisted user data, or a backend because those
+surfaces do not exist. The final launch audit must verify this disposition on the
+exact candidate, and #51/#52 remain committed post-launch work rather than an
+indefinite backlog.
+
+## 2026-09-07: Rewrite Published Branch History To Remove Personal Metadata
+
+Context: The user preferred removing the former personal commit email from
+published history in addition to removing workstation-specific paths from the
+current tree.
+
+Decision: Rewrite and force-update the published `main`, `dev`, and Phase 0
+branch histories with the approved GitHub noreply identity and portable path
+replacement while verifying that the reviewed branch trees remain unchanged.
+Do not contact GitHub Support about GitHub-owned protected pull-request refs.
+
+Consequence: Published branch histories and the local repository no longer
+contain the former email or workstation path. Protected pull-request refs and
+platform caches may retain old commit metadata; the user explicitly accepted
+that GitHub-controlled residual. All future commits must use the approved
+noreply identity.
+
+## 2026-09-07: Bound Network Transport Before Domain Parsing
+
+Context: Public providers and a user-selected RPC are untrusted browser inputs.
+Whole-body JSON helpers, unbounded queues, and unbounded response caches could
+consume memory or leave timers deferred far beyond a useful session.
+
+Decision: Count decompressed response bytes while streaming and reject before
+JSON parsing above 2 MiB for public APIs, 64 KiB for `getTokenSupply`, or 24 MiB
+for allowed account RPC methods. Limit RPC endpoint input to 4,096 UTF-16 code
+units with HTTPS and no embedded credentials or fragment. Cap the public queue
+at 64, provider deferrals at five minutes, and the GeckoTerminal LRU cache at
+256 live entries.
+
+Consequence: Oversized or malformed transport input fails with a redacted,
+provider-specific error, and response streams are cancelled at the boundary.
+Paths and query keys remain usable for bring-your-own RPC providers. Higher-level
+provider schemas, account data, and session/Worker limits remain tracked by the
+dependent security-remediation issues.
+
+## 2026-09-07: Bound Public-Provider Schema And Numeric Inputs
+
+Context: A transport-sized response can still contain excessive rows, labels,
+numeric text, exponents, unsafe timestamps, or values that overflow chart/FDV
+normalization.
+
+Decision: Validate public candidate, candle, quote-mint, text, decimal, SPL
+supply, timestamp, pagination, and normalized-value ceilings at provider/domain
+boundaries before selection, `BigInt` conversion, or chart publication. Reject
+the whole affected provider result with a redacted shape or limit error.
+
+Consequence: Supported provider ordering and normal fixtures remain unchanged,
+while values outside the documented ceilings cannot enter ranking, exact quote
+arithmetic, or the chart. These ceilings are security compatibility bounds; a
+future provider expansion requires an explicit reviewed adjustment.
+
+## 2026-09-07: Bound RPC Account Ingress Before Decoding
+
+Context: A user-provided RPC is an untrusted network boundary. Transport byte
+limits alone do not prevent a syntactically valid response from supplying too
+many accounts, oversized base64 fields, malformed account tuples, unsafe slots,
+or bin indexes that overflow the application's numeric model.
+
+Decision: Reject token discovery above 2,000 unique DLMM pools, pool discovery
+above 5,000 PositionV2 accounts, and pool scans above 512 BinArrays. Validate
+and deduplicate canonical 32-byte Solana keys before batching. Require exact
+base64 account tuples, the DLMM owner, and a nonexecutable account. Precompute
+decoded size from canonical base64 before `atob`, enforce the reviewed LB-pair,
+PositionV2, and BinArray encoded/decoded envelopes, retain the exact PositionV2
+width formula, accept only safe nonnegative context slots, and keep derived bin
+identifiers within signed int32.
+
+Consequence: Oversized or malformed RPC data fails before hydration or decoder
+work can amplify it. The existing retry and last-good-data behavior remains the
+recovery path, and the 626-pool and 1,800-position representative stress cases
+remain supported within the public-launch limits.
+
+## 2026-09-07: Make RPC Fetch Privacy And Slot Consistency Explicit
+
+Context: Session-only storage does not by itself control browser cache,
+credentials, referrers, redirects, or whether a provider honors a requested
+minimum observation slot.
+
+Decision: Send every RPC fetch with caching disabled, ambient credentials
+omitted, no referrer, and redirects rejected. Require the final HTTPS provider
+endpoint. Validate safe nonnegative context slots and account envelopes, reject
+hydration below `minContextSlot`, and advance the required slot across batches.
+
+Consequence: RPC paths and query credentials remain compatible without entering
+storage or error text. Redirecting endpoints require their final URL, and stale
+or malformed DLMM snapshots use the existing visible error, retry, and
+last-good refresh behavior rather than being decoded as current data.
+
+## 2026-09-07: Treat Inactive Pool Ranking Values As Nonnegative
+
+Context: GeckoTerminal legitimately reports zero reserve or 24-hour volume for
+inactive pool rows. Treating those optional ranking fields like strictly
+positive prices caused one inactive row to reject an otherwise usable candidate
+list. Public throttling can also appear to browser code as an opaque network
+failure when its response is not CORS-readable.
+
+Decision: Accept bounded zero for reserve and volume while keeping token,
+quote, and candle prices strictly positive. Reject a malformed optional ranking
+row without discarding independently valid candidates; fail the response when
+no candidate survives. Keep recovery user-visible and scheduler-bounded through
+Retry chart, with no automatic retry burst for an opaque provider failure.
+
+Consequence: Inactive rows no longer break the CA-to-chart workflow, malformed
+or negative values never enter selection, and persistent provider failures stay
+visible. The browser cannot reliably distinguish a CORS-hidden rate limit from
+other network failures, so the UI states that limitation rather than claiming a
+status code it cannot observe.
+
+## 2026-09-07: Validate And Redact JSON-RPC Envelopes
+
+Context: A syntactically valid JSON response from a user-selected RPC may still
+be a primitive, array, or malformed JSON-RPC object. Native property operations
+and upstream error text must not reach visible pool or position failures.
+
+Decision: Before reading a result, require a non-array JSON-RPC 2.0 object with
+the matching request ID and exactly one result or valid error object. Discard
+upstream error messages and data. Classify timeout, opaque network, HTTP, valid
+RPC, response-limit, and malformed-envelope failures with fixed project-owned
+messages, and make pool and position hooks reject unexpected exception text.
+
+Consequence: Malformed or hostile RPC responses fail before domain property
+access or account decoding. Existing retry, cancellation, and last-good behavior
+remain available without copying endpoint, response, or nested error content
+into UI text, logs, or production artifacts.
