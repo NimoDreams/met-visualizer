@@ -487,3 +487,58 @@ Consequence: Malformed or hostile RPC responses fail before domain property
 access or account decoding. Existing retry, cancellation, and last-good behavior
 remain available without copying endpoint, response, or nested error content
 into UI text, logs, or production artifacts.
+
+## 2026-09-08: Approve And Publish The First Public Release
+
+Context: The user accepted the corrected MVP experience, the final independent
+audit found no launch blocker, and every launch-critical issue was closed or
+explicitly dispositioned. The reviewed Pages workflow could not enable hosting
+by itself and still required a separate repository setting.
+
+Decision: Promote audited `dev` candidate
+`f75321ce9352cee61bb148dd75d14f38f7896261` with tree
+`8a3abfc8ac4ce69ebb5dcd1a965082348ca86c0e` through regular-merge PR #69 to
+`main` commit `72420a81a8e1b9240d4ed56df31cffe35847fd59`. Enable GitHub Actions as
+the Pages source, enforce HTTPS, restrict the secret-free `github-pages`
+environment to `main`, and deploy through reviewed workflow run `34179309665`.
+Synchronize protected `dev` through reviewed zero-content PR #70 when branch
+protection rejects a direct fast-forward push.
+
+Consequence: `https://nimodreams.github.io/met-visualizer/#/` is the public
+application. Stable `main` and integration `dev` have different history commits
+but the same audited tree. Future public updates continue through issue-scoped
+work into `dev`, explicit promotion approval, the protected `main` branch, and
+the main-only Pages workflow.
+
+## 2026-09-08: Keep The Public Application Telemetry-Free
+
+Context: GitHub exposes deployment health and limited repository traffic, but
+normal website analytics would require the application to send visitor or
+session information to another service. The initial product does not need that
+collection to provide its read-only research workflow.
+
+Decision: Ship no analytics, tracking pixel, remote error telemetry, or project
+backend. Do not collect visits, token searches, RPC endpoints, selected pools or
+positions, provider failures, or session behavior. Treat any future telemetry as
+a product and privacy scope change requiring a data inventory, retention and
+disclosure plan, CSP review, user approval, and independent review.
+
+Consequence: Maintainers can inspect Pages configuration, deployments, Actions
+logs, and repository traffic, but cannot derive product usage or user behavior
+from the application. This limitation is an intentional privacy property.
+
+## 2026-09-08: Use A Meta-Phase For Unscheduled Product Intake
+
+Context: Early public use will produce observations, bug reports, and feature
+ideas before their value, requirements, dependencies, and delivery sequence are
+clear. Treating every observation as active implementation would weaken phase
+planning and review discipline.
+
+Decision: Use milestone 5, `Meta-phase: Ideas and future work`, as unscheduled
+intake. A meta-phase item is preserved but is not an implementation-ready
+commitment. The PM must reproduce or research it, define requirements and review
+gates, and move it into a delivery milestone before assigning development.
+
+Consequence: Issue #66 records non-native quote-market behavior without blocking
+the public MVP. Future observations can be retained without silently changing
+the active roadmap or bypassing product planning.

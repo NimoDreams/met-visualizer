@@ -36,8 +36,9 @@ Implementation, release verification, review, user acceptance, and promotion
 are complete. PR #35 used a regular merge commit, and `main` and `dev` were
 synchronized to exact stable SHA
 `19046d1f0dfae069a5847b2fb57bd662aa89aacd`. Post-merge format, lint, typecheck,
-107-test, build, artifact, diff, and local HTTP checks passed. GitHub Pages
-activation remains a separate unapproved gate.
+107-test, build, artifact, diff, and local HTTP checks passed. This was the
+pre-launch product baseline; later public-launch work is recorded separately
+below.
 
 The [Phase 1 milestone](https://github.com/NimoDreams/met-visualizer/milestone/2)
 and [epic #15](https://github.com/NimoDreams/met-visualizer/issues/15) are the
@@ -64,24 +65,27 @@ source of truth. The ordered work is:
 Developers use issue-scoped branches/worktrees into `dev`; reviewers post
 readiness directly on GitHub. Promotion follows the
 [promotion workflow](workflows/dev-to-main-promotion.md) and requires user
-approval. First GitHub Pages activation remains a separate approval gate.
+approval.
 
 No trading or fund-movement features are planned.
 
-## Public Launch Readiness — Active
+## Public Launch Readiness — Complete
 
-The Phase 1 product is already the accepted functional MVP. The launch batch
-adds the passive Docs Tip Jar, removes unintended public identity/path traces,
-hardens individual network and decoding trust boundaries, applies browser and
-repository protections, and prepares a reviewed main-only Pages workflow.
+The independently audited MVP launched on GitHub Pages on 2026-09-08. Public
+launch epic #37 and milestone 3 are closed. Promotion PR #69 produced stable
+`main` commit `72420a81a8e1b9240d4ed56df31cffe35847fd59` with audited tree
+`8a3abfc8ac4ce69ebb5dcd1a965082348ca86c0e`; workflow run `34179309665`
+deployed that commit to `https://nimodreams.github.io/met-visualizer/#/`.
+Protected-branch synchronization PR #70 returned the same tree to `dev`.
 
-Before activation, complete and independently review public-provider validation
-(#49), RPC account-envelope validation (#50), RPC request privacy and DLMM slot
-consistency (#44), and the exact-candidate audit (#39/#40). Pages issue #41 then
-requires the user's explicit approval of the deployment candidate and activation
-action. Epic #37 and milestone 3 remain the source of truth.
+The release added the passive Docs Tip Jar, portable noreply history, individual
+network and decoding bounds, RPC request privacy and slot consistency, JSON-RPC
+envelope redaction, CSP and repository protections, private vulnerability
+reporting, and the main-only Pages workflow. Issue #39 records the final
+independent audit. See the
+[public-launch completion review](reviews/public-launch-completion.md).
 
-## First Public Update — Planned
+## First Public Update — Active Planning
 
 Milestone 4 and epic #56 contain the deliberately deferred aggregate browser
 availability controls. Issue #51 caps per-pool decoded bytes, bins, secondary RPC
@@ -94,3 +98,16 @@ The accepted interim risk is limited to a pathological aggregate workload
 slowing, freezing, or crashing an individual visitor's tab. The first launch
 still bounds individual responses, provider values, and RPC accounts and retains
 the read-only, session-only, no-wallet, no-persistence architecture.
+
+Issue #71 updates durable documentation with the verified launch baseline. The
+first post-launch delivery batch should be scoped before implementation begins;
+GitHub Issues remain authoritative for its exact order.
+
+## Meta-Phase — Unscheduled Intake
+
+Milestone 5 stores observations, bug reports, and product ideas that are worth
+preserving but are not implementation-ready commitments. The PM should reproduce
+or research an item, define requirements and dependencies, then move it into a
+delivery milestone before assigning implementation. Issue #66 currently tracks
+quote-aware reference-market selection and USD conversion for newer non-native
+Solana markets.

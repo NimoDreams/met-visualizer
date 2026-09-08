@@ -15,6 +15,7 @@ Before planning, reviewing, or implementing changes, read:
 - `docs/roadmap.md`
 - `docs/architecture.md`
 - `docs/decisions.md`
+- `docs/privacy-and-public-release.md`
 - `docs/workflows/github-issues.md`
 
 If a request changes project direction, update the relevant durable docs as part
@@ -22,14 +23,20 @@ of the work.
 
 ## Current Project State
 
-Phase 1 is complete and promoted to `main` at
-`19046d1f0dfae069a5847b2fb57bd662aa89aacd`; `main` and `dev` share that stable
-baseline. The selected foundation is a single Node.js 24/npm package using
-strict TypeScript, React, Vite, and Lightweight Charts. The product is a static
-SPA using a session-only user RPC and free public market data, starting with
-GeckoTerminal. See `docs/specs/technical-foundation.md`. GitHub Pages activation
-remains a separate unapproved gate. Future phases are not yet planned and
-should begin with PM planning and GitHub Issues.
+Phase 1 and the first public launch are complete. The independently audited tree
+`8a3abfc8ac4ce69ebb5dcd1a965082348ca86c0e` was promoted through PR #69 to
+`main` commit `72420a81a8e1b9240d4ed56df31cffe35847fd59` and deployed at
+`https://nimodreams.github.io/met-visualizer/#/` on 2026-09-08. Protected-branch
+sync PR #70 put the same tree on `dev`; the branch commit SHAs differ because the
+sync itself required a PR. The selected foundation is one Node.js 24/npm package
+using strict TypeScript, React, Vite, and Lightweight Charts. The static SPA uses
+a session-only user RPC and free public market data, starting with GeckoTerminal.
+See `docs/specs/technical-foundation.md` and
+`docs/privacy-and-public-release.md`.
+
+Milestone 4 and epic #56 own the first post-launch update. Milestone 5 is an
+unscheduled meta-phase intake for observations and ideas that need PM scoping
+before delivery. GitHub Issues remain the current source of truth.
 
 Expected operating model:
 
@@ -41,11 +48,11 @@ Expected operating model:
 - Native Node and Vite are the approved local runtime. Do not add Docker Compose
   unless a future server, database, validator, or supporting service justifies it.
 - `main` should remain stable once the project has a usable baseline.
-- Create a `dev` integration branch before active multi-agent feature work,
-  unless the user explicitly chooses a simpler early-bootstrap workflow.
+- Use the protected `dev` branch for active integration work and reviewed
+  promotion PRs into stable `main` for public releases.
 
-The product roadmap should be established after the project idea, constraints,
-data/provider boundaries, and initial technical direction are understood.
+Future roadmap phases should begin with PM review of user feedback, constraints,
+provider boundaries, accepted risks, and the meta-phase intake.
 
 ## Agent Roles
 
@@ -175,7 +182,7 @@ handling, seed-phrase handling, swaps, liquidity mutation, transaction
 submission, or fund-movement behavior unless a future explicit roadmap/spec
 changes scope.
 
-For the planned SPA, never persist or log the user-provided RPC endpoint, send
+For the SPA, never persist or log the user-provided RPC endpoint, send
 it to a market-data provider, or embed developer credentials in a public build.
 Keep it only in page-session memory. Free public APIs must not introduce another
 required credential into the MVP without an explicitly approved scope change.
@@ -190,10 +197,12 @@ required credential into the MVP without an explicitly approved scope change.
 - Keep Solana/Meteora reads behind documented provider boundaries. Use only
   RPC-specific Solana modules in production and project-owned Meteora read
   decoders verified against a pinned official SDK/IDL.
-- Use hash navigation and the `/met-visualizer/` base path. GitHub Pages deploys
-  reviewed `main` builds only; Pages remains disabled until an approved release.
+- Use hash navigation and the `/met-visualizer/` base path. GitHub Pages is live
+  and deploys reviewed `main` builds only through the protected `github-pages`
+  environment; the environment accepts only `main` and contains no secrets.
 - Do not add a backend, database, persistent browser storage, service worker,
-  wallet, signer, or transaction surface without an explicit scope decision.
+  analytics, remote telemetry, wallet, signer, or transaction surface without
+  an explicit scope decision, privacy review, and user approval.
 
 ## Documentation Habits
 

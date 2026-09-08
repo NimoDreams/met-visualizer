@@ -211,9 +211,11 @@ Normal phase flow:
 8. The PM opens the actual promotion PR from `dev` into `main`. Because it
    targets the default branch, use `Closes #123`, replacing `#123` with the
    active promotion issue. Use a regular merge commit, not squash or rebase
-   merge, so `dev` can fast-forward to the promoted `main` commit afterward.
+   merge, so the promoted `main` commit remains a descendant of `dev`.
 9. Merge only after the required reviewer readiness signal and user approval,
-   then sync local/remote branches and verify stable `main`.
+   then sync local/remote branches and verify stable `main`. If protected `dev`
+   rejects the direct sync, use a reviewed, zero-content `main`-to-`dev` PR and
+   record identical tree IDs rather than claiming identical branch SHAs.
 10. Close the promotion milestone only after `main` is updated and branch/runtime
     synchronization is complete.
 

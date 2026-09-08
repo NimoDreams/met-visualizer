@@ -29,6 +29,8 @@ Current reviews:
   candidate evidence; independently reviewed, accepted, and promoted
 - [Phase 1 promotion record](phase-1-promotion-preparation.md) — reviewed
   `dev`-to-`main` promotion and post-merge verification
+- [Public launch completion](public-launch-completion.md) — final independent
+  audit, launch hardening, promotion, Pages deployment, and accepted follow-ups
 
 Before closing an epic or phase review, scan `docs/follow-ups.md` and promote
 relevant items into GitHub Issues, specs, decisions, or future planning notes.

@@ -18,8 +18,10 @@ Recommended spec format:
 
 Current specs:
 
-- [MVP: token chart and current DLMM liquidity](mvp.md) — Phase 0 draft.
-- [Technical foundation](technical-foundation.md) — approved Phase 0 direction.
+- [MVP: token chart and current DLMM liquidity](mvp.md) — implemented product
+  baseline.
+- [Technical foundation](technical-foundation.md) — implemented and deployed
+  foundation.
 - [Reference market and valuation axis](reference-market.md) — approved
   selection, denomination, conversion, and refresh direction.
 - [Position controls and responsive layout](position-controls.md) — approved

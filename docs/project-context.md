@@ -1,105 +1,115 @@
 # Project Context
 
-## Current State — 2026-09-07
+## Current State — 2026-09-08
 
-Phase 0 planning and Phase 1 MVP delivery are complete. Phase 1 was verified,
-independently reviewed, accepted by the user, and promoted through PR #35 on
-2026-09-07.
+Phase 0 planning, Phase 1 MVP delivery, public-launch hardening, independent
+security review, promotion, and the first GitHub Pages deployment are complete.
+The live application is `https://nimodreams.github.io/met-visualizer/#/`.
 
-- Repository root: the current checkout; public references use portable,
-  repository-relative paths.
-- GitHub: NimoDreams/met-visualizer
-- `main` contains the rewritten, content-equivalent Phase 1 baseline at
-  `d663b9adf5f2f2b96cc24905ec04ab4b19736a96`; `dev` carries the reviewed
-  public-launch changes and remains the integration branch.
-- Phase 0 [epic #1](https://github.com/NimoDreams/met-visualizer/issues/1) and
-  milestone are closed; the [roadmap](roadmap.md) records Phase 1 delivery.
-- PM, Developer, and Code Reviewer remain separate roles. Reviewers must post
-  GitHub-visible readiness before merge.
+- GitHub repository: `NimoDreams/met-visualizer`.
+- Final audited candidate: `f75321ce9352cee61bb148dd75d14f38f7896261`.
+- Audited and deployed tree: `8a3abfc8ac4ce69ebb5dcd1a965082348ca86c0e`.
+- Stable `main`: promotion commit
+  `72420a81a8e1b9240d4ed56df31cffe35847fd59` from PR #69.
+- Integration `dev`: protected-branch sync commit
+  `c89b56473d3f0ca700efb94f158db508e2020030` from PR #70. It has the same tree
+  as `main`; the SHA differs because synchronization required a reviewed PR.
+- Successful first deployment: workflow run `34179309665`.
+- Public launch epic #37, audit #39, activation #41, and milestone 3 are closed.
 
-## Agreed Direction
+PM, Developer, and Code Reviewer remain separate roles. GitHub Issues and
+milestones are the source of truth for current work, and reviewers must post a
+GitHub-visible readiness signal before merge.
+
+## Product Direction
 
 Token CA → reference candles → expandable Meteora DLMM pools and all owners'
 positions → selectable current liquidity distribution across bins.
 
-The expected primary audience is Solana memecoin traders. Representative MVP
-validation should emphasize newer tokens with short histories, unverified market
-cap, SOL/stablecoin quotes, and one or several meaningful DLMM pools. JUP remains
-a scale/stress fixture and should not define expected average latency or payloads.
+The primary audience is Solana memecoin traders. Representative validation
+should emphasize newer tokens with short histories, unverified market cap, SOL,
+stablecoin, or emerging quote markets, and one or several meaningful DLMM pools.
+JUP is a scale/stress fixture and does not define ordinary latency or payloads.
 
-The open-source SPA targets GitHub Pages. Users supply a session-only RPC.
-Public free APIs may supply data without additional credentials; GeckoTerminal
-is the agreed starting candle source. Include an in-app Docs tab and visible
-source, freshness, and coverage context. All functionality remains read-only.
-
-The chart defaults to verified Market Cap (USD). When circulating supply is not
-verified, it uses current RPC mint supply and explicitly says FDV (USD); if no
-supply basis is available, it degrades to Price (USD). A GeckoTerminal-ranked,
-validated reference pool stays fixed for the token session, and enabled Meteora
-bins use current public quote-token prices on the same valuation axis. See the
-[reference-market spec](specs/reference-market.md).
+The chart defaults to provider Market Cap (USD). When that value is unavailable,
+it uses current RPC mint supply and explicitly says FDV (USD); if no supply basis
+exists, it degrades to Price (USD). A validated GeckoTerminal reference pool
+stays fixed for the token session, and enabled Meteora bins use current public
+quote-token prices on the same valuation axis. Issue #66 tracks the newer case
+where active pools use non-native quote assets and selection or USD conversion
+needs additional rules.
 
 Position size means current estimated USD principal value. One global filter
-spans known valued positions in enabled pools and must disclose pools, incomplete
-loads, and unavailable values outside its denominator. Desktop keeps the chart
-and positions side by side; constrained layouts stack them; narrow phones use a
-state-preserving Chart/Positions switch. See the
-[position-control spec](specs/position-controls.md).
+spans known valued positions in enabled pools while disclosing incomplete loads
+and unavailable values outside its denominator. Desktop keeps the chart and
+positions side by side; constrained layouts stack them; narrow phones use a
+state-preserving Chart/Positions switch.
 
-The app initially enables the largest eligible Meteora pool by provider-reported
-USD TVL after reconciling it with RPC discovery, then 24-hour volume and address
-for ties. It probes at most three candidates for PositionV2 accounts and USD
-conversion. The choice is stable; failure leaves pools disabled for explicit user
-selection. See the
-[pool-ranking evidence](reviews/phase-0-pool-ranking-feasibility.md).
+The app initially enables the highest trustworthy TVL-ranked eligible Meteora
+pool after reconciling advisory metadata with authoritative RPC discovery. It
+probes at most three candidates for PositionV2 accounts and USD conversion. The
+choice remains stable; uncertainty leaves pools disabled for user selection.
 
-GeckoTerminal candle feasibility and the portable/indexed RPC paths are
-independently reviewed. Large pools use approved progressive loading that
-prioritizes current position value and reports honest count/value coverage.
+See the [MVP](specs/mvp.md), [reference-market](specs/reference-market.md), and
+[position-control](specs/position-controls.md) specs for detailed behavior.
 
-The selected technical foundation is Node.js 24, npm, strict TypeScript, React,
-Vite, Lightweight Charts, RPC-only Solana modules, minimum Meteora read decoders,
-and a main-only GitHub Pages workflow. The local runtime intentionally excludes
-Docker Compose. See the [technical foundation](specs/technical-foundation.md).
+## Privacy, Safety, And Open Source
 
-## Current Delivery State
+Met Visualizer is a public, MIT-licensed, open-source static SPA. Users provide
+an HTTPS RPC that exists only in page-session memory. It is never persisted,
+logged, compiled into assets, placed in the URL, or sent to GeckoTerminal or
+Meteora. Public free APIs may supply data without a project-maintained or
+additional user credential.
 
-[Issues #16–#23 and #31](https://github.com/NimoDreams/met-visualizer/issues/15)
-delivered the Phase 1 MVP. The [completion review](reviews/phase-1-completion.md)
-and [promotion record](reviews/phase-1-promotion-preparation.md) preserve exact
-candidate, review, verification, and branch evidence. Promotion PR #35 used a
-regular merge commit, and exact stable SHA
-`19046d1f0dfae069a5847b2fb57bd662aa89aacd` passed the post-merge checks.
+The application has no backend, database, accounts, analytics, telemetry,
+service worker, wallet, signing, transaction, swap, liquidity mutation, private
+key, seed phrase, or fund-movement behavior. Any change to those boundaries
+requires an explicit product decision, spec, threat review, user approval, and
+independent review. See the
+[privacy and public-release policy](privacy-and-public-release.md).
 
-Public launch readiness is tracked by
-[epic #37](https://github.com/NimoDreams/met-visualizer/issues/37). Its first
-change is a passive Docs Tip Jar with intentionally public SNS identity
-`nimodreams.sol` and canonical Solana address
-`DxYUGfMtgHmuo1VGRAEUjzcpuCwWCA5xggbgJUZuaFwF`. The address is static and
-copy-only; it does not add resolution, wallet, payment, transaction, analytics,
-or persistence behavior. The launch gate also includes bounded individual HTTP
-responses, public-provider values and RPC accounts, RPC request privacy and slot
-consistency, the final targeted security audit, and explicit approval of the
-exact Pages candidate. GitHub Pages activation remains separate and is not yet
-authorized.
+The Tip Jar intentionally publishes SNS identity `nimodreams.sol` and canonical
+Solana address `DxYUGfMtgHmuo1VGRAEUjzcpuCwWCA5xggbgJUZuaFwF`. It is static and
+copy-only and does not add resolution, wallet, payment, or transaction behavior.
 
-The user accepted deferring aggregate per-pool, cross-pool, and Worker resource
-limits in issues #51 and #52 to the first public update. Until that update, a
-pathological aggregate workload may slow, freeze, or crash one visitor's browser
-tab; it cannot expose funds, signing capability, keys, persisted user data, or a
-backend because those surfaces do not exist. Milestone 4 and epic #56 track the
-deferred controls, repeat Pages deployment proof, and early-feedback triage.
+Published branch history uses the approved GitHub noreply identity and portable
+paths. The authorized rewrite removed the former personal email and workstation
+path from published branch histories without changing reviewed trees. The user
+accepted that GitHub-owned protected PR refs or caches may retain old metadata
+and declined a GitHub Support request.
 
-The authorized history rewrite removed the former personal commit email and
-workstation path from published branch histories while preserving reviewed tree
-content. GitHub-owned protected pull-request refs may retain old commit metadata;
-the user accepted that platform residual and declined a GitHub Support request.
-New commits use the approved GitHub noreply identity.
+## Hosting And Release Operations
+
+GitHub Pages serves a verified static `dist/` artifact from reviewed `main`
+commits. HTTPS is enforced. The `github-pages` environment accepts only `main`
+and contains no secrets. The workflow uses least-privilege job permissions,
+full-SHA-pinned GitHub-owned Actions, and repeats the repository's deterministic
+and browser gates before deployment.
+
+Normal work branches from protected `dev` and returns there through issue-scoped,
+reviewed PRs. Public changes use a reviewed `dev`-to-`main` promotion with a
+regular merge commit. If branch protection rejects the post-promotion direct
+`dev` fast-forward, synchronize the unchanged tree through a reviewed PR as PR
+#70 did. See the [promotion workflow](workflows/dev-to-main-promotion.md).
+
+## Active Planning
+
+Milestone 4 and epic #56 own the first post-launch update: aggregate browser
+resource protections in #51/#52, repeat deployment proof in #55, and early user
+feedback. Until #51/#52 ship, a pathological workload may slow, freeze, or crash
+one visitor tab and consume that visitor's network or RPC quota. No shared
+backend, persisted user data, wallet, transaction, or funds surface exists.
+
+Milestone 5 is the meta-phase intake for unscheduled observations, bugs, and
+ideas. Items there are not implementation-ready commitments; the PM should
+research and move selected work into a delivery milestone before implementation.
 
 ## Read Next
 
 [Vision](vision.md), [roadmap](roadmap.md), [architecture](architecture.md),
-[decisions](decisions.md), and [MVP spec](specs/mvp.md).
+[decisions](decisions.md), [privacy policy](privacy-and-public-release.md), and
+the [public-launch review](reviews/public-launch-completion.md).
 
 Never commit human scratch notes, RPC credentials, local env files, raw provider
-dumps, or sensitive logs. Docs preserve durable knowledge; GitHub tracks work.
+dumps, sensitive logs, or workstation-specific paths. Docs preserve durable
+knowledge; GitHub tracks active work.
