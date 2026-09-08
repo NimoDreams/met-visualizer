@@ -1,5 +1,9 @@
 # Phase 1 Release-Candidate Verification
 
+Historical record: this review predates public-launch hardening and Pages
+activation. See the [public-launch completion review](public-launch-completion.md)
+for the current released baseline.
+
 Status: issue #22 verification evidence, independently reviewed in PR #33,
 accepted by the user, and promoted to `main` through reviewed PR #35 on
 2026-09-07. GitHub Pages activation remains pending and unapproved.

@@ -1,14 +1,21 @@
 # Architecture
 
-Status: the Phase 1 read-only visualization MVP is implemented, verified,
-independently reviewed, accepted, and promoted to `main` at
-`19046d1f0dfae069a5847b2fb57bd662aa89aacd`.
+Status: the read-only MVP is implemented, independently audited, and publicly
+deployed. Stable `main` commit
+`72420a81a8e1b9240d4ed56df31cffe35847fd59` and protected `dev` sync commit
+`c89b56473d3f0ca700efb94f158db508e2020030` contain audited tree
+`8a3abfc8ac4ce69ebb5dcd1a965082348ca86c0e`.
 
 ## Agreed Boundaries
 
-The intended deployment is a static SPA on GitHub Pages. Runtime reads originate
-in the browser. No backend, database, account, or project-maintained market-data
-credential is part of the planned MVP.
+The production deployment is a static SPA on GitHub Pages at
+`https://nimodreams.github.io/met-visualizer/#/`. Runtime reads originate in the
+browser. No backend, database, account, analytics service, telemetry endpoint,
+or project-maintained market-data credential exists.
+
+The [privacy and public-release policy](privacy-and-public-release.md) defines
+the maintainer-facing data-minimization and release invariants for these
+boundaries.
 
 | Boundary | Responsibility |
 | --- | --- |
@@ -31,7 +38,8 @@ site's URL out of outbound request metadata. GitHub repository controls require
 pull requests, current CI, and resolved review conversations on `main` and
 `dev`, reject branch force-push and deletion, require full-SHA Action references,
 and enable GitHub's available security scanning and private vulnerability
-reporting. Pages activation and its workflow remain a separate release gate.
+reporting. Pages serves reviewed `main` builds through a `main`-only environment
+with no deployment secrets.
 
 All provider JSON crosses one streaming, decompressed-byte boundary before
 `JSON.parse`: public responses stop at 2 MiB, `getTokenSupply` at 64 KiB, and
@@ -117,8 +125,10 @@ credentials. [DEX Screener](https://docs.dexscreener.com/api/reference) has no
 documented public historical candle endpoint. None is required for the MVP.
 
 Direct HTTP and localhost browser-origin checks succeeded after using the
-documented version header and normal browser request shape. Exact GitHub Pages
-origin behavior remains a pre-release smoke test.
+documented version header and normal browser request shape. Public-launch
+verification later confirmed the exact GitHub Pages origin, hash routes, and
+static assets; see the
+[public-launch completion review](reviews/public-launch-completion.md).
 
 Issue #16 repeated the two keyless provider checks from the production-shaped
 local SPA in Playwright Chromium. GeckoTerminal token-pool discovery and Meteora
