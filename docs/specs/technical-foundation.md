@@ -1,7 +1,7 @@
 # Technical Foundation
 
-Status: approved for Phase 1 implementation on 2026-09-06. GitHub Pages
-activation, deployment, and `dev` to `main` promotion remain separately gated.
+Status: implemented and publicly deployed. The selected stack remains the
+approved foundation for the first post-launch update.
 
 ## Selected Stack
 
@@ -17,9 +17,9 @@ activation, deployment, and `dev` to `main` promotion remain separately gated.
 | Tests | Vitest, React Testing Library, and focused Playwright browser tests |
 | Styling | Plain CSS or CSS Modules; no general UI framework initially |
 
-Pin exact dependency versions in `package-lock.json` in scaffold issue #16. Use
-Vite's modern default production target and test current Chrome,
-Firefox, and Safari. Do not add legacy-browser polyfills without evidence.
+Pin exact dependency versions in `package-lock.json`. Use Vite's modern default
+production target and test Chromium, Firefox, and WebKit. Do not add
+legacy-browser polyfills without evidence.
 
 ## Application Shape
 
@@ -66,11 +66,10 @@ uses native JSON-RPC `fetch` behind the project interface for:
 
 Constrain the application-facing interface to approved read methods. Do not add
 wallet, signer, transaction, instruction, subscription, or send packages. Keep
-the provider wrapper transport-independent. Native `fetch` meets the scaffold's
-method, timeout, cancellation, and error-normalization needs with no RPC runtime
-package in the roughly 116 kB gzip production JavaScript. Revisit a modular
-Solana RPC package only if later type or transport requirements justify its
-bundle cost.
+the provider wrapper transport-independent. Native `fetch` meets the project's
+method, timeout, cancellation, and error-normalization needs without an RPC
+runtime package in the production JavaScript. Revisit a modular Solana RPC
+package only if later type or transport requirements justify its bundle cost.
 
 Do not include the complete `@meteora-ag/dlmm` runtime in the published app. Its
 public surface includes transaction construction that this product does not
@@ -107,8 +106,9 @@ the page clears the RPC and all fetched data.
 The default project-site URL is
 `https://nimodreams.github.io/met-visualizer/`. Configure Vite with
 `base: "/met-visualizer/"` and use `import.meta.env.BASE_URL` for any dynamic
-asset paths. GitHub Pages is currently disabled; enable it only when a reviewed
-build is ready for its first approved deployment.
+asset paths. GitHub Pages is live and accepts deployments only from reviewed
+`main` builds through the `github-pages` environment. HTTPS is enforced, the
+environment is restricted to `main`, and it contains no secrets.
 
 Use two GitHub Actions concerns:
 
@@ -122,29 +122,30 @@ Use `npm ci`, upload only `dist/`, pin third-party actions to full commit SHAs,
 and do not provide the workflow with an RPC or market-data secret. Do not deploy
 `dev` or PR previews to the repository's sole Pages site.
 
-The prepared workflow repeats the full formatting, lint, type, unit, production
+The deployed workflow repeats the full formatting, lint, type, unit, production
 artifact, and supported-browser gates before it uploads `dist/`. Its build job
 can only read repository contents; only the dependent deploy job can write Pages
 and request an identity token, and that job uses the protected `github-pages`
 environment. Both jobs reject a manual dispatch from any ref other than `main`.
 The configuration action has automatic enablement explicitly disabled, so the
-workflow cannot turn Pages on. Selecting GitHub Actions as the Pages source and
-the first deployment remain explicit user-approved release actions.
+workflow cannot turn Pages on. The user separately approved the first activation;
+GitHub Actions is now the configured Pages source.
 
-Create `dev` from the accepted Phase 0 closeout commit immediately before implementation.
-Issue branches target `dev`; reviewed release promotions target `main` with a
-merge commit. A merge to `main` becomes the deployable source of truth. The
-first actual Pages activation/deployment remains a separate user-approved step.
+Issue branches target protected `dev`; reviewed release promotions target `main`
+with a regular merge commit. A merge to `main` becomes the deployable source of
+truth. The first activation completed on 2026-09-08 from audited tree
+`8a3abfc8ac4ce69ebb5dcd1a965082348ca86c0e`; future promotions remain explicit
+user-approved release actions.
 
 The deployed app accepts HTTPS RPC endpoints only because Pages is HTTPS.
 Compatibility still depends on provider CORS and filtered-account support; a
-static app cannot proxy an incompatible endpoint. Before the first release,
-smoke-test the exact Pages origin for assets, hash navigation, GeckoTerminal,
-and a user-entered RPC, then verify that reload clears the credential.
+static app cannot proxy an incompatible endpoint. Release verification covers
+the exact Pages origin, assets, hash navigation, GeckoTerminal, a user-entered
+RPC, and proof that reload clears the credential.
 
-## Scaffold Verification Gates
+## Foundation Verification Gates
 
-The first implementation handoff should prove:
+The implemented foundation and future release candidates must continue to prove:
 
 - the production bundle works under `/met-visualizer/` with no root-path asset
   assumptions;

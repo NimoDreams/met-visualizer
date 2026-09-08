@@ -22,7 +22,7 @@ not historical position movement.
 
 ## Access And Transparency
 
-- Open source, with GitHub Pages as the intended hosting target.
+- MIT-licensed open source and publicly hosted through GitHub Pages.
 - Users supply one RPC endpoint, held only in page-session memory.
 - Free public data sources are allowed without another user credential or a
   project-maintained market-data key.
@@ -31,6 +31,20 @@ not historical position movement.
 - An in-app Docs tab explains sources, refresh behavior, reference-market
   selection, normalization, selection semantics, and limitations.
 - Reference market, units, freshness, and coverage are visible beside the data.
+- The application collects no analytics or remote error telemetry; any future
+  collection requires an explicit privacy decision and user approval.
+
+## Product Principles
+
+- Make the first action obvious: enter a token CA, then explain when and why an
+  RPC is required.
+- Prefer honest partial, stale, unavailable, and limited states over inferred or
+  fabricated completeness.
+- Keep provider selection and valuation decisions visible so traders can judge
+  what the chart represents.
+- Keep the public build portable and credential-free so anyone can inspect,
+  fork, run, and host it with their own RPC.
+- Treat privacy, read-only behavior, and independent review as release gates.
 
 ## Scope Boundary
 
@@ -38,5 +52,6 @@ Research and visualization only. Exclude trading, signing, wallet connection,
 private keys, seed phrases, swaps, liquidity mutation, transaction submission,
 and fund movement unless an explicitly approved future spec changes scope.
 
-The user determines whether Phase 0 direction and MVP functionality are
-satisfactory. See the [MVP spec](specs/mvp.md).
+The user determines when product direction and release functionality are
+satisfactory. See the [MVP spec](specs/mvp.md) and
+[privacy/public-release policy](privacy-and-public-release.md).

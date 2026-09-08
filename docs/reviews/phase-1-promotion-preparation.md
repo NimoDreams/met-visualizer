@@ -1,5 +1,9 @@
 # Phase 1 Promotion Record
 
+Historical record: this promotion predates public-launch hardening and Pages
+activation. See the [public-launch completion review](public-launch-completion.md)
+for the current released baseline.
+
 Status: issue #23 promotion completed on 2026-09-07. GitHub Pages activation was
 not part of the promotion and remains unapproved.
 

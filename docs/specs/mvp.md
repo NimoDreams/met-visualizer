@@ -1,7 +1,7 @@
 # MVP — Token Chart And Current DLMM Liquidity
 
-Status: approved for Phase 1 implementation on 2026-09-06. Product direction is
-agreed, independently reviewed, and accepted by the user.
+Status: implemented and publicly released. This remains the product baseline;
+future behavior changes require explicit scope decisions.
 
 ## Purpose And Scope
 

@@ -13,3 +13,7 @@ coordinate fixes there.
 
 Security fixes apply to the latest code on `main`; older revisions are not
 supported separately.
+
+The project's data-minimization, session-only RPC, public-repository, and release
+boundaries are documented in the
+[Privacy And Public-Release Policy](docs/privacy-and-public-release.md).

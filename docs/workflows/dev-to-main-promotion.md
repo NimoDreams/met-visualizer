@@ -125,8 +125,11 @@ After the promotion PR merges:
 
 1. Pull the updated remote `main` into the local `main` checkout.
 2. Because the promotion used a regular merge commit, fast-forward local `dev`
-   to the promoted `main` commit and push that sync to remote `dev` so both
-   branches share the promoted baseline.
+   to the promoted `main` commit. Push that sync to remote `dev` if branch
+   protection permits it. If protected `dev` requires a PR, open a history-only
+   `main`-to-`dev` synchronization PR, confirm it has the promoted tree and no
+   file changes, require normal CI and reviewer readiness, and merge it without
+   changing content. Record that the branch SHAs differ while their trees match.
 3. Recheck the stable `main` runtime and smoke endpoints if the merge commit
    differs from the tested head.
 4. Confirm the active promotion issue closed through the promotion PR.
