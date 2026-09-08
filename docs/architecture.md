@@ -139,6 +139,16 @@ marker never entered GeckoTerminal request URLs, page content, or browser storag
 See the
 [reference-market browser proof](reviews/phase-1-reference-market-browser-proof.md).
 
+GeckoTerminal pool reserve and 24-hour volume are optional ranking metadata and
+use a nonnegative domain: inactive rows legitimately report zero. Negative,
+malformed, or oversized optional values invalidate that candidate without
+discarding other usable candidates in the provider-ordered list. Token and
+quote prices remain strictly positive. A repeated browser-origin probe also
+showed that public throttling can become an opaque fetch failure when the
+provider response is not CORS-readable; the app labels that limitation and
+keeps recovery explicit through Retry chart instead of automatically amplifying
+the public request burst.
+
 Issue #18 adds RPC-authoritative DLMM discovery with two discriminator-and-mint
 key scans, context-slot-aware account hydration, and a minimum project-owned LB
 pair decoder. The decoder reads only the identity and pool-state fields needed by

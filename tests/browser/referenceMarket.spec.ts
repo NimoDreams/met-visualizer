@@ -30,7 +30,7 @@ test("loads an identified keyless reference chart without disclosing the RPC", a
     const json = url.includes("/ohlcv/")
       ? candleResponse(candleFixture(now - 24 * 3_600, 96))
       : url.includes("/pools?")
-        ? poolResponse("browser-pool")
+        ? poolResponseWithInactiveCandidate()
         : tokenResponse();
     await route.fulfill({ json });
   });
@@ -102,6 +102,15 @@ test("loads an identified keyless reference chart without disclosing the RPC", a
     ),
   ).toEqual([]);
 });
+
+function poolResponseWithInactiveCandidate(): unknown {
+  const active = poolResponse("browser-pool") as { data: unknown[] };
+  const inactive = poolResponse("inactive-browser-pool", {
+    reserve_in_usd: "0.0",
+    volume_usd: { h24: "0.0" },
+  }) as { data: unknown[] };
+  return { data: [...active.data, ...inactive.data] };
+}
 
 test("keeps last-good chart data visible when a manual refresh fails", async ({
   page,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   candleFixture,
   candleResponse,
@@ -21,6 +21,7 @@ import {
 
 describe("PublicGeckoTerminalProvider", () => {
   beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.useRealTimers());
 
   it("parses token and ranked pool responses without credentials", async () => {
     const fetchMock = vi.spyOn(window, "fetch").mockImplementation((input) => {
@@ -56,6 +57,110 @@ describe("PublicGeckoTerminalProvider", () => {
       });
       expect(init?.method).toBeUndefined();
     }
+  });
+
+  it("accepts zero-valued inactive-pool ranking fields", async () => {
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      Response.json(
+        poolResponse("inactive-pool", {
+          reserve_in_usd: "0.0",
+          volume_usd: { h24: "0.0" },
+        }),
+      ),
+    );
+    const provider = new PublicGeckoTerminalProvider(new PublicRequestBudget());
+
+    await expect(provider.getPools(TOKEN_MINT)).resolves.toEqual([
+      expect.objectContaining({
+        address: "inactive-pool",
+        reserveUsd: 0,
+        volume24hUsd: 0,
+      }),
+    ]);
+  });
+
+  it("rejects a malformed optional pool row without discarding usable candidates", async () => {
+    const negative = poolRow("negative-volume", {
+      volume_usd: { h24: "-0.000001" },
+    });
+    const malformed = poolRow("malformed-reserve", {
+      reserve_in_usd: "not-a-decimal",
+    });
+    const oversized = poolRow("oversized-reserve", {
+      reserve_in_usd: "9".repeat(97),
+    });
+    const usable = poolRow("usable-pool", {
+      reserve_in_usd: "0",
+      volume_usd: { h24: "0" },
+    });
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      Response.json({ data: [negative, malformed, oversized, usable] }),
+    );
+    const provider = new PublicGeckoTerminalProvider(new PublicRequestBudget());
+
+    await expect(provider.getPools(TOKEN_MINT)).resolves.toEqual([
+      expect.objectContaining({
+        address: "usable-pool",
+        reserveUsd: 0,
+        volume24hUsd: 0,
+      }),
+    ]);
+  });
+
+  it("fails closed when every pool candidate is invalid", async () => {
+    vi.spyOn(window, "fetch").mockResolvedValue(
+      Response.json({
+        data: [
+          poolRow("negative-reserve", { reserve_in_usd: "-1" }),
+          poolRow("negative-volume", { volume_usd: { h24: -1 } }),
+        ],
+      }),
+    );
+    const provider = new PublicGeckoTerminalProvider(new PublicRequestBudget());
+
+    await expect(provider.getPools(TOKEN_MINT)).rejects.toMatchObject({
+      kind: "shape",
+      message: "Response has an invalid pool reserve.",
+    } satisfies Partial<GeckoTerminalError>);
+  });
+
+  it("classifies opaque browser fetch failures without automatic amplification", async () => {
+    const fetchMock = vi
+      .spyOn(window, "fetch")
+      .mockRejectedValue(new TypeError("browser transport detail"));
+    const provider = new PublicGeckoTerminalProvider(new PublicRequestBudget());
+
+    await expect(provider.getPools(TOKEN_MINT)).rejects.toMatchObject({
+      kind: "network",
+      message:
+        "GeckoTerminal could not be reached. Its public API may be unavailable or rate limiting browser requests; try again shortly.",
+    } satisfies Partial<GeckoTerminalError>);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("classifies a transport timeout separately with a fixed redacted message", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.spyOn(window, "fetch").mockImplementation(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("transport detail", "AbortError")),
+            { once: true },
+          );
+        }),
+    );
+    const provider = new PublicGeckoTerminalProvider(new PublicRequestBudget());
+    const request = provider.getPools(TOKEN_MINT);
+    const rejection = expect(request).rejects.toMatchObject({
+      kind: "timeout",
+      message: "GeckoTerminal request timed out. Try again.",
+    } satisfies Partial<GeckoTerminalError>);
+
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    await rejection;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("orients, deduplicates, and sorts USD candle tuples", async () => {
@@ -132,6 +237,8 @@ describe("PublicGeckoTerminalProvider", () => {
     await expect(provider.getPools(TOKEN_MINT)).rejects.toMatchObject({
       kind: "rate-limit",
       status: 429,
+      message:
+        "GeckoTerminal is rate limiting public requests. Try again shortly.",
     } satisfies Partial<GeckoTerminalError>);
   });
 
@@ -308,4 +415,9 @@ function requestUrl(input: string | URL | Request | undefined): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.href;
   return input?.url ?? "";
+}
+
+function poolRow(address: string, overrides: Record<string, unknown>): unknown {
+  const response = poolResponse(address, overrides) as { data: unknown[] };
+  return response.data[0];
 }
